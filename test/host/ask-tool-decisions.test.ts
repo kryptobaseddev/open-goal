@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { until } from "./harness"
-import { goalHost, newSession, run, script, waitStatus } from "./goal.helpers"
+import { goalHost, newSession, run, script, text, waitStatus } from "./goal.helpers"
 import { GoalRpc } from "../../src/rpc"
 
 // T075 — native ask-tool decisions. Owner directive: every engine decision
@@ -54,13 +54,20 @@ const DECISION_OPTIONS: Record<string, Array<{ value: string; label: string; des
 
 const askedKinds = new Set<string>()
 const worker = () => (req: any, turn: { trigger: string; results: number; all: string }) => {
+  const lines = req.messages.map(text).join("\n").split("\n") as string[]
+  const exact = lines.findLast((line) => line.startsWith("GOAL_DECISION_JSON:"))
+  const presentation = lines.findLast((line) => line.startsWith("GOAL_DECISION_ASK:")) ?? exact
+  if (exact && presentation && !askedKinds.has(presentation)) {
+    askedKinds.add(presentation)
+    return { toolCalls: [{ name: "question", args: JSON.parse(exact.slice("GOAL_DECISION_JSON:".length)) }] }
+  }
   // T075: the engine's decision prompt → ask the owner with the question
   // tool (the native in-composer form). The NEWEST decision prompt wins
   // (earlier ones stay in the transcript), once per kind — a blocking
   // question waits for the owner's reply.
   const kinds = [...turn.all.matchAll(/goal-decision \(kind=([a-z_-]+),/g)].map((m) => m[1]!)
   const decision = kinds.at(-1)
-  if (decision && !askedKinds.has(decision)) {
+  if (!exact && decision && !askedKinds.has(decision)) {
     askedKinds.add(decision)
     const options = DECISION_OPTIONS[decision] ?? []
     return { toolCalls: [{ name: "question", args: { questions: [{ question: `Goal decision (${decision}) — what next?`, header: "Goal", options }] } }] }
@@ -127,6 +134,7 @@ describe("native ask-tool decisions (T075)", () => {
       await Bun.sleep(1500)
       const archiveLedger = (await host.readProject(".opencode/goals-archive/review/ledger.jsonl")).trim().split("\n").map((l) => JSON.parse(l))
       expect(archiveLedger.filter((e) => e.type === "archived")).toHaveLength(1)
+      expect(archiveLedger.filter((e) => e.type === "decision-resolved" && e.action === "archive" && e.ok === true)).toHaveLength(1)
       expect(archiveLedger.filter((e) => e.type === "decision-form-answered" && e.kind === "complete")).toHaveLength(0)
       expect(resolved.filter((r) => r.kind === "complete").length).toBe(1)
     } finally {

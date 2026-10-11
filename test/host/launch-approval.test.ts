@@ -17,7 +17,11 @@ async function goalStartTurn(host: Awaited<ReturnType<typeof goalHost>>, session
   let results: string[] = []
   await until(async () => {
     const req = host.fixture.requests.filter((r) => JSON.stringify(r.messages).includes(trigger)).at(-1)
-    results = (req?.messages ?? []).filter((m) => m.role === "tool").map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content)))
+    // Earlier attempts remain in the transcript. Wait for THIS attempt's
+    // tool result, not an old denial/start that already matches the regex.
+    const messages = req?.messages ?? []
+    const current = messages.findLastIndex((m) => m.role === "user" && JSON.stringify(m.content).includes(trigger))
+    results = messages.slice(current + 1).filter((m) => m.role === "tool").map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content)))
     return results.some((t) => t.includes("goal") || t.includes("Launching"))
   }, 30000)
   return results.join("\n")

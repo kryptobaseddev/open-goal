@@ -3,8 +3,8 @@ name: write-goal
 description: 'Interview the owner and write a goal contract (a goal.yaml under .opencode/goals) that an autonomous goal loop can run until the host proves it done — a "grill me" session through the ask tool that turns a rough intention into an end state, binary criteria with real checks, invariants, protected oracles, non-goals, an optional budget and stop rules, then launches it. Use when the user wants to set up, write, draft, refine or start a goal, run something "until it''s done", use goal mode or /goal, make an agent loop on a task unattended, or says "grill me on this", "turn this into a goal", "goal new", "write-goal". In OpenCode, a bare "/goal new" phrasing is command-routed: the plugin attaches this skill explicitly, so no description-based triggering is needed for that phrasing — trigger evals should measure prose phrasings only. Do NOT use for ordinary one-off requests the user did not ask to turn into a goal.'
 license: MIT
 metadata:
-  version: "0.1.0"
-  last_updated: "2026-10-02 23:59:00"
+  version: "0.2.0"
+  last_updated: "2026-10-10 20:10:00"
   author: kryptobaseddev
   tags: "opencode, goal, goal-mode, planning, interview, autonomous-agents"
 ---
@@ -57,6 +57,28 @@ Start from `assets/goal.template.yaml` (or the shape below). Then validate: call
 Show the owner the contract compactly: outcome, a table of criteria (id · statement · check), invariants, protected paths, non-goals, budget. Ask: **Approve** (Recommended) / Revise criteria / Revise scope / Save as draft.
 
 ### 6 · Launch
+For a requested change to an existing live goal, do not hand-edit its YAML or
+tell the owner to run `/goal amend`. Read the selected contract and run lock,
+then use `goal_propose_amendment` with `{slug, expectedLock, yaml, rationale}`.
+The host validates and stages a full before/after semantic diff without changing
+the live contract. Its native **Accept amendment / Reject amendment / Comment
+or revise** form is the only acceptance path. Acceptance resets proof for changed
+statements/checks; unchanged evidence remains. The run stays stopped—amendment
+acceptance is not a resume. Commentary, dismissal and reload do not imply consent.
+
+When `goal_prepare_launch` is available, call it with `{slug, fresh:false}` after
+showing the exact validated contract. It stages a native review with **Start goal
+now / Revise this goal / Save for later**. For a requested fresh context, prepare
+with `{slug, fresh:true}`: the review explicitly says it creates a new root
+session and preserves the original history. The host binds session, slug,
+contract hash and mode, then executes the owner's selection directly—even if
+the question result is interrupted or the server reloads. **Do not ask another
+launch question or call `goal_start` afterwards.** Revision/comments return to
+the interview; no draft launches merely because its wording begins with a
+command keyword. Check `goal_status`/the manager before retrying an uncertain
+operation; preparation and owner consent are not proof the run actually started.
+
+Older installed plugins without `goal_prepare_launch` use this compatibility flow:
 Ask with these options: **`Start goal now`** (Recommended) / Start in a fresh session / **Start clean** / Save for later. The first option's label must **start with** `Start goal now` — a `(Recommended)` suffix is expected and fine (T068: the engine matches on the prefix, never byte-exact).
 - OpenCode with the plugin: on "Start goal now", call `goal_start({slug})`. On "Start clean", call `goal_start({slug, fresh: true})` — the engine opens a **new session owned by the goal**, prompts the kickoff there and leaves the current session untouched (it never clears the current one). On "Start in a fresh session", tell the owner to open a new session and run `/goal start <slug>` there themselves. The plugin accepts all of these right after the owner picked a matching option — within 10 minutes, surviving server restarts. If it refuses, its message names what was observed (no approval seen vs label mismatch vs expired); follow that, or tell the owner to run `/goal start <slug>` (plain, or `fresh` for a clean start).
 - Fresh session: tell the owner to open a new session and run `/goal start <slug>`.

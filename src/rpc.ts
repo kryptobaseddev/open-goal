@@ -1,16 +1,32 @@
 // Shared server↔TUI contract. A plain object (Rpc.define is an identity
 // function), so neither side needs @opencode/plugin at runtime.
 const anyObject = { type: "object", additionalProperties: true } as const
+import type { Handoff } from "./engine/state"
+// V2 RPC's schema adapter rejects regex patterns. Length is declared here;
+// the host validates hex syntax AND exact target identity before execution.
+const targetObject = { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 256 }, lock: { type: "string", minLength: 64, maxLength: 64 }, runId: { type: "string", minLength: 1, maxLength: 128 }, sessionID: { type: "string", minLength: 1, maxLength: 256 } }, required: ["key", "lock"], additionalProperties: false } as const
 
 export const GoalRpc = {
   id: "opencode-goal",
   methods: {
+    provenance: {
+      input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 } }, additionalProperties: false },
+      output: anyObject,
+    },
     snapshot: {
       input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 } }, required: ["sessionID"], additionalProperties: false },
       output: anyObject,
     },
     list: {
       input: { type: "object", properties: {}, additionalProperties: false },
+      output: anyObject,
+    },
+    details: {
+      input: { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 256 } }, required: ["key"], additionalProperties: false },
+      output: anyObject,
+    },
+    manage: {
+      input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 }, action: { type: "string", enum: ["pause", "resume", "verify", "attach", "abort", "archive"] }, target: targetObject }, required: ["sessionID", "action", "target"], additionalProperties: false },
       output: anyObject,
     },
     act: {
@@ -20,6 +36,7 @@ export const GoalRpc = {
           sessionID: { type: "string", minLength: 1, maxLength: 256 },
           action: { type: "string", enum: ["pause", "resume", "abort", "verify", "approve", "reject", "amend", "archive", "attach", "start", "start-next", "decompose"] },
           arg: { type: "string", maxLength: 2000 },
+          decisionId: { type: "string", minLength: 1, maxLength: 256 },
         },
         required: ["sessionID", "action"],
         additionalProperties: false,
@@ -28,6 +45,7 @@ export const GoalRpc = {
     },
   },
   events: {
+    handoff: { schema: { type: "object", properties: { fromSessionID: { type: "string" }, toSessionID: { type: "string" }, slug: { type: "string" }, runId: { type: "string" }, fallback: { type: "string" } }, required: ["fromSessionID", "toSessionID", "slug", "runId"], additionalProperties: false } },
     updated: { schema: { type: "object", properties: { sessionID: { type: "string" }, view: anyObject }, required: ["sessionID"], additionalProperties: true } },
     notice: { schema: { type: "object", properties: { sessionID: { type: "string" }, level: { type: "string" }, text: { type: "string" }, attention: { type: "string" } }, required: ["text"], additionalProperties: true } },
     summary: { schema: { type: "object", properties: { sessionID: { type: "string" }, slug: { type: "string" }, status: { type: "string" }, headline: { type: "string" }, text: { type: "string" } }, required: ["sessionID", "text"], additionalProperties: true } },
@@ -37,9 +55,10 @@ export const GoalRpc = {
         properties: {
           sessionID: { type: "string" },
           slug: { type: "string" },
-          kind: { type: "string", enum: ["needs_review", "paused-after-verdict", "blocked", "budget_limited", "amend-proposed", "supersede-ack", "complete", "start-picker"] },
+          kind: { type: "string", enum: ["needs_review", "paused-after-verdict", "blocked", "budget_limited", "amend-proposed", "supersede-ack", "complete", "start-picker", "owner-operation"] },
           title: { type: "string" },
           message: { type: "string" },
+          question: { type: "string" },
           choices: { type: "array", items: { type: "object", properties: { label: { type: "string" }, act: { type: "string" }, arg: { type: "string" }, run: { type: "string" } }, required: ["label"], additionalProperties: true } },
         },
         required: ["sessionID", "kind", "message", "choices"],
@@ -55,7 +74,7 @@ export const GoalRpc = {
           sessionID: { type: "string" },
           kind: { type: "string" },
           decisionId: { type: "string" },
-          via: { type: "string", enum: ["form", "dialog", "form-guidance"] },
+          via: { type: "string", enum: ["form", "dialog", "form-guidance", "amendment-invalidated"] },
         },
         required: ["sessionID", "kind", "via"],
         additionalProperties: true,
@@ -108,4 +127,38 @@ export type GoalView = {
   updatedAt: number
 }
 
-export type GoalSummary = { slug: string; title: string; status: string; priority?: "low" | "medium" | "high"; sessionID?: string; proven: number; total: number; terminal?: boolean; attachable?: boolean }
+export type GoalSummary = {
+  slug: string
+  title: string
+  status: string
+  priority?: "low" | "medium" | "high"
+  sessionID?: string
+  proven: number
+  total: number
+  terminal?: boolean
+  attachable?: boolean
+  /** Distinguishes live and archived generations even if their slugs match. */
+  key?: string
+  archived?: boolean
+  valid?: boolean
+  runId?: string
+  lock?: string
+  updatedAt?: number
+  outcome?: string
+  progress?: RunProgress
+  turn?: number
+  steps?: Array<{ id: string; title: string; status: string }>
+  /** Raw existing contract metadata: never inferred from CLEO task IDs. */
+  meta?: Record<string, unknown>
+  supersedes?: string
+  configuredAgent?: string
+  agent?: string
+  sessionTitle?: string
+  sessionState?: "present" | "elsewhere" | "missing" | "unknown" | "unassigned"
+  issues?: string[]
+  details?: { criteria: CriterionView[]; constraints: string[]; nonGoals: string[] }
+  handoff?: Handoff
+}
+export type GoalTarget = { key: string; lock: string; runId?: string; sessionID?: string }
+export type ManageAction = "pause" | "resume" | "verify" | "attach" | "abort" | "archive"
+type RunProgress = { note: string; next?: string; at: number; turn: number }

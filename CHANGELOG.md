@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.3 — 2026-10-11
+
+The project goal-manager release. Natural language stays with the agent; typed host operations enforce exact targets, contract locks, and owner consent. The original conversation is never cleared.
+
+- **Conversational entry (T081)** — `/goal` opens a create-or-manage flow; ideas and ordinary lifecycle language reach the write-goal interview rather than being mistaken for rigid command names. Native launch review offers revision, same-session launch, or a fresh root session. Approvals are durable, one-use, and bound to the reviewed session, slug, contract, and launch mode.
+- **Staged amendments (T081)** — validated before/after diffs use native accept/reject/comment review. Owner acceptance commits a journalled generation change, retaining unchanged proof and invalidating changed statements, checks, essentialness, or invariant roles. Workers can't accept their own proposals.
+- **Project inventory and stacked cards (T077)** — drafts, live/stopped/completed runs, and archives carry real session metadata and explicit unknowns. Bounded, width-safe sidebar cards show non-terminal goals across sessions, current first, with an accessible manager pointer. Reconnects and missed events converge. CLEO tasks aren't invented goal parents.
+- **Interactive Goals tab (T078/T079)** — available from a goal-less primary session. Keyboard or pointer selection expands details before an explicit session jump. Pause, resume, verify, attach, and confirmed abort target the selected generation, never another session's goal.
+- **Visible fresh handoff (T076/T079)** — opens and focuses the new session tab, with router fallback when tabs are disabled. The source model/agent is preserved or an explicit fallback is recorded; a durable pointer remains with the intact original history.
+- **Decision recovery (T082)** — exact nonce/target correlation, replay protection, recoverable dismissal/commentary, and truthful failed-operation records. Dialog choices answer the matching native question instead of leaving a duplicate ask running and blocking subsequent commands.
+- **Mounted feedback (T080)** — banners track replacement runs reactively; terminal and empty snapshots continue refreshing. Panel toggling uses host ownership rather than a stale local flag.
+- **Artifact proof** — provenance records the serving PID/location, immutable Git revision, and server/UI/skill hashes. Release checks reject old cache bytes even when the version label matches. A seven-check real PTY gate covers two goals, pointer expansion/actions, keyboard navigation, narrow focus/bounds, native confirmation, and fresh tab focus. Deployment and real-model findings are recorded separately; passing source tests alone isn't installed-release proof.
+
 ## 0.3.2 — 2026-10-06
 
 The trust-the-card release: the sidebar card always converges to disk truth, every card row is readable end-to-end, decisions ALSO ask through OpenCode's native in-composer ask tool, and the panel walkthrough is gated on a real pty. Every item is an owner-reported live defect from the v0.3.1 completion — fixed and proven under the goal loop itself (dogfood-5).

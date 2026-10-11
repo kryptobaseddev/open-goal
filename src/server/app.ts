@@ -2,23 +2,30 @@
 // session.execution.* events, injects the contract into every request, and runs
 // verification. Spike findings referenced as S1-S9 live in docs/spikes.md.
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { Plugin } from "@opencode/plugin"
 import { formatIssues, parseContract } from "../contract/parse"
 import { renderSystemBlock, renderTailNote, triggerText, type TailKind } from "../contract/render"
 import type { Contract } from "../contract/types"
 import { isHostCheck } from "../contract/types"
-import { GoalRpc, type GoalSummary, type GoalView } from "../rpc"
-import { account, budgetUse, initialRun, isActive, isTerminal, modelCan, ownerCan, setStatus, type PendingKind, type RunState, type Status } from "../engine/state"
+import { GoalRpc, type GoalSummary, type GoalTarget, type GoalView, type ManageAction } from "../rpc"
+import { account, budgetUse, initialRun, isActive, isTerminal, modelCan, ownerCan, setStatus, type Handoff, type PendingKind, type RunState, type Status } from "../engine/state"
 import { Store } from "../engine/store"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
+import { LaunchStore, launchChoices, processAlive, type LaunchRequest } from "../engine/launches"
+import { amendmentDiff, amendedState } from "../engine/amendment"
+import { AmendmentStore, amendmentChoices, type AmendmentRequest } from "../engine/amendments"
+import { selectedReviewChoice } from "../engine/owner-reviews"
+import { DecisionStore, decisionChoices, type DecisionKind, type DecisionRequest, type DecisionTarget } from "../engine/decisions"
+import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
 import { goalHelp } from "./help"
 import { cleoFacts, cleoLinkEvent, type Runner } from "../engine/cleo-link"
 import { buildPostGoalSummary } from "../summary/build"
 import { completionAudit } from "../summary/audit"
-import { M, renderMessage, type Choice, type EngineMessage } from "./messages"
+import { M, renderMessage, type EngineMessage } from "./messages"
+import { directGoalCommand } from "./intent"
 
 /** Spawn the cleo CLI with a hard timeout; all failures resolve safely. */
 const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
@@ -33,6 +40,8 @@ const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
 import { ascendingId, runId as newRunId } from "../util/ids"
 import { fingerprint, headCommit } from "../util/git"
 import { runHostCheck, verifyClaim, type VerifierVerdict } from "../verify/pipeline"
+import { runShell } from "../util/shell"
+import { captureArtifactHashes, type RuntimeProvenance } from "../verify/artifact"
 
 type Context = Plugin.Context
 
@@ -70,6 +79,8 @@ export const DEFAULTS: Options = {
 
 type Loaded = { contract: Contract; lock: string; text: string }
 type SessionFacts = { busy: boolean; forms: Set<string>; launchApprovedAt?: number; cancelledAt?: number; lastFormAnswer?: { labels: string[]; at: number }; deferred: string[] }
+type LegacyLaunchApproval = { at: number; label: string; slug?: string; lock?: string; fresh?: false; formID?: string }
+type StartOptions = { acknowledgeSupersede?: boolean; expectedLock?: string; decisionId?: string; handoff?: Handoff }
 
 const canonical = (p: string) => {
   try {
@@ -87,10 +98,14 @@ export class GoalApp {
   readonly store: Store
   readonly registry: Registry
   readonly options: Options
+  private readonly launches: LaunchStore
+  private readonly amendmentReviews: AmendmentStore
+  private readonly decisions: DecisionStore
   private runs = new Map<string, RunState>()
   private loaded = new Map<string, Loaded>()
   private notes = new Map<string, string>()
   private facts = new Map<string, SessionFacts>()
+  private legacyLaunchForms = new Map<string, { sessionID: string; slug: string; lock: string; fieldKey: string; value: string; label: string }>()
   /** T066: the session's offered-but-unanswered decision, for resolution pairing. */
   private pendingDecisions = new Map<string, { id: string; kind: string; slug: string; at: number; message: EngineMessage }>()
   /** T075: the decision whose native form is (being) asked in the composer —
@@ -103,11 +118,19 @@ export class GoalApp {
   private controller = new AbortController()
   private disposed = false
   private queue = Promise.resolve()
+  private readonly packageRoot = join(dirname(fileURLToPath(import.meta.url)), "../..")
+  private readonly capturedAt = Date.now()
+  private readonly artifacts = captureArtifactHashes(this.packageRoot)
+  private readonly packageVersion: string = JSON.parse(readFileSync(join(this.packageRoot, "package.json"), "utf8")).version
+  private launchRecoveryTimer?: ReturnType<typeof setTimeout>
 
   constructor(private ctx: Context) {
     this.root = ctx.location.directory
     this.rootReal = canonical(this.root)
     this.store = new Store(this.root)
+    this.launches = new LaunchStore(join(this.root, ".opencode/goals/.owner-launches.json"))
+    this.amendmentReviews = new AmendmentStore(join(this.root, ".opencode/goals/.owner-amendments.json"))
+    this.decisions = new DecisionStore(join(this.root, ".opencode/goals/.owner-decisions.json"))
     this.registry = new Registry()
     this.options = { ...DEFAULTS, ...(ctx.options as Partial<Options>) }
   }
@@ -115,6 +138,7 @@ export class GoalApp {
   // ───────────────────────────── lifecycle
 
   async start() {
+    this.recoverAmendmentCommits()
     this.recover()
     await this.registerAgents()
     await this.registerSkill()
@@ -123,11 +147,17 @@ export class GoalApp {
     await this.registerHooks()
     await this.registerRpc()
     void this.eventLoop()
+    // Prompt admission waits for location plugins to finish setup. Awaiting
+    // a recovery prompt here would wait for our own setup and deadlock.
+    this.launchRecoveryTimer = setTimeout(() => {
+      if (!this.disposed) void this.recoverOwnerReviews().catch((error) => this.store.ledger("_errors", { type: "owner-review-recovery-error", error: String(error) }))
+    }, 0)
   }
 
   async stop() {
     this.disposed = true
     this.controller.abort()
+    clearTimeout(this.launchRecoveryTimer)
     for (const t of this.timers.values()) clearTimeout(t)
     this.timers.clear()
     for (const r of this.registrations.splice(0)) await Promise.resolve(r.dispose()).catch(() => {})
@@ -184,12 +214,13 @@ export class GoalApp {
       this.loaded.set(state.slug, { contract: locked.contract, lock: locked.lock, text: locked.text })
       return locked.contract
     }
-    const snapshot = join(this.store.dir(state.slug), "evidence", state.runId, "contract.yaml")
+    const currentSnapshot = join(this.store.dir(state.slug), "evidence", state.runId, `contract-${state.lock}.yaml`)
+    const snapshot = existsSync(currentSnapshot) ? currentSnapshot : join(this.store.dir(state.slug), "evidence", state.runId, "contract.yaml")
     if (existsSync(snapshot)) {
       const parsed = parseContract(readFileSync(snapshot, "utf8"), { slug: state.slug })
-      if (parsed.contract) return parsed.contract
+      if (parsed.contract && parsed.lock === state.lock) return parsed.contract
     }
-    return cached?.contract
+    return undefined
   }
 
   private persist(state: RunState) {
@@ -241,17 +272,17 @@ export class GoalApp {
   private get approvalsFile() {
     return join(this.root, ".opencode", "goals", ".launch-approvals.json")
   }
-  private readLaunchApprovals(): Record<string, { at: number; label: string }> {
+  private readLaunchApprovals(): Record<string, LegacyLaunchApproval> {
     try {
       const parsed = JSON.parse(readFileSync(this.approvalsFile, "utf8"))
-      return typeof parsed === "object" && parsed ? (parsed as Record<string, { at: number; label: string }>) : {}
+      return typeof parsed === "object" && parsed ? (parsed as Record<string, LegacyLaunchApproval>) : {}
     } catch {
       return {}
     }
   }
-  private writeLaunchApproval(sessionID: string, at: number, label: string) {
+  private writeLaunchApproval(sessionID: string, approval: LegacyLaunchApproval) {
     const all = this.readLaunchApprovals()
-    all[sessionID] = { at, label }
+    all[sessionID] = approval
     writeFileSync(this.approvalsFile, JSON.stringify(all, null, 2))
   }
   private clearLaunchApproval(sessionID: string) {
@@ -261,15 +292,29 @@ export class GoalApp {
     writeFileSync(this.approvalsFile, JSON.stringify(all, null, 2))
   }
   /** The approval state for a session: fresh in memory, else fresh on disk, else none. */
-  private launchApproval(sessionID: string): { at: number; label: string } | undefined {
-    const mem = this.factsOf(sessionID).launchApprovedAt
-    if (mem && Date.now() - mem <= this.options.launchApprovalMs) {
-      const disk = this.readLaunchApprovals()[sessionID]
-      return { at: mem, label: disk?.label ?? LAUNCH_LABEL }
-    }
+  private launchApproval(sessionID: string): LegacyLaunchApproval | undefined {
     const disk = this.readLaunchApprovals()[sessionID]
     if (disk && Date.now() - disk.at <= this.options.launchApprovalMs) return disk
     return undefined
+  }
+
+  private bindLegacyLaunchForm(form: any) {
+    // Compatibility with the shipped skill's old launch question: only an
+    // explicitly OFFERED launch choice, a launch-specific form and one
+    // unambiguous validated candidate. Modern flows use nonce-bound review.
+    if (this.launches.all(form?.sessionID).length || this.amendmentReviews.all(form?.sessionID).length) return
+    if (!/\blaunch\b.*\bgoal\b/i.test(String(form?.title ?? "")) || form.fields?.length !== 1) return
+    const field = form.fields[0]
+    const choice = field.options?.find((o: any) => o.label === LAUNCH_LABEL || o.label === `${LAUNCH_LABEL} (Recommended)`)
+    if (!choice || typeof field.key !== "string" || typeof choice.value !== "string") return
+    const candidates = this.store.slugs().flatMap((slug) => {
+      const state = this.store.readRun(slug)
+      if (state && !isTerminal(state.status)) return []
+      const parsed = this.store.readContract(slug)
+      return parsed?.contract ? [{ slug, lock: parsed.lock }] : []
+    })
+    if (candidates.length !== 1) return
+    this.legacyLaunchForms.set(form.id, { sessionID: form.sessionID, slug: candidates[0]!.slug, lock: candidates[0]!.lock, fieldKey: field.key, value: choice.value, label: choice.label })
   }
 
   /** Recent ledger events for the dashboard's Timeline section, oldest first. */
@@ -385,15 +430,27 @@ export class GoalApp {
    */
   /** T066: every decision emission leaves a ledger trace — the payload, and
    *  later its resolution (the next owner act on that session). */
-  private decide(sessionID: string | undefined, slug: string, kind: "needs_review" | "paused-after-verdict" | "blocked" | "budget_limited" | "amend-proposed" | "supersede-ack" | "complete" | "start-picker", message: EngineMessage, extra: Record<string, unknown> = {}) {
-    const decisionId = `${kind}#${slug}@${Date.now().toString(36)}`
-    if (sessionID) this.pendingDecisions.set(sessionID, { id: decisionId, kind, slug, at: Date.now(), message })
+  private decisionTarget(slug: string): DecisionTarget {
+    const state = [...this.runs.values()].find((s) => s.slug === slug) ?? this.store.readRun(slug)
+    const draft = this.store.readContract(slug)
+    return { slug, lock: state?.lock ?? draft?.lock ?? "", status: state?.status ?? "draft", ...(state ? { runId: state.runId, sessionID: state.sessionID } : {}) }
+  }
+
+  private decide(sessionID: string | undefined, slug: string, kind: DecisionKind, message: EngineMessage, extra: Record<string, unknown> = {}) {
+    if (!sessionID) { this.noticeM(sessionID, message); return }
+    const now = Date.now()
+    const target = this.decisionTarget(slug)
+    const request = this.decisions.create({ sessionID, slug, kind, lock: target.lock, target,
+      candidates: Object.fromEntries(message.choices.filter((c) => c.act === "start" && c.arg).map((c) => [c.arg!, this.decisionTarget(c.arg!)])),
+      title: message.id, message, extra, createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid,
+      question: `${message.id}\n${renderMessage(message)}\nGoal: ${slug}; run: ${target.runId ?? "draft"}; lock: ${target.lock || "picker"}.\nOnly an offered option executes its described operation; commentary is not consent.`,
+    })
+    const decisionId = request.id
+    this.publishDecision(request)
     // T070: guidance-only rows (no act) are MARKED as guidance in the payload
     // itself — every surface that renders the decision (TUI dialog, native
     // form) shows them as advice, not buttons. Keys are only present when
     // set: an explicit `act: undefined` fails the event schema.
-    const choicePayload = (c: Choice) => ({ label: c.label, run: c.run, ...(c.act ? { act: c.act } : { guidance: true }), ...(c.arg ? { arg: c.arg } : {}) })
-    const choices = message.choices.map(choicePayload)
     this.store.ledger(slug, {
       type: "decision",
       decisionId,
@@ -402,9 +459,6 @@ export class GoalApp {
       message: renderMessage(message),
       choices: message.choices.map((c) => (c.act ? { label: c.label, act: c.act, ...(c.arg ? { arg: c.arg } : {}) } : { label: c.label, guidance: true })),
     })
-    void this.rpc?.events
-      .emit("decision", { ...(sessionID ? { sessionID } : {}), slug, kind, decisionId, title: message.id, message: renderMessage(message), choices, ...extra })
-      .catch(() => {})
     this.noticeM(sessionID, message)
     // T075: every decision ALSO asks through a native OpenCode form — the
     // owner directive: decisions belong in the in-composer ask tool, not
@@ -412,6 +466,12 @@ export class GoalApp {
     // question tool is the only form-creation surface a server plugin has);
     // a reply is wired to the same act the dialog carries.
     void this.askDecisionForm(sessionID, slug, kind, decisionId, message)
+  }
+
+  private publishDecision(request: DecisionRequest) {
+    this.pendingDecisions.set(request.sessionID, { id: request.id, kind: request.kind, slug: request.slug, at: request.createdAt, message: request.message })
+    const choices = request.message.choices.map((c) => ({ label: c.label, run: c.run, ...(c.act ? { act: c.act } : { guidance: true }), ...(c.arg ? { arg: c.arg } : {}) }))
+    void this.rpc?.events.emit("decision", { sessionID: request.sessionID, slug: request.slug, kind: request.kind, decisionId: request.id, title: request.title, message: renderMessage(request.message), question: request.question, choices, ...request.extra }).catch(() => {})
   }
 
   /**
@@ -423,6 +483,11 @@ export class GoalApp {
     const pending = this.pendingDecisions.get(sessionID)
     if (!pending || this.pendingFormDecisions.has(sessionID)) return
     if (this.factsOf(sessionID).forms.size > 0) return
+    const request = this.decisions.get(pending.id)
+    // A dismissal/comment is an unresolved review, not permission to trap
+    // the owner in an immediately re-opening form. Reload or goal_review
+    // explicitly restores it; ordinary execution events do not.
+    if (request?.status === "interrupted") return
     void this.askDecisionForm(sessionID, pending.slug, pending.kind, pending.id, pending.message)
   }
 
@@ -439,23 +504,410 @@ export class GoalApp {
     if (f.busy || f.forms.size > 0 || this.pendingFormDecisions.has(sessionID)) return
     const actable = message.choices.filter((c) => c.act)
     if (!actable.length) return // guidance-only: nothing to wire a form to
+    const request = this.decisions.get(decisionId)
+    if (!request || request.status !== "pending" || request.formID || request.expiresAt < Date.now()) return
     this.pendingFormDecisions.set(sessionID, { decisionId, kind, slug, choices: message.choices.map((c) => ({ label: c.label, act: c.act, arg: c.arg })), askedAt: Date.now() })
-    const options = message.choices.map((c) => `- label: ${c.label}${c.act ? "" : " (guidance — advice, not an action)"} · description: ${c.run}`).join("\n")
+    const payload = { questions: [{ header: "Goal", question: request.question, options: decisionChoices(request).map((c) => ({ label: c.label, description: c.description })) }] }
+    const presentation = newRunId()
     const text = [
       `◎ goal-decision (kind=${kind}, slug=${slug}) — the goal engine needs the OWNER's decision now.`,
       `Decision: ${renderMessage(message)}`,
-      `Ask the owner NOW with the question tool: one question, header "Goal", question "${message.id}". Offer EXACTLY these options, in this order (every option needs its description):`,
-      options,
+      "Ask the owner NOW with the question tool using the EXACT JSON below. Keep the question's nonce, target, labels and descriptions unchanged.",
+      `GOAL_DECISION_JSON:${JSON.stringify(payload)}`,
+      `GOAL_DECISION_ASK:${presentation}`,
       `Answer with the question tool call only — no other work this turn. The owner's pick dispatches the engine act directly.`,
     ].join("\n")
-    this.store.ledger(slug, { type: "decision-form-asked", decision: decisionId, kind })
+    this.store.ledger(slug, { type: "decision-form-asked", decision: decisionId, kind, presentation })
     await this.ctx.session
-      .prompt({ sessionID, text } as any)
+      .prompt({ sessionID, text, resume: true } as any)
       .catch((error) => this.store.ledger(slug, { type: "decision-form-failed", decision: decisionId, error: String(error).slice(0, 300) }))
   }
 
   private async transcript(sessionID: string, text: string) {
     await this.ctx.session.synthetic({ sessionID, text, resume: false } as any).catch(() => {})
+  }
+
+  /** Preparation is not execution or consent. The complete target/hash/mode
+   * is persisted before asking so a lost model/tool result cannot lose the
+   * owner's choice, and the model never needs to call start afterwards. */
+  private async prepareLaunch(sessionID: string, slug: string, fresh: boolean) {
+    const loaded = this.load(slug, true)
+    if ("error" in loaded) throw new Error(loaded.error)
+    const here = this.runs.get(sessionID)
+    if (!fresh && here && !isTerminal(here.status)) throw new Error(`This session owns ${here.slug}; choose a fresh session rather than replacing a live goal.`)
+    if ([...this.runs.values()].some((s) => s.slug === slug && !isTerminal(s.status))) throw new Error(`Goal ${slug} is already live; manage it instead of launching again.`)
+    const { contract, lock } = loaded
+    const question = [
+      `Review and launch: ${contract.title}`,
+      `Goal: ${slug}. Contract SHA256: ${lock}.`,
+      `Outcome: ${contract.outcome}`,
+      `Mode: ${fresh ? "new root session; the original session and history are NOT cleared" : "this session"}.`,
+      "Criteria:", ...contract.criteria.map((c) => `- ${c.id}: ${c.statement}`),
+      `Non-goals: ${contract.non_goals.join("; ")}`,
+      "Revise or save instead if anything should change. Only choosing the offered launch option starts this exact contract.",
+    ].join("\n")
+    const now = Date.now()
+    const request = this.launches.create({ sessionID, slug, lock, fresh, title: contract.title, question, createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid })
+    this.store.ledger(slug, { type: "launch-proposed", decisionId: request.id, sessionID, lock, fresh, expiresAt: request.expiresAt })
+    const transport = await this.presentLaunch(request)
+    return { decisionId: request.id, slug, lock, fresh, status: "pending", transport, message: "Launch review offered natively. The host, not a later model call, executes the owner's choice." }
+  }
+
+  private async presentLaunch(request: LaunchRequest): Promise<"native-form" | "question-tool"> {
+    const sessionID = request.sessionID, slug = request.slug
+    const nativeForm = (this.ctx.session as any).form
+    if (typeof nativeForm?.create === "function") {
+      const form = await nativeForm.create({
+        sessionID, title: `Launch ${slug}?`, metadata: { goalDecisionID: request.id },
+        fields: [{ key: "action", title: request.question, type: "string", custom: true, options: launchChoices }],
+      })
+      this.launches.bind(form)
+      return "native-form"
+    } else {
+      const payload = { questions: [{ header: "Goal", question: request.question, options: launchChoices.map((c) => ({ label: c.label, description: c.description })) }] }
+      await this.ctx.session.prompt({
+        sessionID,
+        text: `Ask the owner with the question tool using the exact JSON below. The host executes the choice; do not call goal_start afterwards.\nGOAL_FORM_JSON:${JSON.stringify(payload)}`,
+        metadata: { goal: { kind: "launch-review", decisionId: request.id } },
+        resume: true,
+      } as any)
+      return "question-tool"
+    }
+  }
+
+  private async recoverLaunchReviews() {
+    const api = (this.ctx.session as any).form
+    for (const p of this.launches.all()) {
+      if (p.status === "executing" && (p.issuerPID === process.pid || !processAlive(p.issuerPID))) {
+        const state = this.store.readRun(p.slug)
+        const start = this.store.recent(p.slug, 1000).find((e) => e.type === "start" && e.decisionId === p.id && e.lock === p.lock && e.runId === state?.runId)
+        const clean = p.fresh ? this.store.recent(p.slug, 1000).find((e) => e.type === "clean-start" && e.decisionId === p.id && e.from === p.sessionID && e.to === state?.sessionID) : undefined
+        const succeeded = !!state && !!start && (p.fresh ? !!clean || state.handoff?.fromSessionID === p.sessionID && state.handoff?.toSessionID === state.sessionID : state.sessionID === p.sessionID)
+        this.launches.update(p.id, { status: succeeded ? "succeeded" : "failed", result: succeeded ? `Recovered already-started run ${state!.runId}; approval was not replayed.` : "Launch was interrupted with no matching run receipt. Inspect state, then prepare a new review; approval was not replayed." })
+        this.store.ledger(p.slug, { type: "launch-recovery", decisionId: p.id, ok: succeeded, ...(succeeded ? { runId: state!.runId } : {}) })
+        continue
+      }
+      if (!["pending", "interrupted"].includes(p.status) || p.issuerPID !== process.pid && processAlive(p.issuerPID)) continue
+      if (p.expiresAt < Date.now()) { this.launches.update(p.id, { status: "expired" }); continue }
+      if (p.formID && typeof api?.get === "function") {
+        try {
+          const form = await api.get({ sessionID: p.sessionID, formID: p.formID })
+          if (form.state?.status === "answered") { await this.resolveLaunch(p, form.state.answer); continue }
+          if (form.state?.status === "pending") { this.factsOf(p.sessionID).forms.add(p.formID); continue }
+          if (form.state?.status === "cancelled") this.launches.interruptForm(p.id)
+        } catch {
+          // Core form IDs may disappear on location reload. The consent
+          // request's nonce/hash/mode persist; re-present the actual form.
+        }
+      }
+      const next = this.launches.reopenForm(p.id)
+      if (next) {
+        this.store.ledger(p.slug, { type: "launch-review-restored", decisionId: p.id, previousFormID: p.formID, lock: p.lock, fresh: p.fresh })
+        await this.presentLaunch(next)
+      }
+    }
+  }
+
+  private async recoverOwnerReviews() {
+    await this.recoverLaunchReviews()
+    await this.recoverAmendmentReviews()
+    await this.recoverDecisions()
+  }
+
+  private async resolveLaunch(request: LaunchRequest, answer: Record<string, unknown>) {
+    if (request.status !== "pending") return // replay, including during execution
+    if (request.issuerPID !== process.pid && processAlive(request.issuerPID)) return // another live session server owns it
+    const value = request.fieldKey ? answer[request.fieldKey] : undefined
+    const selected = selectedReviewChoice(request, launchChoices, answer)
+    if (request.expiresAt < Date.now()) {
+      this.launches.update(request.id, { status: "expired", result: "Launch review expired. Prepare a fresh review; nothing started." })
+      this.noticeM(request.sessionID, M.launchExpired())
+      return
+    }
+    if (!selected || selected.value === "revise") {
+      const comment = typeof value === "string" ? value : "Owner requested revision."
+      this.launches.update(request.id, { status: "commented", comment })
+      this.store.ledger(request.slug, { type: "launch-revision-requested", decisionId: request.id, comment })
+      await this.ctx.session.prompt({ sessionID: request.sessionID, text: `Revise the draft goal ${request.slug} with the write-goal interview. Owner commentary: ${JSON.stringify(comment)}. Nothing launched; show the revised contract before another launch review.`, skills: [{ id: "write-goal" }] } as any)
+      return
+    }
+    if (selected.value === "save") {
+      this.launches.update(request.id, { status: "rejected", result: "Draft saved; nothing launched." })
+      this.store.ledger(request.slug, { type: "launch-declined", decisionId: request.id })
+      return
+    }
+    const loaded = this.load(request.slug, true)
+    if ("error" in loaded || loaded.lock !== request.lock) {
+      this.launches.update(request.id, { status: "failed", result: "The draft changed since review; nothing launched. Review the new contract." })
+      this.noticeM(request.sessionID, M.launchChanged())
+      return
+    }
+    const reserved = this.launches.reserve(request.id)
+    if (!reserved) return
+    try {
+      const binding = { expectedLock: request.lock, decisionId: request.id }
+      const result = request.fresh ? await this.startClean(request.sessionID, request.slug, binding) : await this.startGoal(request.sessionID, request.slug, "tool", binding)
+      const ok = result.startsWith('Goal "') || result.startsWith("Started clean")
+      this.launches.update(request.id, { status: ok ? "succeeded" : "failed", result })
+      this.store.ledger(request.slug, { type: "launch-resolved", decisionId: request.id, sessionID: request.sessionID, lock: request.lock, fresh: request.fresh, ok, result })
+      await this.transcript(request.sessionID, `◎ Launch decision ${ok ? "executed" : "failed"}: ${request.slug}. ${result}`)
+    } catch (error) {
+      const result = String(error)
+      this.launches.update(request.id, { status: "failed", result })
+      this.store.ledger(request.slug, { type: "launch-resolved", decisionId: request.id, ok: false, result })
+      this.noticeM(request.sessionID, M.launchFailed(result))
+    }
+  }
+
+  private ownedLaunchQuestion(sessionID: string, input: any): boolean {
+    const q = input?.questions
+    if (!Array.isArray(q) || q.length !== 1 || !Array.isArray(q[0]?.options)) return false
+    return this.launches.all(sessionID).some((p) => p.status === "pending" && p.expiresAt >= Date.now() && p.question === q[0].question && q[0].options.length === launchChoices.length && launchChoices.every((c) => q[0].options.some((o: any) => o.label === c.label)))
+  }
+
+  private ownedAmendmentQuestion(sessionID: string, input: any): boolean {
+    const q = input?.questions
+    if (!Array.isArray(q) || q.length !== 1 || !Array.isArray(q[0]?.options)) return false
+    return this.amendmentReviews.all(sessionID).some((p) => p.status === "pending" && p.expiresAt >= Date.now() && p.question === q[0].question && q[0].options.length === amendmentChoices.length && amendmentChoices.every((c) => q[0].options.some((o: any) => o.label === c.label)))
+  }
+
+  private ownedDecisionQuestion(sessionID: string, input: any): boolean {
+    const q = input?.questions
+    if (!Array.isArray(q) || q.length !== 1 || !Array.isArray(q[0]?.options)) return false
+    return this.decisions.all(sessionID).some((p) => p.status === "pending" && p.expiresAt >= Date.now() && p.question === q[0].question && q[0].options.length === p.message.choices.length && p.message.choices.every((c) => q[0].options.some((o: any) => o.label === c.label)))
+  }
+
+  private async resolveDecisionForm(request: DecisionRequest, answer: Record<string, unknown>) {
+    if (request.status !== "pending" || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
+    const selected = selectedReviewChoice(request, decisionChoices(request), answer)
+    const chosen = selected ? request.message.choices[Number(selected.value)] : undefined
+    this.store.ledger(request.slug, { type: "decision-form-answered", decision: request.id, kind: request.kind, picked: chosen?.label ?? "(commentary)", ...(chosen?.act ? { act: chosen.act } : {}) })
+    if (chosen?.act) {
+      void this.ownerAct(request.sessionID, chosen.act as any, chosen.arg, "form", request.id).then((result) => {
+        if (!result.ok) {
+          this.store.ledger(request.slug, { type: "decision-form-operation-failed", decision: request.id, action: chosen.act, ok: false, message: result.message })
+          this.noticeM(request.sessionID, M.ownerOperationFailed(result.message))
+        }
+      }).catch((error) => this.noticeM(request.sessionID, M.ownerOperationFailed(String(error))))
+    } else {
+      const value = request.fieldKey ? answer[request.fieldKey] : undefined
+      if (request.kind === "owner-operation" && chosen?.label === "Cancel operation") {
+        this.decisions.update(request.id, { status: "rejected", result: "Owner cancelled; no operation executed." })
+        if (this.pendingDecisions.get(request.sessionID)?.id === request.id) this.pendingDecisions.delete(request.sessionID)
+        if (this.pendingFormDecisions.get(request.sessionID)?.decisionId === request.id) this.pendingFormDecisions.delete(request.sessionID)
+        this.store.ledger(request.slug, { type: "decision-declined", decision: request.id, actionExecuted: false })
+        void this.rpc?.events.emit("decision.resolved", { sessionID: request.sessionID, kind: request.kind, decisionId: request.id, via: "form-guidance" }).catch(() => {})
+        return
+      }
+      this.decisions.interruptForm(request.id)
+      this.decisions.update(request.id, { comment: typeof value === "string" ? value : "Invalid answer; no operation authorized.", result: "Guidance/commentary only; the owner decision is still open." })
+      this.pendingFormDecisions.delete(request.sessionID)
+      // Do not claim resolution or close the other surface. The same
+      // unresolved decision remains recoverable and will be re-presented.
+    }
+  }
+
+  private async recoverDecisions() {
+    const api = (this.ctx.session as any).form
+    for (const p of this.decisions.all()) {
+      if (p.issuerPID !== process.pid && processAlive(p.issuerPID)) continue
+      if (p.status === "executing") {
+        // Lifecycle actions are not blindly replayable after a crash.
+        this.decisions.update(p.id, { status: "failed", result: "Operation interrupted with an uncertain outcome. Inspect target state before a new owner operation." })
+        this.store.ledger(p.slug, { type: "decision-operation-interrupted", decision: p.id, ok: false })
+        continue
+      }
+      if (!["pending", "interrupted"].includes(p.status)) continue
+      if (p.expiresAt < Date.now()) { this.decisions.update(p.id, { status: "expired", result: "Decision review expired; inspect status before a new review." }); continue }
+      const current = this.decisionTarget(p.slug)
+      if (current.lock !== p.target.lock || current.runId !== p.target.runId || current.sessionID !== p.target.sessionID) { this.decisions.update(p.id, { status: "failed", result: "Goal generation/session changed; old review invalidated." }); continue }
+      this.publishDecision(p)
+      if (p.formID && typeof api?.get === "function") {
+        try {
+          const form = await api.get({ sessionID: p.sessionID, formID: p.formID })
+          if (form.state?.status === "answered") { await this.resolveDecisionForm(p, form.state.answer); continue }
+          if (form.state?.status === "pending") { this.factsOf(p.sessionID).forms.add(p.formID); continue }
+        } catch { /* Core question forms can disappear on reload. */ }
+      }
+      const next = this.decisions.reopenForm(p.id)
+      if (next) await this.askDecisionForm(next.sessionID, next.slug, next.kind, next.id, next.message)
+    }
+  }
+
+  private async reviewDecision(sessionID: string, decisionId?: string) {
+    const request = decisionId ? this.decisions.get(decisionId) : this.decisions.all(sessionID).filter((p) => ["pending", "interrupted", "expired"].includes(p.status)).sort((a, b) => b.createdAt - a.createdAt)[0]
+    if (!request || request.sessionID !== sessionID) throw new Error("No pending engine decision in this session; inspect the selected goal's status.")
+    const current = this.decisionTarget(request.slug)
+    if (current.lock !== request.target.lock || current.runId !== request.target.runId || current.sessionID !== request.target.sessionID || current.status !== request.target.status) throw new Error("The reviewed target changed; old choices cannot be reused. Inspect current goal status.")
+    if (request.status === "expired") {
+      this.decide(sessionID, request.slug, request.kind, request.message, request.extra)
+      return "Expired review replaced by a new exact native review. No operation was authorized or executed."
+    }
+    if (!["pending", "interrupted"].includes(request.status)) throw new Error("That decision is resolved or has an uncertain outcome; inspect status rather than replaying it.")
+    if (request.status === "pending" && request.formID) return "The exact review is already present in the native composer. No operation was authorized or executed."
+    this.decisions.reopenForm(request.id)
+    this.pendingFormDecisions.delete(sessionID)
+    this.publishDecision(request)
+    await this.askDecisionForm(sessionID, request.slug, request.kind, request.id, request.message)
+    return "The same pending decision has been re-presented natively. No choice, approval, rejection or operation was inferred."
+  }
+
+  private async proposeAmendment(sessionID: string, input: { slug: string; expectedLock: string; yaml: string; rationale: string }) {
+    const proposal = await this.serial(() => {
+      const state = [...this.runs.values()].find((s) => s.slug === input.slug)
+      if (!state) throw new Error("No live run for the selected goal")
+      const unavailable = ownerCan(state, "amend")
+      if (unavailable) throw new Error(unavailable)
+      if (this.amendmentReviews.all().some((p) => p.slug === state.slug && p.status === "executing")) throw new Error("An owner-accepted amendment is committing; recover it before another proposal")
+      if (state.lock !== input.expectedLock) throw new Error("Amendment targets a stale lock; re-read the selected goal")
+      if (state.status === "verifying") throw new Error("The selected goal is verifying; wait for its verdict before proposing a generation")
+      if (state.sessionID !== sessionID && this.factsOf(state.sessionID).busy) throw new Error("The selected goal is executing elsewhere; pause it before proposing an amendment")
+      const disk = this.store.readContract(state.slug)
+      if (!disk?.contract || disk.lock !== state.lock) throw new Error("Disk contract differs from the locked goal; resolve the existing edit before staging")
+      const next = parseContract(input.yaml, { slug: state.slug })
+      if (!next.contract) throw new Error(`Invalid amendment; current contract unchanged:\n${formatIssues(next.issues)}`)
+      if (next.lock === state.lock) throw new Error("Nothing changed; no amendment staged")
+      const diff = amendmentDiff(disk.contract, next.contract)
+      // A proposal is not permission to mutate the oracle. Stop the target
+      // under its OLD contract while the exact diff is being reviewed.
+      const now = Date.now()
+      const p = this.amendmentReviews.create({
+        sessionID, targetSessionID: state.sessionID, slug: state.slug, runId: state.runId,
+        lock: state.lock, nextLock: next.lock, nextText: input.yaml, rationale: input.rationale,
+        diff, title: next.contract.title, createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid,
+        question: [
+          `Amend ${state.slug} (run ${state.runId})?`,
+          `From SHA256 ${state.lock} to ${next.lock}.`, `Rationale: ${input.rationale}`,
+          diff.summary, diff.details,
+          "Only acceptance re-locks this exact diff. Reject/comment leaves the current contract unchanged; no choice resumes the run.",
+        ].join("\n\n"),
+      })
+      // Only stop/mutate the run AFTER the proposal receipt is durable. A
+      // failed store reservation must not leave memory paused and disk running.
+      clearTimeout(this.timers.get(state.sessionID))
+      setStatus(state, "paused", "amendment staged; awaiting owner review")
+      state.amendments.push({ change: diff.summary, rationale: `staged proposal ${p.id}`, at: now, status: "proposed" })
+      this.persist(state)
+      this.invalidateOldDecision(state, "superseded by a staged amendment review; old contract remains locked")
+      this.store.ledger(state.slug, { type: "amendment-staged", decisionId: p.id, sessionID, runId: p.runId, lock: p.lock, nextLock: p.nextLock, summary: diff.summary })
+      return p
+    })
+    await this.presentAmendment(proposal)
+    return { decisionId: proposal.id, slug: proposal.slug, runId: proposal.runId, lock: proposal.lock, nextLock: proposal.nextLock, diff: proposal.diff, status: "pending", message: "Validated amendment staged without changing goal.yaml. Native owner accept/reject/comment is required; no implicit resume." }
+  }
+
+  private async presentAmendment(request: AmendmentRequest) {
+    const nativeForm = (this.ctx.session as any).form
+    if (typeof nativeForm?.create === "function") {
+      const form = await nativeForm.create({ sessionID: request.sessionID, title: `Amend ${request.slug}?`, metadata: { goalDecisionID: request.id }, fields: [{ key: "action", title: request.question, type: "string", custom: true, options: amendmentChoices }] })
+      this.amendmentReviews.bind(form)
+    } else {
+      const payload = { questions: [{ header: "Goal", question: request.question, options: amendmentChoices.map((c) => ({ label: c.label, description: c.description })) }] }
+      await this.ctx.session.prompt({ sessionID: request.sessionID, text: `Ask the owner with the question tool using this exact JSON. The host alone applies the selected amendment; do not edit goal.yaml or call an owner action afterwards.\nGOAL_FORM_JSON:${JSON.stringify(payload)}`, resume: true, metadata: { goal: { kind: "amendment-review", decisionId: request.id } } } as any)
+    }
+  }
+
+  private async resolveAmendment(request: AmendmentRequest, answer: Record<string, unknown>) {
+    if (request.status !== "pending" || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
+    const value = request.fieldKey ? answer[request.fieldKey] : undefined
+    const selected = selectedReviewChoice(request, amendmentChoices, answer)
+    if (request.expiresAt < Date.now()) {
+      this.amendmentReviews.update(request.id, { status: "expired", result: "Review expired; the locked contract is unchanged." })
+      this.noticeM(request.sessionID, M.amendmentExpired())
+      return
+    }
+    if (selected?.value !== "accept") {
+      const rejected = selected?.value === "reject"
+      const comment = typeof value === "string" ? value : "Invalid response; revise and review again."
+      this.amendmentReviews.update(request.id, { status: rejected ? "rejected" : "commented", comment, result: "No contract change authorized." })
+      await this.serial(() => {
+        const state = this.runs.get(request.targetSessionID)
+        if (state?.runId === request.runId && state.lock === request.lock) {
+          const entry = state.amendments.find((a) => a.rationale === `staged proposal ${request.id}` && a.status === "proposed")
+          if (entry) { entry.status = "rejected"; entry.rationale = comment }
+          this.persist(state)
+        }
+        this.store.ledger(request.slug, { type: "amendment-feedback", decisionId: request.id, status: rejected ? "rejected" : "commented", comment })
+      })
+      if (!rejected) await this.ctx.session.prompt({ sessionID: request.sessionID, text: `Owner commentary for amendment ${request.id} of ${request.slug}: ${JSON.stringify(comment)}. Nothing was accepted or resumed. Use goal_propose_amendment with a revised validated contract and the current lock; never edit goal.yaml directly.`, resume: true } as any)
+      return
+    }
+    await this.serial(() => {
+      const state = this.runs.get(request.targetSessionID)
+      const disk = this.store.readContract(request.slug)
+      const next = parseContract(request.nextText, { slug: request.slug })
+      if (!state || state.runId !== request.runId || state.lock !== request.lock || isTerminal(state.status) || !disk?.contract || disk.lock !== request.lock || !next.contract || next.lock !== request.nextLock) {
+        this.amendmentReviews.update(request.id, { status: "failed", result: "Target/run/contract changed since review; no amendment applied." })
+        this.store.ledger(request.slug, { type: "amendment-resolution-failed", decisionId: request.id, reason: "review binding changed" })
+        this.noticeM(request.sessionID, M.amendmentChanged())
+        return
+      }
+      const reserved = this.amendmentReviews.reserve(request.id)
+      if (!reserved) return
+      const acceptedAt = Date.now()
+      const stopped = structuredClone(state)
+      setStatus(stopped, "paused", "owner accepted amendment; resume when ready")
+      const result = amendedState(stopped, disk.contract, next.contract, request.nextLock, `owner accepted decision ${request.id}`, acceptedAt)
+      const approved = this.amendmentReviews.writeAhead(request.id, { state: result, acceptedAt })
+      try {
+        const applied = this.store.commitAmendment(approved)
+        Object.assign(state, applied)
+        delete state.claim
+        delete state.verdict
+        if (!next.contract.priority) delete state.priority
+        this.loaded.set(state.slug, { contract: next.contract, lock: next.lock, text: request.nextText })
+        this.persist(state)
+        this.amendmentReviews.update(request.id, { status: "succeeded", result: `Amended ${state.slug} to ${state.lock}; the goal stays paused.` })
+        this.invalidateOldDecision(state)
+        this.noticeM(request.sessionID, M.amended(state.amendments.filter((a) => a.status === "accepted").length, request.diff.summary))
+      } catch (error) {
+        // Keep executing+write-ahead receipt for recovery. Never report a
+        // half-written generation as failed/finished or allow a new proposal.
+        this.store.ledger(request.slug, { type: "amendment-commit-interrupted", decisionId: request.id, error: String(error) })
+        this.noticeM(request.sessionID, M.amendmentInterrupted())
+      }
+    })
+  }
+
+  private recoverAmendmentCommits() {
+    for (const p of this.amendmentReviews.all()) {
+      if (p.status !== "executing" || p.issuerPID !== process.pid && processAlive(p.issuerPID)) continue
+      if (!p.commit) { this.amendmentReviews.update(p.id, { status: "failed", result: "Host interrupted before acceptance was journalled; review again." }); continue }
+      // Conflicting third-generation bytes fail setup rather than admitting
+      // a worker with an inconsistent approved contract/state pair.
+      this.store.commitAmendment(p)
+      this.amendmentReviews.update(p.id, { status: "succeeded", result: "Recovered owner-accepted amendment; goal remains paused." })
+    }
+  }
+
+  private invalidateOldDecision(state: RunState, reason = "contract generation amended") {
+    const pending = this.pendingDecisions.get(state.sessionID)
+    this.pendingDecisions.delete(state.sessionID)
+    this.pendingFormDecisions.delete(state.sessionID)
+    if (pending) {
+      const request = this.decisions.get(pending.id)
+      if (request && ["pending", "interrupted"].includes(request.status)) this.decisions.update(request.id, { status: "cancelled", result: `Review invalidated: ${reason}.` })
+      this.store.ledger(state.slug, { type: "decision-invalidated", decision: pending.id, reason })
+      void this.rpc?.events.emit("decision.resolved", { sessionID: state.sessionID, kind: pending.kind, decisionId: pending.id, via: "amendment-invalidated" }).catch(() => {})
+    }
+  }
+
+  private async recoverAmendmentReviews() {
+    const api = (this.ctx.session as any).form
+    for (const p of this.amendmentReviews.all()) {
+      if (!["pending", "interrupted"].includes(p.status) || p.issuerPID !== process.pid && processAlive(p.issuerPID)) continue
+      if (p.expiresAt < Date.now()) { this.amendmentReviews.update(p.id, { status: "expired" }); continue }
+      if (p.formID && typeof api?.get === "function") {
+        try {
+          const form = await api.get({ sessionID: p.sessionID, formID: p.formID })
+          if (form.state?.status === "answered") { await this.resolveAmendment(p, form.state.answer); continue }
+          if (form.state?.status === "pending") { this.factsOf(p.sessionID).forms.add(p.formID); continue }
+          if (form.state?.status === "cancelled") this.amendmentReviews.interruptForm(p.id)
+        } catch { /* Core forms can disappear on reload; retain exact review. */ }
+      }
+      const next = this.amendmentReviews.reopenForm(p.id)
+      if (next) await this.presentAmendment(next)
+    }
   }
 
   // ───────────────────────────── starting and admitting turns
@@ -468,27 +920,40 @@ export class GoalApp {
    * cleared (OpenCode exposes no clear-in-place API; that is a TUI command)
    * and stays untouched apart from one notice naming where to look.
    */
-  private async startClean(fromSessionID: string, slug: string): Promise<string> {
+  private async startClean(fromSessionID: string, slug: string, options: StartOptions = {}): Promise<string> {
     // Not wrapped in serial(): startGoal below takes the queue, and the queue
     // is not reentrant — nesting would deadlock. session.create is safe
     // outside the queue; everything stateful flows through startGoal.
-    const created: any = await this.ctx.session.create({ title: `goal kickoff · ${slug}` } as any)
+    let agent: string | undefined, model: Handoff["model"], fallback: string | undefined
+    try {
+      const info: any = await this.ctx.session.get({ sessionID: fromSessionID } as any)
+      const source = info?.data ?? info
+      if (typeof source.agent === "string") agent = source.agent
+      if (typeof source.model?.providerID === "string" && typeof source.model?.id === "string") model = { providerID: source.model.providerID, id: source.model.id, ...(typeof source.model.variant === "string" ? { variant: source.model.variant } : {}) }
+      if (!agent || !model) fallback = "Source model/agent unavailable in session metadata; the missing selection uses host defaults."
+    } catch { fallback = "Source session metadata unavailable; the fresh session uses host defaults." }
+    const created: any = await this.ctx.session.create({ title: `goal kickoff · ${slug}`, ...(agent ? { agent } : {}), ...(model ? { model } : {}) } as any)
     const targetID: string | undefined = created?.id ?? created?.data?.id
     if (!targetID) return `Could not open a new session for "${slug}" — nothing started. Run /goal start ${slug} in this session instead.`
-    this.store.ledger(slug, { type: "clean-start", from: fromSessionID, to: targetID })
-    const message = await this.startGoal(targetID, slug, "command")
+    const handoff: Handoff = { fromSessionID, toSessionID: targetID, ...(agent ? { agent } : {}), ...(model ? { model } : {}), ...(fallback ? { fallback } : {}) }
+    this.store.ledger(slug, { type: "clean-start-attempt", from: fromSessionID, to: targetID, ...(options.decisionId ? { decisionId: options.decisionId } : {}) })
+    const message = await this.startGoal(targetID, slug, "command", { ...options, handoff })
     if (!message.startsWith("Goal \"")) return message
+    const state = this.runs.get(targetID)!
+    this.store.ledger(slug, { type: "clean-start", from: fromSessionID, to: targetID, runId: state.runId, ...(options.decisionId ? { decisionId: options.decisionId } : {}) })
+    await this.transcript(fromSessionID, `◎ Goal ${slug} launched in a NEW root session ${targetID}. Original history remains here. Use the Goals manager or open that session to follow the run.${fallback ? ` Handoff fallback: ${fallback}` : ""}`)
+    void this.rpc?.events.emit("handoff", { fromSessionID, toSessionID: targetID, slug, runId: state.runId, ...(fallback ? { fallback } : {}) }).catch(() => {})
     this.noticeM(fromSessionID, M.cleanStarted(targetID, slug))
     return `Started clean — ${message} The kickoff prompt landed in the new session "${targetID}"; this session stays untouched.`
   }
 
-  async startGoal(sessionID: string, slug: string, source: "command" | "tool", options: { acknowledgeSupersede?: boolean } = {}): Promise<string> {
+  async startGoal(sessionID: string, slug: string, source: "command" | "tool", options: StartOptions = {}): Promise<string> {
     return this.serial(() => this.startGoalLocked(sessionID, slug, source, options))
   }
 
   /** The start path without the queue lock — callable from inside ownerAct,
    *  which already holds it (the queue is not reentrant). */
-  private async startGoalLocked(sessionID: string, slug: string, source: "command" | "tool", options: { acknowledgeSupersede?: boolean } = {}): Promise<string> {
+  private async startGoalLocked(sessionID: string, slug: string, source: "command" | "tool", options: StartOptions = {}): Promise<string> {
     {
       const current = this.runs.get(sessionID)
       if (current && !isTerminal(current.status)) return `This session already has goal "${current.slug}" (${current.status}). Abort it first with /goal abort.`
@@ -497,6 +962,7 @@ export class GoalApp {
       const loaded = this.load(slug, true)
       if ("error" in loaded) return loaded.error
       const { contract, lock, text } = loaded
+      if (options.expectedLock && lock !== options.expectedLock) return "Refused: contract changed after launch review; review the new locked bytes before starting."
       // T031: the supersession admission rule — a supersedes pointer must
       // resolve, match the predecessor's lock, and the predecessor must be
       // terminal (or the owner explicitly acknowledges superseding mid-flight).
@@ -551,6 +1017,7 @@ export class GoalApp {
         }
       }
       const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(this.root) })
+      if (options.handoff) state.handoff = options.handoff
       state.fingerprint = fingerprint(this.root)
       if (rehearsal.length) {
         this.store.evidence(slug, state.runId, "rehearsal", { at: Date.now(), results: rehearsal })
@@ -559,7 +1026,7 @@ export class GoalApp {
       this.store.evidence(slug, state.runId, "contract", { lock, text })
       await Bun.write(join(this.store.dir(slug), "evidence", state.runId, "contract.yaml"), text)
       this.runs.set(sessionID, state)
-      this.store.ledger(slug, { type: "start", runId: state.runId, sessionID, source, lock, commit: state.base.commit })
+      this.store.ledger(slug, { type: "start", runId: state.runId, sessionID, source, lock, commit: state.base.commit, ...(options.decisionId ? { decisionId: options.decisionId } : {}) })
       // T027: record the CLEO project linkage when present (CLI-only; absent
       // CLEO changes nothing — no event, no field).
       const link = cleoLinkEvent(await cleoFacts(this.root, defaultRunner))
@@ -575,8 +1042,8 @@ export class GoalApp {
    * T038: owner-approved amendment. The owner edits goal.yaml out-of-band, then
    * `/goal amend` proposes (diff summary) and `/goal amend confirm` re-locks:
    * atomic generation-bound records, ledger trail, and the explicit branch
-   * decision — prior evidence is retained for criteria whose checks did not
-   * change; changed or new criteria reset to unknown and re-verify.
+     * decision — prior evidence is retained for unchanged oracle semantics;
+     * changed statements, checks or roles reset to unknown and re-verify.
    */
   private async amendGoal(state: RunState, confirmed: boolean): Promise<string> {
     const read = this.store.readContract(state.slug)
@@ -587,17 +1054,7 @@ export class GoalApp {
     if (nextLock === state.lock) return "Nothing to amend: goal.yaml is byte-identical to the locked contract."
 
     const prior = this.contractOf(state)!
-    const key = (c: { id: string; check: unknown }) => `${c.id}:${JSON.stringify(c.check)}`
-    const before = new Map([...prior.criteria, ...prior.invariants].map((c) => [c.id, key(c)]))
-    const after = new Map([...next.criteria, ...next.invariants].map((c) => [c.id, key(c)]))
-    const unchanged = [...after.entries()].filter(([id, k]) => before.get(id) === k).map(([id]) => id)
-    const changed = [...after.entries()].filter(([id, k]) => before.has(id) && before.get(id) !== k).map(([id]) => id)
-    const added = [...after.keys()].filter((id) => !before.has(id))
-    const removed = [...before.keys()].filter((id) => !after.has(id))
-    const summary = [
-      `outcome: ${prior.outcome === next.outcome ? "unchanged" : "CHANGED"}`,
-      `criteria unchanged [${unchanged.join(", ") || "-"}] changed [${changed.join(", ") || "-"}] added [${added.join(", ") || "-"}] removed [${removed.join(", ") || "-"}]`,
-    ].join(" · ")
+    const { unchanged, changed, added, removed, summary } = amendmentDiff(prior, next)
 
     if (!confirmed) {
       state.amendments.push({ change: summary, rationale: "proposed; awaiting /goal amend confirm", at: Date.now(), status: "proposed" })
@@ -611,19 +1068,18 @@ export class GoalApp {
     const at = Date.now()
     const oldLock = state.lock
     // atomic, generation-bound record + evidence snapshot
-    state.amendments.push({ change: summary, rationale: "owner-confirmed via /goal amend confirm", at, status: "accepted" })
+    Object.assign(state, amendedState(state, prior, next, nextLock, "owner-confirmed via /goal amend confirm", at))
+    delete state.claim
+    delete state.verdict
+    if (!next.priority) delete state.priority
     this.store.evidence(state.slug, state.runId, `amendment-${generation}-${at}`, { generation, oldLock, newLock: nextLock, at, by: "owner", summary, changed, added, removed, unchanged, contract: read.text })
-    state.lock = nextLock
-    // branch decision (council 145323Z): retain evidence for unchanged oracles
-    for (const id of changed.concat(added)) state.criteria[id] = { status: "unknown", rejections: 0 }
-    for (const id of removed) delete state.criteria[id]
-    const steps = new Set(next.plan.map((s) => s.id))
-    for (const id of Object.keys(state.steps)) if (!steps.has(id)) delete state.steps[id]
+    this.store.writeContractSnapshot(state.slug, state.runId, nextLock, read.text)
     // the in-memory contract cache must serve the amended contract from the next request on
     this.loaded.set(state.slug, { contract: next, lock: nextLock, text: read.text })
     this.store.ledger(state.slug, { type: "amended", turn: state.turn, generation, oldLock, newLock: nextLock, summary })
     this.persist(state)
     this.emitUpdate(state)
+    this.invalidateOldDecision(state)
     this.noticeM(state.sessionID, M.amended(generation, summary))
     await this.transcript(state.sessionID, `◎ owner amended the contract (generation ${generation}): ${summary}. Changed criteria reset to unknown and re-verify on the next claim; re-read the contract before acting.`)
     return `Amended ${state.slug} (generation ${generation}): ${summary}. Changed criteria reset to unknown and re-verify on the next claim.`
@@ -731,11 +1187,27 @@ export class GoalApp {
         const sid = data.form?.sessionID
         if (!sid) return
         this.factsOf(sid).forms.add(data.form.id)
+        const launch = this.launches.bind(data.form)
+        if (launch) {
+          this.store.ledger(launch.slug, { type: "launch-form-bound", decisionId: launch.id, formID: launch.formID, sessionID: sid, lock: launch.lock, fresh: launch.fresh })
+          return
+        }
+        const amendment = this.amendmentReviews.bind(data.form)
+        if (amendment) {
+          this.store.ledger(amendment.slug, { type: "amendment-form-bound", decisionId: amendment.id, formID: amendment.formID })
+          return
+        }
+        const decision = this.decisions.bind(data.form)
+        if (decision) {
+          const pending = this.pendingFormDecisions.get(sid)
+          if (pending?.decisionId === decision.id) pending.formID = data.form.id
+          this.store.ledger(decision.slug, { type: "decision-form-bound", decision: decision.id, formID: data.form.id })
+          return
+        }
+        this.bindLegacyLaunchForm(data.form)
         // T075: this form answers the session's pending decision (the
         // question-tool prompt askDecisionForm sent) — remember the id so
         // only ITS reply dispatches the act
-        const pendingForm = this.pendingFormDecisions.get(sid)
-        if (pendingForm && !pendingForm.formID) pendingForm.formID = String(data.form.id)
         const state = this.runs.get(sid)
         if (state && isActive(state.status)) {
           this.noticeM(sid, M.awaitingAnswer(String(data.form?.question ?? "a question from the worker")))
@@ -748,36 +1220,37 @@ export class GoalApp {
         f.forms.delete(data.id)
         const answers = Object.values(data.answer ?? {}).flatMap((v) => (Array.isArray(v) ? v : [v])).map(String)
         f.lastFormAnswer = { labels: answers, at: Date.now() }
+        const launch = this.launches.byForm(data.sessionID, data.id)
+        if (launch) {
+          await this.resolveLaunch(launch, data.answer ?? {})
+          this.flushDeferred(data.sessionID)
+          return // never mint a second legacy approval from this answer
+        }
+        const amendment = this.amendmentReviews.byForm(data.sessionID, data.id)
+        if (amendment) {
+          await this.resolveAmendment(amendment, data.answer ?? {})
+          this.flushDeferred(data.sessionID)
+          return
+        }
         // T075: a reply to a DECISION form dispatches the same rpc act the
         // TUI dialog carries — answering either surface resolves both.
-        const pendingForm = this.pendingFormDecisions.get(data.sessionID)
-        if (pendingForm && pendingForm.formID === data.id) {
-          const chosen = pendingForm.choices.find((c) => answers.some((a) => a === c.label || (c.label && a.startsWith(c.label))))
-          this.store.ledger(pendingForm.slug, { type: "decision-form-answered", decision: pendingForm.decisionId, kind: pendingForm.kind, picked: chosen?.label ?? "(none)", act: chosen?.act })
-          if (chosen?.act) {
-            // ownerAct pairs + resolves the pending decision and emits
-            // decision.resolved (via "form") so live TUIs close their
-            // dialog: answering either surface suppresses the other
-            void this.ownerAct(data.sessionID, chosen.act as any, chosen.arg, "form")
-          } else {
-            // a guidance row or a write-in: no act; the decision stays open
-            // on the dialog surface and nothing double-fires
-            this.pendingFormDecisions.delete(data.sessionID)
-            void this.rpc?.events.emit("decision.resolved", { sessionID: data.sessionID, kind: pendingForm.kind, decisionId: pendingForm.decisionId, via: "form-guidance" }).catch(() => {})
-          }
+        const decision = this.decisions.byForm(data.sessionID, data.id)
+        if (decision) {
+          await this.resolveDecisionForm(decision, data.answer ?? {})
+          this.flushDeferred(data.sessionID)
+          return
         }
         // T069: commands that deferred behind the form run now — unless the
         // reply itself started a new turn (busy flips before the flush)
         this.flushDeferred(data.sessionID)
-        // T068: tolerant launch matching — the skill's own rule tells agents to
-        // label the recommended option "(Recommended)", so the byte-exact
-        // match refused legitimately approved launches live. Any answer that
-        // STARTS WITH the launch label approves; the observed label is kept
-        // for a diagnosable refusal.
-        const launchAnswer = answers.find((a) => a === LAUNCH_LABEL || a.startsWith(LAUNCH_LABEL))
-        if (launchAnswer) {
+        // The recommended suffix remains supported, but commentary or a
+        // label in a different field/form cannot mint approval. Seal the
+        // legacy candidate at form creation, never at the later start call.
+        const legacy = this.legacyLaunchForms.get(data.id)
+        this.legacyLaunchForms.delete(data.id)
+        if (legacy && legacy.sessionID === data.sessionID && data.answer?.[legacy.fieldKey] === legacy.value) {
           f.launchApprovedAt = Date.now()
-          this.writeLaunchApproval(data.sessionID, f.launchApprovedAt, launchAnswer)
+          this.writeLaunchApproval(data.sessionID, { at: f.launchApprovedAt, label: legacy.label, slug: legacy.slug, lock: legacy.lock, fresh: false, formID: data.id })
         }
         const state = this.runs.get(data.sessionID)
         if (state) this.emitUpdate(state)
@@ -786,7 +1259,27 @@ export class GoalApp {
       case "form.cancelled": {
         const f = this.factsOf(data.sessionID)
         f.forms.delete(data.id)
+        this.legacyLaunchForms.delete(data.id)
         f.cancelledAt = Date.now()
+        const launch = this.launches.byForm(data.sessionID, data.id)
+        if (launch?.status === "pending") {
+          // Core also emits this on host reload, with no owner-rejection
+          // signal. Preserve an explicit interrupted review, never consent
+          // or a fabricated owner refusal. Recovery asks the same review.
+          this.launches.interruptForm(launch.id)
+          this.store.ledger(launch.slug, { type: "launch-interrupted", decisionId: launch.id, previousFormID: data.id })
+        }
+        const amendment = this.amendmentReviews.byForm(data.sessionID, data.id)
+        if (amendment?.status === "pending") {
+          this.amendmentReviews.interruptForm(amendment.id)
+          this.store.ledger(amendment.slug, { type: "amendment-review-interrupted", decisionId: amendment.id, previousFormID: data.id })
+        }
+        const decision = this.decisions.byForm(data.sessionID, data.id)
+        if (decision?.status === "pending") {
+          this.decisions.interruptForm(decision.id)
+          this.pendingFormDecisions.delete(data.sessionID)
+          this.store.ledger(decision.slug, { type: "decision-form-interrupted", decision: decision.id, previousFormID: data.id })
+        }
         this.flushDeferred(data.sessionID)
         return
       }
@@ -1017,9 +1510,15 @@ export class GoalApp {
     this.persist(state)
     this.noticeM(state.sessionID, M.verifying())
     const text = existsSync(this.store.contractPath(state.slug)) ? readFileSync(this.store.contractPath(state.slug), "utf8") : ""
+    // The host records its own serving artifact before checks start. The
+    // shell check is explicitly bound to this run and process, not the
+    // globally discoverable OpenCode service (which may be another server).
+    await this.provenance(state.sessionID)
+    const checkContext = JSON.stringify({ slug: state.slug, runId: state.runId, sessionID: state.sessionID, lock: state.lock, serverPID: process.pid })
     const outcome = await verifyClaim(contract, state, {
       root: this.root,
       contractText: text,
+      shell: (command, cwd, timeout) => runShell(command, cwd, timeout, { OCGOAL_CHECK_CONTEXT: checkContext }),
       verifier: (input) => this.runVerifier(input),
       // T063: every host check refreshes the activity so the tracer shows
       // live progress (check C7 · 7/22) instead of a static "verifying" line
@@ -1219,21 +1718,53 @@ export class GoalApp {
 
   // ───────────────────────────── owner actions (command, RPC)
 
-  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose", arg?: string, via: "form" | "dialog" = "dialog"): Promise<{ ok: boolean; message: string }> {
+  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose", arg?: string, via: "form" | "dialog" = "dialog", decisionId?: string): Promise<{ ok: boolean; message: string }> {
     return this.serial(async () => {
-      // T066: the next owner act resolves the session's pending decision —
-      // the ledger carries the pairing (offered → answered).
       const pending = this.pendingDecisions.get(sessionID)
-      if (pending) {
-        this.pendingDecisions.delete(sessionID)
-        this.store.ledger(pending.slug, { type: "decision-resolved", decision: pending.id, kind: pending.kind, action, ...(arg ? { arg } : {}), ok: true })
-        // T075: duplicate suppression — whichever surface answers first
-        // (native form or TUI dialog) resolves the other: the stale form's
-        // reply finds no pending entry and never double-acts, and live TUIs
-        // close their dialog on this event.
-        void this.rpc?.events.emit("decision.resolved", { sessionID, kind: pending.kind, decisionId: pending.id, via }).catch(() => {})
-        this.pendingFormDecisions.delete(sessionID)
+      const request = this.decisions.get(decisionId ?? pending?.id ?? "")
+      if (decisionId && (!request || request.sessionID !== sessionID)) return { ok: false, message: "Unknown decision or wrong owner session; nothing executed." }
+      const offered = request?.message.choices.some((c) => c.act === action && (c.arg ?? "") === (arg ?? ""))
+      if (decisionId && !offered) return { ok: false, message: "That operation was not offered by this decision; nothing executed." }
+      let reserved: DecisionRequest | undefined
+      if (request && offered) {
+        if (!["pending", "interrupted"].includes(request.status)) return { ok: false, message: "Decision already resolved, expired or executing; nothing executed." }
+        const target = action === "start" && arg ? request.candidates[arg] ?? request.target : request.target
+        const current = this.decisionTarget(target.slug)
+        if (current.lock !== target.lock || current.runId !== target.runId || current.sessionID !== target.sessionID || current.status !== target.status) {
+          this.decisions.update(request.id, { status: "failed", result: "Decision target changed since review; inspect and request a new decision." })
+          return { ok: false, message: "Decision target changed since review; nothing executed." }
+        }
+        if (request.status === "interrupted") this.decisions.reopenForm(request.id)
+        reserved = this.decisions.reserve(request.id)
+        if (!reserved) return { ok: false, message: "Decision expired or reserved by another server; nothing executed." }
       }
+      let result: { ok: boolean; message: string }
+      const targeted = typeof reserved?.extra.targetKey === "string" ? this.list().find((g) => g.key === reserved.extra.targetKey) : undefined
+      if (reserved?.extra.targetKey && !targeted) {
+        this.decisions.update(reserved.id, { status: "failed", result: "Selected goal generation no longer exists." })
+        return { ok: false, message: "Selected goal generation no longer exists; nothing executed." }
+      }
+      try { result = await this.ownerActLocked(sessionID, action, arg, reserved && action === "start" && arg ? reserved.candidates[arg]?.lock : undefined, targeted) }
+      catch (error) { result = { ok: false, message: `Owner operation failed: ${String(error)}` } }
+      if (reserved) {
+        this.decisions.update(reserved.id, { status: result.ok ? "succeeded" : "interrupted", result: result.message })
+        this.store.ledger(reserved.slug, { type: result.ok ? "decision-resolved" : "decision-attempt", decision: reserved.id, kind: reserved.kind, action, ...(arg ? { arg } : {}), ok: result.ok, message: result.message }, { archived: result.ok && action === "archive" })
+        if (result.ok) {
+          if (this.pendingDecisions.get(sessionID)?.id === reserved.id) this.pendingDecisions.delete(sessionID)
+          if (this.pendingFormDecisions.get(sessionID)?.decisionId === reserved.id) this.pendingFormDecisions.delete(sessionID)
+          void this.rpc?.events.emit("decision.resolved", { sessionID, kind: reserved.kind, decisionId: reserved.id, via }).catch(() => {})
+        } else {
+          this.decisions.reopenForm(reserved.id)
+          if (this.pendingFormDecisions.get(sessionID)?.decisionId === reserved.id) this.pendingFormDecisions.delete(sessionID)
+        }
+      } else if (pending && !result.ok) {
+        this.store.ledger(pending.slug, { type: "decision-attempt", decision: pending.id, kind: pending.kind, action, ok: false, message: result.message })
+      }
+      return result
+    })
+  }
+
+  private async ownerActLocked(sessionID: string, action: Parameters<GoalApp["ownerAct"]>[1], arg?: string, expectedLock?: string, selected?: GoalSummary): Promise<{ ok: boolean; message: string }> {
       // T067: the complete decision's "start the next goal" dispatches the
       // write-goal interview right here — the owner picks the next goal from
       // the dialog instead of typing /goal new.
@@ -1268,9 +1799,9 @@ export class GoalApp {
       // as arg — the standard start path, in THIS session. startGoalLocked,
       // not startGoal: ownerAct already holds the queue (not reentrant).
       if (action === "start") {
-        const slug = (arg ?? "").trim().split(/\s+/)[0]
+        const slug = selected?.slug ?? (arg ?? "").trim().split(/\s+/)[0]
         if (!slug) return { ok: false, message: "Which goal? /goal start with no argument opens the picker." }
-        const message = await this.startGoalLocked(sessionID, slug, "command")
+        const message = await this.startGoalLocked(sessionID, slug, "command", { expectedLock })
         return { ok: message.startsWith('Goal "'), message }
       }
       // T049: attach pulls a live goal into THIS session so every surface
@@ -1279,15 +1810,17 @@ export class GoalApp {
       if (action === "attach") {
         const currentHere = this.runs.get(sessionID)
         if (currentHere && !isTerminal(currentHere.status)) return { ok: false, message: `This session already has goal "${currentHere.slug}" (${currentHere.status}). Abort it first with /goal abort.` }
-        const slug = (arg ?? "").trim().split(/\s+/)[0]
+        const slug = selected?.slug ?? (arg ?? "").trim().split(/\s+/)[0]
         if (!slug) {
           const attachable = this.list().filter((g) => g.attachable)
           return { ok: false, message: attachable.length ? `Which goal? ${attachable.map((g) => `${g.slug} (${g.status})`).join(", ")} — /goal attach <slug>` : "No attachable goal: none is live in .opencode/goals/." }
         }
         const target = [...this.runs.values()].find((r) => r.slug === slug && !isTerminal(r.status))
         if (!target) return { ok: false, message: `No live goal "${slug}" here. /goal list shows what exists.` }
+        if (this.amendmentReviews.all().some((p) => p.slug === target.slug && ["pending", "interrupted", "executing"].includes(p.status))) return { ok: false, message: "Resolve the selected goal's staged amendment before moving its owning session." }
         if (isActive(target.status)) return { ok: false, message: `"${slug}" is ${target.status} mid-turn; wait for the turn to end (or pause it from the goal's session), then attach.` }
         const from = target.sessionID
+        this.invalidateOldDecision(target, "goal ownership attached into a different session")
         this.runs.delete(from)
         const timer = this.timers.get(from)
         if (timer) {
@@ -1308,7 +1841,8 @@ export class GoalApp {
         this.emitUpdate(target)
         return { ok: true, message: `Goal "${target.slug}" attached to this session (${target.status}).` }
       }
-      let state = this.runs.get(sessionID)
+       let state = selected ? [...this.runs.values()].find((s) => s.slug === selected.slug && s.runId === selected.runId) ?? this.store.readRun(selected.slug) : this.runs.get(sessionID)
+       if (selected && !state) return { ok: false, message: "The selected goal has no live run to manage." }
       if (!state) {
         // T049: goals escape their session. With no goal here, act on the
         // project's unique non-terminal goal, or the slug the owner names
@@ -1327,30 +1861,34 @@ export class GoalApp {
       }
       const why = ownerCan(state, action)
       if (why) return { ok: false, message: why }
+      if (this.amendmentReviews.all().some((p) => p.slug === state!.slug && p.status === "executing"))
+        return { ok: false, message: "An accepted amendment is committing. Reload to recover its recorded acceptance before managing this goal." }
+      if (["resume", "verify", "amend", "approve", "reject"].includes(action) && this.amendmentReviews.all().some((p) => p.slug === state!.slug && ["pending", "interrupted"].includes(p.status)))
+        return { ok: false, message: "This goal has an unresolved staged amendment. Use its native accept/reject/comment review before resuming or verifying." }
       const contract = this.contractOf(state)
       switch (action) {
         case "pause":
-          clearTimeout(this.timers.get(sessionID))
+          clearTimeout(this.timers.get(state.sessionID))
           setStatus(state, "paused", "paused by you")
           this.store.ledger(state.slug, { type: "paused", reason: "owner" })
           this.persist(state)
           await this.transcript(state.sessionID, `◎ owner paused the goal (${state.title}). Stand by; the owner resumes it with /goal resume.`)
           return { ok: true, message: `Goal paused: ${state.title} — /goal resume · /goal abort` }
         case "resume": {
+          if (state.status === "budget_limited") return { ok: false, message: "The goal used its budget. Raise budget in goal.yaml and start a new run, or abort it." }
           state.counters = { noProgress: 0, failures: 0 }
           state.blocker = undefined
           state.wrapup = false
-          if (state.status === "budget_limited") return { ok: false, message: "The goal used its budget. Raise budget in goal.yaml and start a new run, or abort it." }
           setStatus(state, "running")
           state.fingerprint = fingerprint(this.root)
           this.store.ledger(state.slug, { type: "resumed", by: "owner" })
           this.persist(state)
           await this.transcript(state.sessionID, `◎ owner resumed the goal. Re-read the contract and the current repository state, then continue from the first unfinished step.`)
-          if (!this.factsOf(sessionID).busy) await this.admit(state, "resume")
+          if (!this.factsOf(state.sessionID).busy) await this.admit(state, "resume")
           return { ok: true, message: `Goal resumed: ${state.title} — /goal status · /goal pause` }
         }
         case "abort":
-          clearTimeout(this.timers.get(sessionID))
+          clearTimeout(this.timers.get(state.sessionID))
           setStatus(state, "aborted", "aborted by you")
           this.store.ledger(state.slug, { type: "aborted", reason: "owner" })
           this.persist(state)
@@ -1365,13 +1903,13 @@ export class GoalApp {
         case "archive": {
           // T032: demote, never delete — the folder moves to goals-archive/
           // with ledger and evidence intact; the registry keeps answering yes.
-          clearTimeout(this.timers.get(sessionID))
+          clearTimeout(this.timers.get(state.sessionID))
           const finalStatus = state.status
           this.store.ledger(state.slug, { type: "archived", from: finalStatus })
           this.registry.update(this.rootReal, state.slug, { title: state.title, status: finalStatus, ...(state.runId ? { runId: state.runId } : {}), ...(state.lock ? { lock: state.lock } : {}), archived: true, updatedAt: Date.now() })
           this.store.archive(state.slug)
           this.loaded.delete(state.slug)
-          this.runs.delete(sessionID)
+          if (this.runs.get(state.sessionID)?.runId === state.runId) this.runs.delete(state.sessionID)
           this.noticeM(sessionID, M.archived(state.title, state.slug))
           return { ok: true, message: `Goal archived: ${state.title} — /goal list all · /goal new <next>` }
         }
@@ -1402,10 +1940,36 @@ export class GoalApp {
           return { ok: true, message: `${criterion.id} ${action === "approve" ? "approved" : "rejected"} — /goal verify · /goal status` }
         }
       }
-    })
   }
 
   // ───────────────────────────── registrations
+
+  /** Read from THIS plugin's server/location, never the shell's unrelated
+   * shared service. Pin bytes captured at setup rather than trusting a
+   * version label, or whichever cache folder has the newest timestamp. */
+  private async provenance(sessionID?: string): Promise<RuntimeProvenance> {
+    const listed: any = await this.ctx.plugin.list({ location: { directory: this.root } } as any)
+    const entries = Array.isArray(listed) ? listed : listed?.data ?? []
+    const entry = entries.find((p: any) => p.id === "opencode-goal")
+    const source = entry?.source ?? { type: "unknown" }
+    const state = sessionID ? this.runs.get(sessionID) : undefined
+    const result: RuntimeProvenance = {
+      schema: "opencode-goal/provenance/v1", serverPID: process.pid,
+      openCodeVersion: this.ctx.app.version, location: this.root,
+      packageRoot: this.packageRoot,
+      packageVersion: this.packageVersion,
+      capturedAt: this.capturedAt, observedAt: Date.now(),
+      source: { type: source.type, ...(source.target ? { target: source.target } : {}), ...(source.version ? { version: source.version } : {}), ...(source.outdated !== undefined ? { outdated: source.outdated } : {}) },
+      artifacts: this.artifacts,
+      status: entry?.state?.status ?? "unknown",
+      features: { server: entry?.features?.server === true, tui: entry?.features?.tui === true, rpc: entry?.features?.rpc === true },
+      ...(state ? { sessionID: state.sessionID, runId: state.runId, lock: state.lock } : {}),
+    }
+    // Evidence is owned and written by the host. Read-only requests must
+    // never append to completed historical goal folders.
+    if (state && !isTerminal(state.status)) this.store.evidence(state.slug, state.runId, "engine-provenance", result)
+    return result
+  }
 
   private async registerAgents() {
     const name = this.options.verifierAgent
@@ -1463,6 +2027,8 @@ export class GoalApp {
   }
 
   async command(sessionID: string, text: string) {
+    const known = [...this.store.slugs(), ...this.store.archivedSlugs()]
+    if (!directGoalCommand(text, known)) return this.goalIntent(sessionID, text)
     const [head = "", ...rest] = text.split(/\s+/)
     const arg = rest.join(" ").trim()
     const sub = head.toLowerCase()
@@ -1492,7 +2058,7 @@ export class GoalApp {
       }
       case "new":
       case "write": {
-        if (!arg) return say("Usage: /goal new <what you want done>", "warning")
+        if (!arg) return this.goalIntent(sessionID, "")
         // T033: admission probe before the interview — exact existence and
         // ranked similarity over live + archived goals, prepended for the
         // write-goal interview to surface as owner options.
@@ -1589,6 +2155,19 @@ export class GoalApp {
     }
   }
 
+  private async goalIntent(sessionID: string, text: string) {
+    const state = this.runs.get(sessionID)
+    const inventory = this.list().map((g) => ({ slug: g.slug, title: g.title, status: g.status, sessionID: g.sessionID }))
+    const prompt = [
+      "Goal entry — interpret the owner's intent, not merely the first word.",
+      text ? `Owner's original words: ${JSON.stringify(text)}` : "No idea was supplied. Ask with native selectable options whether to create a goal or manage an existing goal, then ask for the idea if creating.",
+      `Current session goal: ${state ? `${state.slug} (${state.status})` : "none"}. Project inventory: ${JSON.stringify(inventory)}`,
+      "For a new idea, use the write-goal interview, validate and review the exact contract, then prepare a host-bound launch decision. For an existing goal request, resolve the target explicitly and use guarded typed goal operations; ask only for a genuine decision or unresolved target. For amendments, read the selected goal's current contract and run lock, then call goal_propose_amendment with the replacement YAML and rationale. Never edit a live goal's YAML or ask the owner to hand-edit it or run /goal amend.",
+      "Preserve the original words in intent.verbatim. Never execute this text as a shell command. A fresh start means a new session; the original history is not cleared.",
+    ].join("\n")
+    await this.ctx.session.prompt({ sessionID, text: prompt, skills: [{ id: "write-goal" }], metadata: { goal: { kind: "owner-intent" } } } as any)
+  }
+
   private statusText(state: RunState): string {
     const v = this.view(state)
     if (!v) return `${state.slug}: ${state.status}`
@@ -1603,21 +2182,57 @@ export class GoalApp {
   }
 
   list(): GoalSummary[] {
-    const bySlug = new Map([...this.runs.values()].map((r) => [r.slug, r]))
-    const summaries = this.store.slugs().map((slug) => {
-      const run = bySlug.get(slug) ?? this.store.readRun(slug)
-      const states = run ? Object.values(run.criteria) : []
-      const status = run?.status ?? "draft"
-      const terminal = run ? isTerminal(run.status) : false
-      // T049: attachable = started, not terminal, not mid-turn (attaching a
-      // running goal would strand its in-flight turn's events).
-      const attachable = Boolean(run && !terminal && !isActive(run.status))
-      // T061: drafts read their priority from the contract; runs carry it.
-      const priority = run?.priority ?? (this.store.readContract(slug)?.contract?.priority as GoalSummary["priority"] | undefined)
-      return { slug, title: run?.title ?? slug, status, ...(priority ? { priority } : {}), ...(run ? { sessionID: run.sessionID } : {}), proven: states.filter((s) => s.status === "pass").length, total: states.length, ...(terminal || attachable ? { terminal, attachable } : {}) }
+    return projectInventory(this.store, this.runs.values())
+  }
+
+  private async inventory(): Promise<GoalSummary[]> {
+    return this.withSessionMetadata(this.list())
+  }
+
+  private async withSessionMetadata(rows: GoalSummary[]): Promise<GoalSummary[]> {
+    // Read metadata from THIS connected server. A configured agent in YAML
+    // is not proof of the agent actually attached to the recorded session.
+    const info = new Map<string, any>()
+    for (const sessionID of new Set(rows.flatMap((g) => g.sessionID ? [g.sessionID] : []))) {
+      try { info.set(sessionID, await this.ctx.session.get({ sessionID } as any)) }
+      catch (error: any) { info.set(sessionID, { unavailable: true, missing: /not.found/i.test(String(error?.type ?? error?.message ?? error)) }) }
+    }
+    return rows.map((row): GoalSummary => {
+      if (!row.sessionID) return row
+      const got = info.get(row.sessionID), session = got?.data ?? got
+      if (!session || session.unavailable) return { ...row, sessionState: session?.missing ? "missing" : "unknown" }
+      const directory = session.location?.directory
+      const sessionState = typeof directory === "string" ? canonical(directory) === this.rootReal ? "present" : "elsewhere" : "unknown"
+      return { ...row, sessionState, ...(typeof session.agent === "string" ? { agent: session.agent } : {}), ...(typeof session.title === "string" ? { sessionTitle: session.title } : {}) }
     })
-    // T061: priority then updatedAt, absent-priority goals last.
-    return summaries.sort((a, b) => byPriorityThenRecency(a, b))
+  }
+
+  private async manageGoal(sessionID: string, action: ManageAction, target: GoalTarget, forceReview = false) {
+    return this.serial(async () => {
+      if (!/^[a-f0-9]{64}$/.test(target.lock)) return { ok: false, message: "Invalid target lock; nothing executed." }
+      try {
+        const actor: any = await this.ctx.session.get({ sessionID } as any)
+        if (canonical((actor?.data ?? actor)?.location?.directory ?? "") !== this.rootReal) return { ok: false, message: "The managing session is not in this project; nothing executed." }
+      } catch { return { ok: false, message: "The managing session is unavailable; nothing executed." } }
+      const selected = this.list().find((g) => g.key === target.key)
+      if (!selected || selected.lock !== target.lock || selected.runId !== target.runId || selected.sessionID !== target.sessionID)
+        return { ok: false, message: "Selected goal identity changed. Refresh its details before acting." }
+      if (!selected.valid || selected.archived || !selected.runId)
+        return { ok: false, message: "This selected goal is read-only (draft, archived or invalid); review/launch a valid draft instead." }
+      const state = [...this.runs.values()].find((s) => s.slug === selected.slug && s.runId === selected.runId) ?? this.store.readRun(selected.slug)
+      if (!state) return { ok: false, message: "The selected run is unavailable; no other goal was used as a fallback." }
+      const unavailable = action === "attach" ? !selected.attachable ? "Only a stopped live goal can attach." : undefined : ownerCan(state, action)
+      if (unavailable) return { ok: false, message: unavailable }
+      if (action === "verify" && state.status === "verifying") return { ok: false, message: "The selected goal is already verifying." }
+      if (forceReview || action === "abort" || action === "archive") {
+        this.decide(sessionID, selected.slug, "owner-operation", M.managerOperation(action, selected.title), { targetKey: selected.key })
+        const decisionId = this.pendingDecisions.get(sessionID)?.id
+        return { ok: true, pending: true, decisionId, message: `Native ${action} confirmation offered for ${selected.slug}; no operation executed yet.` }
+      }
+      const result = await this.ownerActLocked(sessionID, action, action === "attach" ? selected.slug : undefined, undefined, selected)
+      this.store.ledger(selected.slug, { type: "manager-action", actorSessionID: sessionID, targetRunId: selected.runId, action, ok: result.ok, message: result.message })
+      return result
+    })
   }
 
   private async registerHooks() {
@@ -1653,24 +2268,28 @@ export class GoalApp {
     this.registrations.push(
       await this.ctx.tool.hook("execute.before", (event: any) => {
         const state = this.runs.get(event.sessionID)
-        if (!state) return
-        const contract = this.contractOf(state)
-        if (event.tool === "question" && contract && isActive(state.status) && contract.autonomy.questions === "defer" && !this.pendingFormDecisions.has(event.sessionID))
+        const live = [...this.runs.values()].filter((s) => !isTerminal(s.status))
+        const contract = state && this.contractOf(state)
+        if (event.tool === "question" && state && contract && isActive(state.status) && contract.autonomy.questions === "defer" && !this.ownedDecisionQuestion(event.sessionID, event.input) && !this.ownedLaunchQuestion(event.sessionID, event.input) && !this.ownedAmendmentQuestion(event.sessionID, event.input))
           // T075 exception: the ENGINE-initiated decision form (askDecisionForm's
           // prompt) is the owner's ask — the worker's own questions stay deferred.
           throw new Error("Goal mode defers questions to the owner during a run. Make the most reasonable reversible choice and note it as an assumption in goal_progress, or call goal_block if this truly needs the owner.")
         const paths = targetPaths(event.tool, event.input)
         for (const p of paths) {
-          const rel = p.startsWith(this.root) ? p.slice(this.root.length + 1) : p.replace(/^\.\//, "")
+          const rel = relative(this.root, resolve(this.root, p))
+          if (rel === ".." || rel.startsWith("../")) continue
           // T037: the goal folder stays untouchable for the whole life of the
           // run — including stopped states (paused/needs_review/budget_limited),
           // the unguarded amendment window the council flagged. Terminal runs
           // release the folder so the next contract can be written.
-          if (!isTerminal(state.status) && rel.startsWith(".opencode/goals/"))
-            throw new Error("The goal contract and run state are owned by the owner and the host. Do not edit .opencode/goals/ while the goal exists — the owner amends via /goal amend (re-lock with audit trail) or aborts and edits before a fresh /goal start.")
-          if (isActive(state.status) && contract) {
-            if (contract.protect.some((g) => globMatch(rel, g))) throw new Error(`${rel} is protected by the goal contract (an oracle the worker may not change). If it is wrong, call goal_flag.`)
-          }
+          const ownedRunPath = live.some((s) => rel === `.opencode/goals/${s.slug}` || rel.startsWith(`.opencode/goals/${s.slug}/`))
+          const ownerReceipt = /^\.opencode\/goals\/\.(?:owner-|launch-approvals)/.test(rel)
+          if (rel.startsWith(".opencode/goals-archive/") || ownerReceipt || ownedRunPath || state && !isTerminal(state.status) && rel.startsWith(".opencode/goals/"))
+            throw new Error("The goal contract and run state are owned by the owner and the host. Do not edit a live goal folder, owner consent records or archived history. Use goal_propose_amendment to stage a diff for native owner acceptance.")
+          // A goal-less manager session may propose a diff, but it is not a
+          // loophole for editing another session's protected oracle.
+          if (live.some((s) => this.contractOf(s)?.protect.some((g) => globMatch(rel, g))))
+            throw new Error(`${rel} is protected by the goal contract (an oracle the worker may not change). If it is wrong, call goal_flag.`)
         }
       }),
     )
@@ -1679,12 +2298,15 @@ export class GoalApp {
   private async registerRpc() {
     try {
       const registration: any = await (this.ctx.rpc as any).register(GoalRpc, {
+        provenance: async (input: { sessionID?: string }) => this.provenance(input.sessionID),
         snapshot: async (input: { sessionID: string }) => {
           const state = this.runs.get(input.sessionID)
           return { view: state ? (this.view(state) ?? null) : null }
         },
-        list: async () => ({ goals: this.list() }),
-        act: async (input: { sessionID: string; action: any; arg?: string }) => this.ownerAct(input.sessionID, input.action, input.arg),
+        list: async () => ({ goals: await this.inventory(), directory: this.root }),
+        details: async (input: { key: string }) => ({ goal: (await this.withSessionMetadata(projectInventory(this.store, this.runs.values(), { detailsForKey: input.key }).filter((g) => g.key === input.key)))[0] ?? null }),
+        manage: async (input: { sessionID: string; action: ManageAction; target: GoalTarget }) => this.manageGoal(input.sessionID, input.action, input.target),
+        act: async (input: { sessionID: string; action: any; arg?: string; decisionId?: string }) => this.ownerAct(input.sessionID, input.action, input.arg, "dialog", input.decisionId),
       })
       this.rpc = registration
       this.registrations.push(registration)
@@ -1719,6 +2341,12 @@ export class GoalApp {
     }
 
     const tools = [
+      tool("manage", "Prepare a native owner decision for a supported lifecycle operation on the EXACT selected project goal. Use goal_inventory for target key/runId/lock/sessionID. Never directly approves or executes the worker's request; owner choice is required. Cannot waive criteria, approve evidence or execute arbitrary owner operations.", { properties: { action: { type: "string", enum: ["pause", "resume", "verify", "attach", "abort", "archive"] }, target: GoalRpc.methods.manage.input.properties.target }, required: ["action", "target"] }, async (args, context) => this.manageGoal(context.sessionID, args.action, args.target, true)),
+      tool("inventory", "Read every goal contract in THIS project: drafts, live/stopped/complete runs and archives, with real session/agent/progress/priority and existing contract metadata. Goal contracts are not CLEO tasks; never infer a goal parent from a task ID. Unknown/missing metadata is reported honestly; this performs no lifecycle operation.", { properties: {} }, async () => ({ goals: await this.inventory() })),
+      tool("review", "Re-present this session's pending engine decision in a native owner form after dismissal/commentary. Optional decisionId selects the exact review; this never approves, resumes or executes an operation. Expired reviews need a new review; changed target generations are refused.", { properties: { decisionId: { type: "string", minLength: 1, maxLength: 256 } } }, async (args, context) => this.reviewDecision(context.sessionID, args.decisionId ? String(args.decisionId) : undefined)),
+      tool("propose_amendment", "Stage a validated replacement YAML contract as a reviewed diff for a selected live goal. Does NOT edit goal.yaml or grant consent. Exact owner accept/reject/comment is required; changed statements/checks reset proof and the goal remains stopped. Never call an owner accept operation yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" }, yaml: { type: "string", minLength: 1, maxLength: 200000 }, rationale: { type: "string", minLength: 1, maxLength: 2000 } }, required: ["slug", "expectedLock", "yaml", "rationale"] }, async (args, context) => this.proposeAmendment(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock), yaml: String(args.yaml), rationale: String(args.rationale) })),
+      tool("prepare_launch", "Validate and stage an exact goal contract for native owner review and same/fresh-session launch. The host executes the owner's choice directly, including after reload or an interrupted question result. Preparation is not permission to start or approve yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, fresh: { type: "boolean" } }, required: ["slug"] }, async (args, context) => this.prepareLaunch(context.sessionID, String(args.slug), args.fresh === true)),
+      tool("provenance", "Report the actual server PID, location, installed Git revision and loaded server/UI/skill artifact hashes for this goal session. Never substitute an unscoped shared-service or newest-cache lookup for this evidence.", { properties: {} }, async (_args, context) => ({ ...await this.provenance(context.sessionID) })),
       tool("status", "Show the active goal: status, criteria board, plan, budget, last verdict. Cheap; use it after a compaction or when unsure what remains.", { properties: {} }, async (_args, context) => {
         const state = forSession(context)
         if (!state) return "No goal is running in this session."
@@ -1875,9 +2503,9 @@ export class GoalApp {
             const seen = this.factsOf(context.sessionID).lastFormAnswer
             const diskRecord = this.readLaunchApprovals()[context.sessionID]
             const matched = (label?: string) => !!label && (label === LAUNCH_LABEL || label.startsWith(LAUNCH_LABEL))
-            const detail = matched(diskRecord?.label) || (seen && seen.labels.some(matched))
+            const detail = diskRecord && matched(diskRecord.label) && Date.now() - diskRecord.at > this.options.launchApprovalMs
               ? `the approval expired (a ${Math.round(this.options.launchApprovalMs / 60_000)}-minute window; restarts keep it until then)`
-              : !seen
+              : !seen || seen.labels.some(matched)
                 ? "no launch approval was seen in this session"
                 : `the owner's last answer was ${JSON.stringify(seen.labels[0] ?? "")}, which does not start with "${LAUNCH_LABEL}"`
             throw new Error(
@@ -1885,9 +2513,10 @@ export class GoalApp {
             )
           }
           this.factsOf(context.sessionID).launchApprovedAt = undefined
+          if (!approval.slug || !approval.lock || approval.fresh !== false || approval.slug !== String(args.slug) || args.fresh === true)
+            throw new Error("Legacy launch approval does not bind this goal/contract/mode. Use goal_prepare_launch for an exact native review; nothing started.")
           this.clearLaunchApproval(context.sessionID)
-          if (args.fresh) return this.startClean(context.sessionID, String(args.slug))
-          return this.startGoal(context.sessionID, String(args.slug), "tool")
+          return this.startGoal(context.sessionID, String(args.slug), "tool", { expectedLock: approval.lock, decisionId: `legacy:${approval.formID}` })
         },
       ),
       tool(

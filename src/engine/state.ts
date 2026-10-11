@@ -30,6 +30,7 @@ export type CriterionState = {
 }
 
 export type PendingKind = "kickoff" | "continue" | "verdict" | "recovery" | "wrapup" | "resume"
+export type Handoff = { fromSessionID: string; toSessionID: string; agent?: string; model?: { providerID: string; id: string; variant?: string }; fallback?: string }
 
 export type RunState = {
   version: 1
@@ -69,6 +70,7 @@ export type RunState = {
   activity?: { kind: "turn" | "verifying" | "verifier-child" | "cooldown" | "waiting"; since: number; until?: number; detail?: string }
   flags: Array<{ criterion?: string; kind: string; reason: string; at: number }>
   amendments: Array<{ change: string; rationale: string; at: number; status: "proposed" | "accepted" | "rejected" }>
+  handoff?: Handoff
 }
 
 export function initialRun(contract: Contract, args: { sessionID: string; runId: string; lock: string; commit?: string; now?: number }): RunState {

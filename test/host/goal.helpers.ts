@@ -58,7 +58,7 @@ export function script(worker: (req: ChatRequest, turn: ReturnType<typeof turnOf
   }
 }
 
-export async function goalHost(worker: Script, files: Record<string, string> = {}) {
+export async function goalHost(worker: Script, files: Record<string, string> = {}, options: { extraPlugins?: Array<string | Record<string, unknown>> } = {}) {
   // T026: never let host tests write the machine's real goal registry
   process.env.OCGOAL_REGISTRY = join(await mkdtemp(join(tmpdir(), "ocgoal-registry-")), "registry.json")
   // Test isolation: a CLEO session id in the spawned server's environment
@@ -69,7 +69,7 @@ export async function goalHost(worker: Script, files: Record<string, string> = {
   delete process.env.CLEO_AGENT_ID
   process.env.CLEO_HEAVY_COMMAND_HOOK = "off"
   return startHost({
-    plugins: [PLUGIN],
+    plugins: [PLUGIN, ...(options.extraPlugins ?? [])] as any,
     git: true,
     files: { "README.md": "# demo\n", "oracle.txt": "do not edit\n", ".opencode/goals/demo/goal.yaml": DEMO_GOAL, ...files },
     script: worker,

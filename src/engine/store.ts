@@ -4,6 +4,7 @@ import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, 
 import { join } from "node:path"
 import { parseContract, type ParseResult } from "../contract/parse"
 import type { RunState } from "./state"
+import type { AmendmentRequest } from "./amendments"
 
 export type LedgerEvent = { t: number; type: string; [key: string]: unknown }
 
@@ -52,15 +53,15 @@ export class Store {
     renameSync(this.dir(slug), this.archivedPath(slug))
   }
 
-  readContract(slug: string): (ParseResult & { text: string }) | undefined {
-    const path = this.contractPath(slug)
+  readContract(slug: string, options: { archived?: boolean } = {}): (ParseResult & { text: string }) | undefined {
+    const path = options.archived ? join(this.archivedPath(slug), "goal.yaml") : this.contractPath(slug)
     if (!existsSync(path)) return undefined
     const text = readFileSync(path, "utf8")
     return { ...parseContract(text, { slug }), text }
   }
 
-  readRun(slug: string): RunState | undefined {
-    const path = join(this.dir(slug), "run.json")
+  readRun(slug: string, options: { archived?: boolean } = {}): RunState | undefined {
+    const path = join(options.archived ? this.archivedPath(slug) : this.dir(slug), "run.json")
     if (!existsSync(path)) return undefined
     try {
       const value = JSON.parse(readFileSync(path, "utf8"))
@@ -85,6 +86,57 @@ export class Store {
     renameSync(tmp, path)
   }
 
+  writeContractSnapshot(slug: string, runId: string, lock: string, text: string) {
+    const dir = join(this.dir(slug), "evidence", runId)
+    mkdirSync(dir, { recursive: true })
+    const path = join(dir, `contract-${lock}.yaml`)
+    if (existsSync(path)) return
+    this.writeAtomic(path, text)
+  }
+
+  /** Redo an accepted generation from a durable host write-ahead receipt.
+   * Recovery runs before hooks admit work: consumers cannot see half of a
+   * generation. Neither a new run nor an unexpected third lock is overwritten. */
+  commitAmendment(request: AmendmentRequest): RunState {
+    if (!request.commit || request.status !== "executing") throw new Error("Amendment has no host-recorded acceptance")
+    const read = this.readContract(request.slug), state = this.readRun(request.slug)
+    const next = parseContract(request.nextText, { slug: request.slug })
+    if (!next.contract || next.lock !== request.nextLock) throw new Error("Approved amendment payload is invalid")
+    if (!state || state.runId !== request.runId || state.sessionID !== request.targetSessionID) throw new Error("Amendment target identity changed")
+    if (state.lock !== request.lock && state.lock !== request.nextLock) throw new Error("Amendment run lock conflicts with a different generation")
+    if (!read || read.lock !== request.lock && read.lock !== request.nextLock) throw new Error("Amendment disk contract changed outside the reviewed generation")
+    if (request.commit.state.lock !== request.nextLock || request.commit.state.runId !== state.runId) throw new Error("Invalid host write-ahead state")
+    const result = state.lock === request.nextLock ? state : request.commit.state
+    this.writeContractSnapshot(request.slug, request.runId, request.lock, read.lock === request.lock ? read.text : this.lockedSnapshot(request.slug, request.runId, request.lock))
+    this.writeContractSnapshot(request.slug, request.runId, request.nextLock, request.nextText)
+    if (read.lock !== request.nextLock) this.writeAtomic(this.contractPath(request.slug), request.nextText)
+    if (state.lock !== request.nextLock) this.writeRun(result)
+    const generation = result.amendments.filter((a) => a.status === "accepted").length
+    this.evidence(request.slug, request.runId, `amendment-${generation}-${request.id}`, {
+      decisionId: request.id, generation, oldLock: request.lock, newLock: request.nextLock,
+      by: "owner", at: request.commit.acceptedAt, rationale: request.rationale,
+      ...request.diff, contract: request.nextText,
+    })
+    if (!this.recent(request.slug, 1000).some((e) => e.type === "amended" && e.decisionId === request.id))
+      this.ledger(request.slug, { type: "amended", decisionId: request.id, generation, oldLock: request.lock, newLock: request.nextLock, summary: request.diff.summary })
+    return result
+  }
+
+  private lockedSnapshot(slug: string, runId: string, lock: string): string {
+    const keyed = join(this.dir(slug), "evidence", runId, `contract-${lock}.yaml`)
+    const first = join(this.dir(slug), "evidence", runId, "contract.yaml")
+    const text = readFileSync(existsSync(keyed) ? keyed : first, "utf8")
+    if (parseContract(text, { slug }).lock !== lock) throw new Error("Prior locked amendment snapshot is unavailable")
+    return text
+  }
+
+  private writeAtomic(path: string, text: string) {
+    const tmp = `${path}.${process.pid}.${Date.now()}.tmp`
+    const fd = openSync(tmp, "wx", 0o600)
+    try { writeSync(fd, text); fsyncSync(fd) } finally { closeSync(fd) }
+    renameSync(tmp, path)
+  }
+
   /** The last n ledger events, oldest first; tolerant of a torn final line. */
   recent(slug: string, n: number): LedgerEvent[] {
     const path = join(this.dir(slug), "ledger.jsonl")
@@ -101,8 +153,8 @@ export class Store {
     return out
   }
 
-  ledger(slug: string, event: Omit<LedgerEvent, "t"> & { t?: number }) {
-    const dir = this.dir(slug)
+  ledger(slug: string, event: Omit<LedgerEvent, "t"> & { t?: number }, options: { archived?: boolean } = {}) {
+    const dir = options.archived ? this.archivedPath(slug) : this.dir(slug)
     mkdirSync(dir, { recursive: true })
     appendFileSync(join(dir, "ledger.jsonl"), `${JSON.stringify({ t: Date.now(), ...event })}\n`, { mode: 0o600 })
   }

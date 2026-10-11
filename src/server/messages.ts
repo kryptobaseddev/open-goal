@@ -43,6 +43,18 @@ const verify = { label: "Verify now", run: "/goal verify", act: "verify" }
 const archive = { label: "Archive goal", run: "/goal archive", act: "archive" }
 
 export const M = {
+  managerOperation: (action: string, title: string) => msg("goal.manager.operation", "warning", `${action.toUpperCase()} the selected goal "${title}"? This applies only to the reviewed run and contract. History stays intact; no operation executes until you choose.`, [
+    { label: `${action[0]!.toUpperCase()}${action.slice(1)} selected goal`, run: `answer with this option to ${action} the exact reviewed goal; preserve its history`, act: action },
+    { label: "Cancel operation", run: "keep the selected goal unchanged" },
+    { label: "Comment instead", run: "reply with commentary; no operation is authorized" },
+  ]),
+  ownerOperationFailed: (reason: string) => msg("goal.owner-operation.failed", "warning", `The selected owner operation did not succeed: ${reason}. No successful resolution was recorded.`, [{ label: "Inspect current status", run: "goal_status before requesting the exact review again" }, { label: "Restore pending review", run: "goal_review for a pending unchanged target" }]),
+  amendmentExpired: () => msg("goal.amend.expired", "warning", "The amendment review expired; the locked contract and evidence are unchanged.", [{ label: "Stage a fresh diff", run: "goal_propose_amendment with the current target lock" }]),
+  amendmentChanged: () => msg("goal.amend.changed", "warning", "The goal/run/contract changed after amendment review; no amendment was applied.", [{ label: "Read and stage again", run: "read the selected goal and stage a new reviewed diff" }]),
+  amendmentInterrupted: () => msg("goal.amend.interrupted", "error", "The amendment commit was interrupted after recorded acceptance; no further work is safe until recovery finishes.", [{ label: "Recover the accepted generation", run: "open a reloaded location to recover the host write-ahead receipt" }]),
+  launchExpired: () => msg("goal.launch.expired", "warning", "The launch review expired; nothing started. A fresh review is needed before consent can be used.", [{ label: "Review again", run: "start a new native launch review" }]),
+  launchChanged: () => msg("goal.launch.changed", "warning", "The contract changed after review; nothing started. The previous choice cannot approve different bytes.", [{ label: "Review the new contract", run: "read the revised contract and start a new native review" }]),
+  launchFailed: (reason: string) => msg("goal.launch.failed", "error", `Launch failed; the decision has an explicit recoverable result: ${reason}`, [{ label: "Inspect and review again", run: "read the failed launch result and start a new native review" }]),
   goalStarted: (title: string) =>
     msg("goal.started", "success", `Goal started: ${title}. The contract is locked and rendered into every request.`, [status, resume]),
   cleanStarted: (targetID: string, slug: string) =>
