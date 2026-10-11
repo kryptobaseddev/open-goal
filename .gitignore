@@ -8,3 +8,4 @@ node_modules/
 .opencode/goals/*/ledger.jsonl
 .opencode/goals/*/evidence/
 .opencode/goals/.launch-approvals.json
+.opencode/goals/.owner-*.json*

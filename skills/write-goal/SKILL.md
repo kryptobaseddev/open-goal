@@ -57,6 +57,16 @@ Start from `assets/goal.template.yaml` (or the shape below). Then validate: call
 Show the owner the contract compactly: outcome, a table of criteria (id · statement · check), invariants, protected paths, non-goals, budget. Ask: **Approve** (Recommended) / Revise criteria / Revise scope / Save as draft.
 
 ### 6 · Launch
+For an existing goal, resolve its exact identity with `goal_inventory` and use
+`goal_manage` for the requested lifecycle operation. Don't create a replacement
+run or ask again when the owner has already said **resume**, **continue**, or
+explicitly approved resuming. The host can consume that genuine owner message
+once for its same session/run/lock; workers cannot supply or forge the consent.
+**I accept** applies only to a current exact resume review, not an unrelated or
+expired review. Other decisions still use native forms. Check the returned
+result and `goal_status`; a staged review isn't a successful resume. Never
+bypass a refusal with raw owner APIs, receipt edits, or fabricated form replies.
+
 For a requested change to an existing live goal, do not hand-edit its YAML or
 tell the owner to run `/goal amend`. Read the selected contract and run lock,
 then use `goal_propose_amendment` with `{slug, expectedLock, yaml, rationale}`.

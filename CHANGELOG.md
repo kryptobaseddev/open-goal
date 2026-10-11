@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4 — 2026-10-11
+
+- **Don't ask twice for resume (T083)** — `goal_manage` reads the genuine owner message from host session history. **Resume**, **continue**, or explicit resume approval can authorize one operation on that same session/run/lock. **I accept** applies only to a current exact resume review. Steering doesn't revoke the directive; later pauses, changed generations, contradictory/conditional wording, synthetic inputs, and consumed messages cannot mint new authority. Consumption is atomic across store instances and survives restart. Launch/amendment review and evidence guards remain intact.
+- **Keep runtime receipts out of source evidence** — owner-review JSON files and their transient lock/temp files are gitignored alongside run state, ledgers, and evidence. Contract YAML and actual source remain visible to Git/CLEO evidence checks. No tracked history is removed.
+
 ## 0.3.3 — 2026-10-11
 
 The project goal-manager release. Natural language stays with the agent; typed host operations enforce exact targets, contract locks, and owner consent. The original conversation is never cleared.

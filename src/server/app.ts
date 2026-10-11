@@ -26,6 +26,7 @@ import { buildPostGoalSummary } from "../summary/build"
 import { completionAudit } from "../summary/audit"
 import { M, renderMessage, type EngineMessage } from "./messages"
 import { directGoalCommand } from "./intent"
+import { ownerResumeMessage } from "../engine/owner-intent"
 
 /** Spawn the cleo CLI with a hard timeout; all failures resolve safely. */
 const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
@@ -2224,6 +2225,36 @@ export class GoalApp {
       const unavailable = action === "attach" ? !selected.attachable ? "Only a stopped live goal can attach." : undefined : ownerCan(state, action)
       if (unavailable) return { ok: false, message: unavailable }
       if (action === "verify" && state.status === "verifying") return { ok: false, message: "The selected goal is already verifying." }
+      if (forceReview && action === "resume" && state.sessionID === sessionID) {
+        const generationAt = Math.max(state.createdAt, ...state.amendments.filter((a) => a.status === "accepted").map((a) => a.at),
+          ...this.store.recent(state.slug, 1000).filter((e) => e.type === "paused").map((e) => Number(e.t) || 0))
+        const messages: any = await this.ctx.session.context({ sessionID } as any)
+        const review = this.decisions.all(sessionID).filter((p) => ["pending", "interrupted"].includes(p.status) && p.expiresAt >= Date.now()
+          && p.kind === "owner-operation" && p.extra.targetKey === selected.key && p.target.lock === state.lock
+          && p.target.runId === state.runId && p.target.sessionID === sessionID && p.target.status === state.status
+          && p.message.choices.some((c) => c.act === "resume")).sort((a, b) => b.createdAt - a.createdAt)[0]
+        const consent = ownerResumeMessage(messages?.data ?? messages, generationAt, review)
+        if (consent && !this.decisions.all(sessionID).some((p) => p.ownerMessageID === consent.id)) {
+          const message = M.managerOperation("resume", selected.title), now = Date.now()
+          const request = this.decisions.create({ sessionID, slug: state.slug, kind: "owner-operation", lock: state.lock,
+            target: this.decisionTarget(state.slug), candidates: {}, title: message.id, message,
+            extra: { targetKey: selected.key }, ownerMessageID: consent.id, question: consent.text,
+            createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid })
+          const reserved = this.decisions.reserve(request.id)
+          if (!reserved) return { ok: false, message: "The owner request was already consumed; no operation executed." }
+          // Consume BEFORE attempting: a failed operation cannot turn an old
+          // sentence into reusable worker authority after a restart.
+          this.store.ledger(state.slug, { type: "owner-message-consumed", ownerMessageID: consent.id, decisionId: request.id,
+            actorSessionID: sessionID, targetRunId: state.runId, lock: state.lock, action: "resume" })
+          let result: { ok: boolean; message: string }
+          try { result = await this.ownerActLocked(sessionID, "resume", undefined, undefined, selected) }
+          catch (error) { result = { ok: false, message: `Owner operation failed: ${String(error)}` } }
+          this.decisions.update(request.id, { status: result.ok ? "succeeded" : "failed", result: result.message })
+          this.store.ledger(state.slug, { type: result.ok ? "decision-resolved" : "decision-attempt", decision: request.id,
+            kind: request.kind, action: "resume", via: "owner-message", ok: result.ok, message: result.message })
+          return result
+        }
+      }
       if (forceReview || action === "abort" || action === "archive") {
         this.decide(sessionID, selected.slug, "owner-operation", M.managerOperation(action, selected.title), { targetKey: selected.key })
         const decisionId = this.pendingDecisions.get(sessionID)?.id
@@ -2341,7 +2372,13 @@ export class GoalApp {
     }
 
     const tools = [
-      tool("manage", "Prepare a native owner decision for a supported lifecycle operation on the EXACT selected project goal. Use goal_inventory for target key/runId/lock/sessionID. Never directly approves or executes the worker's request; owner choice is required. Cannot waive criteria, approve evidence or execute arbitrary owner operations.", { properties: { action: { type: "string", enum: ["pause", "resume", "verify", "attach", "abort", "archive"] }, target: GoalRpc.methods.manage.input.properties.target }, required: ["action", "target"] }, async (args, context) => this.manageGoal(context.sessionID, args.action, args.target, true)),
+      tool("manage", "Request a supported lifecycle operation on the EXACT selected project goal. Use goal_inventory for target key/runId/lock/sessionID. A current, explicit owner resume/continue message can authorize one resume of that same session/run/lock; the host reads and consumes the original message, never worker-supplied consent. Otherwise a native owner decision is prepared. Cannot waive criteria, approve evidence or execute arbitrary owner operations.", { properties: { action: { type: "string", enum: ["pause", "resume", "verify", "attach", "abort", "archive"] }, target: GoalRpc.methods.manage.input.properties.target }, required: ["action", "target"] }, async (args, context) => {
+        // After reload this instance may have missed execution.started. A
+        // model tool call proves the turn is still busy; resume must not
+        // enqueue a competing kickoff alongside this owner-approved work.
+        this.factsOf(context.sessionID).busy = true
+        return this.manageGoal(context.sessionID, args.action, args.target, true)
+      }),
       tool("inventory", "Read every goal contract in THIS project: drafts, live/stopped/complete runs and archives, with real session/agent/progress/priority and existing contract metadata. Goal contracts are not CLEO tasks; never infer a goal parent from a task ID. Unknown/missing metadata is reported honestly; this performs no lifecycle operation.", { properties: {} }, async () => ({ goals: await this.inventory() })),
       tool("review", "Re-present this session's pending engine decision in a native owner form after dismissal/commentary. Optional decisionId selects the exact review; this never approves, resumes or executes an operation. Expired reviews need a new review; changed target generations are refused.", { properties: { decisionId: { type: "string", minLength: 1, maxLength: 256 } } }, async (args, context) => this.reviewDecision(context.sessionID, args.decisionId ? String(args.decisionId) : undefined)),
       tool("propose_amendment", "Stage a validated replacement YAML contract as a reviewed diff for a selected live goal. Does NOT edit goal.yaml or grant consent. Exact owner accept/reject/comment is required; changed statements/checks reset proof and the goal remains stopped. Never call an owner accept operation yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" }, yaml: { type: "string", minLength: 1, maxLength: 200000 }, rationale: { type: "string", minLength: 1, maxLength: 2000 } }, required: ["slug", "expectedLock", "yaml", "rationale"] }, async (args, context) => this.proposeAmendment(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock), yaml: String(args.yaml), rationale: String(args.rationale) })),

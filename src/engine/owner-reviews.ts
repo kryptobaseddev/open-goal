@@ -18,6 +18,8 @@ export type ReviewRequest = {
   choiceValues?: Record<string, string>
   result?: string
   comment?: string
+  /** Authenticated owner-message identity, when this is a direct owner command. */
+  ownerMessageID?: string
 }
 type ReviewData<T> = { version: 1; requests: Record<string, T> }
 export type ReviewChoice = { value: string; label: string; description: string }
@@ -140,6 +142,11 @@ export class OwnerReviewStore<T extends ReviewRequest> {
     return this.mutate((data) => {
       const p = data.requests[id]
       if (!p || p.status !== "pending") return undefined
+      // Different processes can create separate proposals for the same real
+      // message. Enforce consumption under THIS cross-process lock, not only
+      // with an earlier all() read in the caller.
+      if (p.ownerMessageID && Object.values(data.requests).some((other) => other.id !== id
+        && other.ownerMessageID === p.ownerMessageID && ["executing", "succeeded", "failed"].includes(other.status))) return undefined
       if (p.expiresAt < Date.now()) { p.status = "expired"; return undefined }
       if (p.issuerPID !== process.pid && processAlive(p.issuerPID)) return undefined
       p.status = "executing"

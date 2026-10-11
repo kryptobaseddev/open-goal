@@ -29,6 +29,7 @@ const fixtureHost = await goalHost(script((req, turn) => {
   if (turn.results === 0) return { toolCalls: [{ name: "goal_wait", args: { seconds: 300, reason: "real manager terminal gate" } }] }
   return { text: "Holding this goal for terminal inspection." }
 }), { ".opencode/goals/second/goal.yaml": DEMO_GOAL.replace("id: demo", "id: second").replace("Demo file says ok", "Second Managed Goal") }, {
+  ...(process.env.OCGOAL_GIT_SPEC ? { plugin: process.env.OCGOAL_GIT_SPEC } : {}),
   extraPlugins: [{ package: join(import.meta.dir, "../test/fixtures/manager-pty-probe"), options: { output: observer } }],
 })
 // macOS /var is a symlink to /private/var. The CLI canonicalizes cwd; use
