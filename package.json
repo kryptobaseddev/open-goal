@@ -1,6 +1,6 @@
 {
   "name": "opencode-goal",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Persistent, host-verified goal mode for OpenCode 2 with a structured goal contract and a live TUI.",
   "type": "module",
   "license": "MIT",
@@ -9,9 +9,11 @@
     "opencode": ">=2.0.22"
   },
   "scripts": {
+    "build:tui": "bun scripts/build-tui.mjs",
+    "check:tui": "bun scripts/build-tui.mjs --check",
     "test": "bun test --timeout 120000",
     "test:host": "bun test test/host --timeout 120000",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun run check:tui && tsc --noEmit"
   },
   "devDependencies": {
     "@opencode/client": "2.0.22",
@@ -24,13 +26,14 @@
   "exports": {
     ".": "./server.ts",
     "./server": "./server.ts",
-    "./tui": "./tui.tsx",
+    "./tui": "./dist/tui.js",
     "./rpc": "./rpc.ts"
   },
   "files": [
     "server.ts",
     "tui.tsx",
     "rpc.ts",
+    "dist",
     "src",
     "skills",
     "README.md",

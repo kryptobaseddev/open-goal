@@ -55,19 +55,19 @@ test("immutable Git installs prove revision AND bytes; the old cache fails even 
   const repo = join(root, "package")
   mkdirSync(repo)
   try {
-    for (const name of ["package.json", "server.ts", "tui.tsx", "rpc.ts", "src", "skills", "README.md", "LICENSE", "CHANGELOG.md"])
+    for (const name of ["package.json", "server.ts", "tui.tsx", "rpc.ts", "dist", "src", "skills", "README.md", "LICENSE", "CHANGELOG.md"])
       cpSync(join(project, name), join(repo, name), { recursive: true })
-    const freshUI = readFileSync(join(repo, "src/tui/index.tsx"), "utf8")
+    const freshUI = readFileSync(join(repo, "dist/tui.js"), "utf8")
     // Deliberately different immutable revisions, but IDENTICAL semantic
     // version labels. No tag moves and no editing the installed cache.
-    writeFileSync(join(repo, "src/tui/index.tsx"), `${freshUI}\n// older immutable UI artifact\n`)
+    writeFileSync(join(repo, "dist/tui.js"), `${freshUI}\n// older immutable compiled UI artifact\n`)
     git(repo, "init", "-q", "-b", "main")
     git(repo, "add", ".")
     git(repo, "commit", "-q", "-m", "old artifact")
     const oldRevision = git(repo, "rev-parse", "HEAD")
     git(repo, "tag", "artifact-old")
-    writeFileSync(join(repo, "src/tui/index.tsx"), freshUI)
-    git(repo, "add", "src/tui/index.tsx")
+    writeFileSync(join(repo, "dist/tui.js"), freshUI)
+    git(repo, "add", "dist/tui.js")
     git(repo, "commit", "-q", "-m", "new artifact")
     const revision = git(repo, "rev-parse", "HEAD")
     git(repo, "tag", "artifact-new")
@@ -78,10 +78,10 @@ test("immutable Git installs prove revision AND bytes; the old cache fails even 
     expect(old.packageVersion).toBe(fresh.packageVersion)
     const errors = artifactDiscrepancies(old, expected)
     expect(errors).toContain(`running revision ${oldRevision} differs from ${revision}`)
-    expect(errors).toContain("artifact mismatch: src/tui/index.tsx")
+    expect(errors).toContain("artifact mismatch: dist/tui.js")
     expect(artifactDiscrepancies(fresh, expected)).toEqual([])
     // Correct registry SHA but wrong UI bytes also fails independently.
-    expect(artifactDiscrepancies({ ...old, source: fresh.source }, expected)).toContain("artifact mismatch: src/tui/index.tsx")
+    expect(artifactDiscrepancies({ ...old, source: fresh.source }, expected)).toContain("artifact mismatch: dist/tui.js")
   } finally { rmSync(root, { recursive: true, force: true }) }
 }, 240000)
 

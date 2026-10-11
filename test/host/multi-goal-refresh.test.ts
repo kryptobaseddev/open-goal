@@ -6,7 +6,8 @@ import { until } from "./harness"
 
 ensureSolidTransformPlugin()
 const { testRender } = await import("@opentui/solid")
-const plugin = (await import("../../src/tui/index")).default
+// Exercise shipped precompiled bytes, not the source-only Solid transform.
+const plugin = (await import("../../tui")).default
 
 test("real two-session sidebar converges after missed events and reload from a goal-less primary session", async () => {
   const host = await goalHost(script((_req, turn) => {

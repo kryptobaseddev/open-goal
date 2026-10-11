@@ -26,6 +26,11 @@ test("exact revision, complete artifact bytes and actual caller binding are requ
 })
 
 test("a fresh cache with the right version label but old UI bytes is rejected", () => {
+  const staleCompiled = { ...actual, artifacts: { ...artifacts, "dist/tui.js": "0".repeat(64) } }
+  expect(artifactDiscrepancies(staleCompiled, expected)).toContain("artifact mismatch: dist/tui.js")
+  const withoutCompiled = { ...artifacts }
+  delete withoutCompiled["dist/tui.js"]
+  expect(artifactDiscrepancies({ ...actual, artifacts: withoutCompiled }, { ...expected, artifacts: withoutCompiled })).toContain("release manifest omits dist/tui.js")
   const stale = { ...actual, artifacts: { ...artifacts, "src/tui/index.tsx": "0".repeat(64) } }
   expect(artifactDiscrepancies(stale, expected)).toContain("artifact mismatch: src/tui/index.tsx")
   expect(artifactDiscrepancies(actual, { ...expected, artifacts: {} })).toContain("release manifest omits src/tui/index.tsx")
@@ -35,7 +40,7 @@ test("a fresh cache with the right version label but old UI bytes is rejected", 
 })
 
 test("all production entrypoints, server/TUI modules and skill bytes are captured", () => {
-  for (const path of ["server.ts", "tui.tsx", "rpc.ts", "src/server/app.ts", "src/tui/index.tsx", "skills/write-goal/SKILL.md"])
+  for (const path of ["server.ts", "tui.tsx", "rpc.ts", "dist/tui.js", "src/server/app.ts", "src/tui/index.tsx", "skills/write-goal/SKILL.md"])
     expect(artifacts[path]).toMatch(/^[a-f0-9]{64}$/)
   expect(Object.keys(artifacts).some((p) => p.startsWith("test/") || p.startsWith(".opencode/"))).toBe(false)
 })

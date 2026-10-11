@@ -40,11 +40,11 @@ export default {
     let goalsDirectory: string | undefined
     let disposed = false
 
-    const locationOf = (sessionID: string) => (context.data.session.get(sessionID) as any)?.location
+    const locationOf = (sessionID?: string) => (sessionID ? (context.data.session.get(sessionID) as any)?.location : undefined) ?? context.location ?? context.data.location?.default()
     const ensureGoals = async (force = false) => {
       goalsRequested = true
       const route = context.ui.router.current()
-      const location = route.type === "session" ? locationOf(route.sessionID) : undefined
+      const location = locationOf(route.type === "session" ? route.sessionID : undefined)
       const directory = location?.directory
       if (goalsDirectory !== directory) {
         goalsDirectory = directory
@@ -61,7 +61,8 @@ export default {
       try {
         const listed = await rpc.list({}, location ? { location } : undefined)
         if (disposed || goalsDirectory !== directory) return
-        setGoalsList((listed?.goals ?? []) as GoalSummary[])
+        if (!Array.isArray(listed?.goals)) throw new Error("Goal inventory missing")
+        setGoalsList(listed.goals as GoalSummary[])
         setGoalsState("ready")
       } catch {
         if (!disposed && goalsDirectory === directory) setGoalsState("error")

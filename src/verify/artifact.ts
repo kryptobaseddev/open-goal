@@ -27,7 +27,7 @@ export type RuntimeProvenance = {
 }
 
 const entrypoints = ["package.json", "server.ts", "tui.tsx", "rpc.ts"]
-const directories = ["src", "skills"]
+const directories = ["src", "skills", "dist"]
 export const isArtifactPath = (path: string) => entrypoints.includes(path) || directories.some((dir) => path.startsWith(`${dir}/`))
 export const hashArtifact = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex")
 
@@ -71,7 +71,7 @@ export function artifactDiscrepancies(actual: RuntimeProvenance, expected: {
   for (const key of ["location", "serverPID", "sessionID", "runId", "lock"] as const) {
     if (expected[key] !== undefined && actual[key] !== expected[key]) errors.push(`runtime ${key} does not match the goal/check caller`)
   }
-  const required = ["package.json", "server.ts", "tui.tsx", "rpc.ts", "src/server/app.ts", "src/tui/index.tsx", "src/tui/dashboard.ts", "skills/write-goal/SKILL.md"]
+  const required = ["package.json", "server.ts", "tui.tsx", "rpc.ts", "dist/tui.js", "src/server/app.ts", "src/tui/index.tsx", "src/tui/dashboard.ts", "skills/write-goal/SKILL.md"]
   for (const path of required) if (!expected.artifacts[path]) errors.push(`release manifest omits ${path}`)
   const paths = new Set([...Object.keys(expected.artifacts), ...Object.keys(actual.artifacts)])
   for (const path of paths) {

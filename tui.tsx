@@ -1,2 +1,2 @@
 // Root TUI entry (see server.ts).
-export { default } from "./src/tui/index"
+export { default } from "./dist/tui.js"
