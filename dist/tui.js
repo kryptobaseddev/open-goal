@@ -68,6 +68,7 @@ var GoalRpc = {
           title: { type: "string" },
           message: { type: "string" },
           question: { type: "string" },
+          expiresAt: { type: "number" },
           choices: { type: "array", items: { type: "object", properties: { label: { type: "string" }, act: { type: "string" }, arg: { type: "string" }, run: { type: "string" } }, required: ["label"], additionalProperties: true } }
         },
         required: ["sessionID", "kind", "message", "choices"],
@@ -86,6 +87,9 @@ var GoalRpc = {
         required: ["sessionID", "kind", "via"],
         additionalProperties: true
       }
+    },
+    "decision.failed": {
+      schema: { type: "object", properties: { sessionID: { type: "string" }, decisionId: { type: "string" }, message: { type: "string" } }, required: ["sessionID", "decisionId", "message"], additionalProperties: false }
     }
   }
 };
@@ -785,6 +789,16 @@ var tui_default = {
       const choice = dialogChoices.get(id);
       if (!choice || replyingChoices.has(id))
         return;
+      if (choice.deadline <= Date.now()) {
+        dialogChoices.delete(id);
+        context.ui.toast.show({
+          title: "Goal decision",
+          message: "Review expired or its native form did not arrive; nothing executed. Request the exact review again.",
+          variant: "warning",
+          duration: 8000
+        });
+        return;
+      }
       replyingChoices.add(id);
       const location = locationOf(choice.sessionID);
       try {
@@ -792,13 +806,28 @@ var tui_default = {
         if (dialogChoices.get(id) !== choice)
           return;
         const answer = decisionFormAnswer(context.data.session.form.list(choice.sessionID, location) ?? [], choice.question, choice.label);
-        if (!answer)
+        if (!answer) {
+          if (!choice.waitingNotice) {
+            choice.waitingNotice = true;
+            context.ui.toast.show({
+              title: "Goal decision",
+              message: "Choice not yet delivered; operation not executed. Waiting for its exact native form.",
+              variant: "warning",
+              duration: 8000
+            });
+          }
           return;
+        }
         await context.data.session.form.reply({
           sessionID: choice.sessionID,
           ...answer
         }, location);
         dialogChoices.delete(id);
+        context.ui.toast.show({
+          title: "Goal decision",
+          message: "Choice delivered; awaiting the engine's operation result.",
+          variant: "info"
+        });
       } catch (error) {
         dialogChoices.delete(id);
         context.ui.toast.show({
@@ -813,13 +842,25 @@ var tui_default = {
     const offData = context.data.listen(({
       details
     }) => {
+      if (details?.type === "form.cancelled") {
+        for (const [id, choice] of dialogChoices)
+          if (choice.sessionID === details.data?.sessionID) {
+            dialogChoices.delete(id);
+            context.ui.toast.show({
+              title: "Goal decision",
+              message: replyingChoices.has(id) ? "Native form dismissed; queued choice withdrawn. Delivery may have been in flight; inspect goal state before another review." : "Native form dismissed; queued choice withdrawn. Nothing executed. Request the review again before choosing.",
+              variant: "warning",
+              duration: 8000
+            });
+          }
+      }
       if (details?.type === "server.connected") {
         for (const id of requested)
           fetchView(id);
         if (goalsRequested)
           ensureGoals(true);
       }
-      if (details?.type === "form.asked" || details?.type === "server.connected")
+      if (details?.type === "form.created" || details?.type === "server.connected")
         for (const id of dialogChoices.keys())
           replyDialogChoice(id);
     });
@@ -1533,10 +1574,12 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
           const chosen = actionable[Number(pick)];
           if (chosen?.act) {
             if (typeof data.question === "string" && typeof data.decisionId === "string") {
+              const deadline = Math.min(typeof data.expiresAt === "number" ? data.expiresAt : Infinity, Date.now() + 120000);
               dialogChoices.set(data.decisionId, {
                 sessionID: data.sessionID,
                 question: data.question,
-                label: chosen.label
+                label: chosen.label,
+                deadline
               });
               await replyDialogChoice(data.decisionId);
             } else
@@ -1560,6 +1603,12 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
     const offResolved = rpc.events.on("decision.resolved", (event) => {
       const data = event.data ?? {};
       dialogChoices.delete(data.decisionId);
+      if (data.message)
+        context.ui.toast.show({
+          title: "Goal decision",
+          message: data.message,
+          variant: "success"
+        });
       if (openDecisionIdentity.get(data.sessionID) !== data.decisionId)
         return;
       const depth = openDecisions.get(data.sessionID) ?? 0;
@@ -1570,6 +1619,16 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
         context.ui.dialog.clear();
       } catch {}
       flushSummary(data.sessionID);
+    });
+    const offFailed = rpc.events.on("decision.failed", (event) => {
+      const data = event.data ?? {};
+      dialogChoices.delete(data.decisionId);
+      context.ui.toast.show({
+        title: "Goal decision",
+        message: String(data.message ?? "Owner operation did not execute; inspect the goal and request a new review."),
+        variant: "warning",
+        duration: 8000
+      });
     });
     const attachables = async () => {
       const sessionID = currentSession();
@@ -1729,6 +1788,7 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
       offSummary?.();
       offDecision?.();
       offResolved?.();
+      offFailed?.();
       offData?.();
       for (const dispose of disposers.splice(0))
         dispose();

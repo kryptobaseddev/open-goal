@@ -5,7 +5,7 @@ import { realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { OpenCode } from "@opencode/client"
 import { mkdir, writeFile } from "node:fs/promises"
-import { DEMO_GOAL, goalHost, newSession, run, script, text, waitStatus } from "../test/host/goal.helpers"
+import { DEMO_GOAL, goalHost, ledger, newSession, run, script, text, waitStatus } from "../test/host/goal.helpers"
 import { until } from "../test/host/harness"
 
 if (!process.argv.includes("--assert")) throw new Error("Use --assert; this gate never reports a screenshot as a pass")
@@ -15,17 +15,22 @@ const out = join(tmpdir(), "opencode", "goal-manager-gates", `${Date.now()}-${pr
 await mkdir(out, { recursive: true })
 const observer = join(out, "render-tree.json")
 const asked = new Set<string>()
+const decisionBridge = process.argv.includes("--decision-bridge")
+let resumeTarget: any
 // Preserve plugin activation diagnostics when the real client opens a new
 // session tab; a new lazy location must not pause the unrelated goal.
 process.env.OPENCODE_LOG_LEVEL = "debug"
-const fixtureHost = await goalHost(script((req, turn) => {
+const fixtureHost = await goalHost(script(async (req, turn) => {
   const lines = req.messages.map(text).join("\n").split("\n")
   const payload = lines.findLast((l) => l.startsWith("GOAL_DECISION_JSON:"))
   const presentation = lines.findLast((l) => l.startsWith("GOAL_DECISION_ASK:"))
   if (payload && presentation && !asked.has(presentation)) {
     asked.add(presentation)
+    if (decisionBridge && payload.includes("Resume selected goal")) await Bun.sleep(1500)
     return { toolCalls: [{ name: "question", args: JSON.parse(payload.slice("GOAL_DECISION_JSON:".length)) }] }
   }
+  if (decisionBridge && turn.trigger.includes("T085_STAGE_REVIEW") && turn.results === 0)
+    return { toolCalls: [{ name: "goal_manage", args: { action: "resume", target: resumeTarget } }] }
   if (turn.results === 0) return { toolCalls: [{ name: "goal_wait", args: { seconds: 300, reason: "real manager terminal gate" } }] }
   return { text: "Holding this goal for terminal inspection." }
 }), { ".opencode/goals/second/goal.yaml": DEMO_GOAL.replace("id: demo", "id: second").replace("Demo file says ok", "Second Managed Goal") }, {
@@ -42,11 +47,20 @@ try {
   const primary = created.id, one = await newSession(host), two = await newSession(host)
   await host.client.session.command({ sessionID: one, name: "goal", text: "start demo" } as any)
   const first = await waitStatus(host, ["waiting"], 15000)
+  resumeTarget = { key: `live:demo:${first.runId}`, runId: first.runId, lock: first.lock, sessionID: one }
   await host.client.session.command({ sessionID: two, name: "goal", text: "start second" } as any)
   const second = await waitStatus(host, ["waiting"], 15000, "second")
   const control = Bun.serve({ port: 0, hostname: "127.0.0.1", async fetch(request) {
     const url = new URL(request.url)
-    if (url.pathname === "/state") return Response.json({ first: await run(host), second: await run(host, "second") })
+    if (url.pathname === "/state") return Response.json({ first: await run(host), second: await run(host, "second"), firstResumes: (await ledger(host)).filter((e) => e.type === "resumed").length })
+    if (decisionBridge && request.method === "POST" && url.pathname === "/resume-review") {
+      await host.client.session.prompt({ sessionID: one, text: "T085_STAGE_REVIEW prepare the exact resume review; this request is not consent." } as any)
+      return Response.json({ requested: true })
+    }
+    if (decisionBridge && request.method === "POST" && url.pathname === "/pause-held") {
+      await host.client.session.command({ sessionID: one, name: "goal", text: "pause" } as any)
+      return Response.json({ paused: true })
+    }
     if (request.method === "POST" && url.pathname === "/fresh") {
       await host.client.session.command({ sessionID: primary, name: "goal", text: "start demo fresh" } as any)
       // Commands may be acknowledged while the abort-confirmation turn is
@@ -62,7 +76,7 @@ try {
   try {
     // The current gate's fresh phase restarts the ABORTED demo only after a
     // real rendered manager action aborts it. The other goal stays waiting.
-    await writeFile(join(out, "host.json"), JSON.stringify({ url: host.url, project: host.project, sessionID: primary, firstSessionID: one, secondSessionID: two, firstRunId: first.runId, secondRunId: second.runId, controlURL: `http://127.0.0.1:${control.port}`, observer, out, env: host.env, binary: process.env.OPENCODE_BINARY ?? join(process.env.HOME!, ".opencode/bin/opencode") }))
+    await writeFile(join(out, "host.json"), JSON.stringify({ decisionBridge, url: host.url, project: host.project, sessionID: primary, firstSessionID: one, secondSessionID: two, firstRunId: first.runId, secondRunId: second.runId, controlURL: `http://127.0.0.1:${control.port}`, observer, out, env: host.env, binary: process.env.OPENCODE_BINARY ?? join(process.env.HOME!, ".opencode/bin/opencode") }))
     const gate = Bun.spawn(["python3", join(import.meta.dir, "../spikes/goal-manager-gate.py"), join(out, "host.json")], { stdout: "inherit", stderr: "inherit" })
     const exit = await gate.exited
     const current = await run(host), other = await run(host, "second")

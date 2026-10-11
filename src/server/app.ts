@@ -472,7 +472,7 @@ export class GoalApp {
   private publishDecision(request: DecisionRequest) {
     this.pendingDecisions.set(request.sessionID, { id: request.id, kind: request.kind, slug: request.slug, at: request.createdAt, message: request.message })
     const choices = request.message.choices.map((c) => ({ label: c.label, run: c.run, ...(c.act ? { act: c.act } : { guidance: true }), ...(c.arg ? { arg: c.arg } : {}) }))
-    void this.rpc?.events.emit("decision", { sessionID: request.sessionID, slug: request.slug, kind: request.kind, decisionId: request.id, title: request.title, message: renderMessage(request.message), question: request.question, choices, ...request.extra }).catch(() => {})
+    void this.rpc?.events.emit("decision", { sessionID: request.sessionID, slug: request.slug, kind: request.kind, decisionId: request.id, title: request.title, message: renderMessage(request.message), question: request.question, expiresAt: request.expiresAt, choices, ...request.extra }).catch(() => {})
   }
 
   /**
@@ -679,7 +679,15 @@ export class GoalApp {
   }
 
   private async resolveDecisionForm(request: DecisionRequest, answer: Record<string, unknown>) {
-    if (request.status !== "pending" || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
+    if (!["pending", "expired"].includes(request.status) || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
+    if (request.status === "expired" || request.expiresAt < Date.now()) {
+      const message = "Decision review expired; nothing executed. Request the exact review again."
+      this.decisions.update(request.id, { status: "expired", result: message })
+      this.store.ledger(request.slug, { type: "decision-form-operation-failed", decision: request.id, ok: false, message })
+      this.noticeM(request.sessionID, M.ownerOperationFailed(message))
+      void this.rpc?.events.emit("decision.failed", { sessionID: request.sessionID, decisionId: request.id, message }).catch(() => {})
+      return
+    }
     const selected = selectedReviewChoice(request, decisionChoices(request), answer)
     const chosen = selected ? request.message.choices[Number(selected.value)] : undefined
     this.store.ledger(request.slug, { type: "decision-form-answered", decision: request.id, kind: request.kind, picked: chosen?.label ?? "(commentary)", ...(chosen?.act ? { act: chosen.act } : {}) })
@@ -688,6 +696,7 @@ export class GoalApp {
         if (!result.ok) {
           this.store.ledger(request.slug, { type: "decision-form-operation-failed", decision: request.id, action: chosen.act, ok: false, message: result.message })
           this.noticeM(request.sessionID, M.ownerOperationFailed(result.message))
+          void this.rpc?.events.emit("decision.failed", { sessionID: request.sessionID, decisionId: request.id, message: result.message }).catch(() => {})
         }
       }).catch((error) => this.noticeM(request.sessionID, M.ownerOperationFailed(String(error))))
     } else {
@@ -1753,7 +1762,7 @@ export class GoalApp {
         if (result.ok) {
           if (this.pendingDecisions.get(sessionID)?.id === reserved.id) this.pendingDecisions.delete(sessionID)
           if (this.pendingFormDecisions.get(sessionID)?.decisionId === reserved.id) this.pendingFormDecisions.delete(sessionID)
-          void this.rpc?.events.emit("decision.resolved", { sessionID, kind: reserved.kind, decisionId: reserved.id, via }).catch(() => {})
+          void this.rpc?.events.emit("decision.resolved", { sessionID, kind: reserved.kind, decisionId: reserved.id, via, message: result.message }).catch(() => {})
         } else {
           this.decisions.reopenForm(reserved.id)
           if (this.pendingFormDecisions.get(sessionID)?.decisionId === reserved.id) this.pendingFormDecisions.delete(sessionID)

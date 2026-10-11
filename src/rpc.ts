@@ -59,6 +59,7 @@ export const GoalRpc = {
           title: { type: "string" },
           message: { type: "string" },
           question: { type: "string" },
+          expiresAt: { type: "number" },
           choices: { type: "array", items: { type: "object", properties: { label: { type: "string" }, act: { type: "string" }, arg: { type: "string" }, run: { type: "string" } }, required: ["label"], additionalProperties: true } },
         },
         required: ["sessionID", "kind", "message", "choices"],
@@ -79,6 +80,9 @@ export const GoalRpc = {
         required: ["sessionID", "kind", "via"],
         additionalProperties: true,
       },
+    },
+    "decision.failed": {
+      schema: { type: "object", properties: { sessionID: { type: "string" }, decisionId: { type: "string" }, message: { type: "string" } }, required: ["sessionID", "decisionId", "message"], additionalProperties: false },
     },
   },
 } as const

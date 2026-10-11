@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.6 — 2026-10-11
+
+- **Truthful native popup delivery (T085)** — selecting a lifecycle popup before its exact native form exists now visibly says the operation has not executed; the real V2 `form.created` event wakes the bounded delivery queue. Expired reviews cannot submit a still-rendered form. Missing forms, expiry and failed host operations surface recovery guidance rather than silent acceptance. Successful host resolution carries the actual operation result. Target/nonce, source-consent and replay guards are unchanged.
+- **Native popup proof** — compiled-UI tests cover delayed creation, unrelated forms, expiry and failure feedback; a host scenario proves late resume consent never executes. The real PTY probe observes the host popup's actual pointer-enabled row handlers/bounds rather than mistaking its custom list for a SelectRenderable or using transcript matches as controls. Fresh focus waits for both route navigation and the hydrated active tab.
+- **Keep project scope deliberate** — current-session goals still rank first, then declared priority/recency; other project sessions remain marked elsewhere. Inventory display is not permission to act on another goal or a cross-project scheduler.
+
 ## 0.3.5 — 2026-10-11
 
 - **Reactive Git-installed TUI (T084)** — ship deterministic Solid-universal `dist/tui.js`, leaving renderer/Solid imports external. Raw TSX under `node_modules` was excluded by the host's Solid transform: installed cards froze at their initial empty props even though source-only tests passed. Root entries remain intact. Native installed-package regressions now resolve the shipped JS without source TSX, then deliver inventory after mount and verify actual cards, expansion, jump, and selected actions.

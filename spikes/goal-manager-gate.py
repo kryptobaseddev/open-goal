@@ -95,7 +95,8 @@ decoder = codecs.getincrementaldecoder("utf-8")("replace")
 pid, fd = pty.fork()
 if pid == 0:
     os.chdir(info["project"])
-    env = dict(info["env"], TERM="xterm-256color", COLUMNS=str(cols), LINES=str(rows), OCGOAL_PTY_PROBE_OUTPUT=info["observer"])
+    env = dict(os.environ, **info.get("env", {}))
+    env.update(TERM="xterm-256color", COLUMNS=str(cols), LINES=str(rows), OCGOAL_PTY_PROBE_OUTPUT=info["observer"])
     os.execve(info["binary"], [info["binary"], "--server", info["url"], "--session", info["sessionID"]], env)
 fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 os.set_blocking(fd, False)
@@ -169,8 +170,10 @@ try:
     check("two-rendered-cards", len(cards) == 2)
     send(b"\x1b[20~")  # proven OpenCode 2.0.26 F9, not the old leader probe
     manager = wait(lambda: node("goal-manager-list") if node("goal-manager-list") and node("goal-manager-list")["focused"] else None, "goal-less manager failed to open and take keyboard focus")
-    check("goal-less-native-manager", manager["select"] and manager["focused"] and len(manager["options"]) == 2)
-    first_key = "live:demo:" + info["firstRunId"]
+    expected_keys = {"live:" + info.get("firstSlug", "demo") + ":" + info["firstRunId"], "live:" + info.get("secondSlug", "second") + ":" + info["secondRunId"]}
+    collection_ok = expected_keys.issubset({o["value"] for o in manager["options"]}) if info.get("managerOnly") else len(manager["options"]) == 2
+    check("goal-less-native-manager", manager["select"] and manager["focused"] and collection_ok)
+    first_key = "live:" + info.get("firstSlug", "demo") + ":" + info["firstRunId"]
     # Real pointer selection must expand the clicked row, not silently act
     # on whatever keyboard index happened to be selected previously.
     index = next(i for i, option in enumerate(manager["options"]) if option["value"] == first_key)
@@ -214,6 +217,36 @@ try:
     wait(lambda: observed().get("width") == cols, "narrow resize not observed")
     actions = wait(lambda: node("goal-manager-actions"), "narrow selected controls disappeared")
     check("narrow-focus-and-bounds", actions["focused"] and actions["x"] >= 0 and actions["x"] + actions["width"] <= cols and actions["y"] + actions["height"] <= rows)
+    if info.get("decisionBridge"):
+        choose("goal-manager-actions", "jump")
+        wait(lambda: observed().get("route", {}).get("sessionID") == info["firstSessionID"], "resume popup target session not focused")
+        request = urllib.request.Request(info["controlURL"] + "/resume-review", data=b"{}", method="POST")
+        json.load(urllib.request.urlopen(request, timeout=10))
+        def popup_control():
+            # The host's dialog.select uses actual pointer-enabled row
+            # boxes, not SelectRenderable. Require a real rendered handler,
+            # one-row bounds and its exact label; never transcript alone.
+            return next((n for n in observed().get("pointerControls", []) if n.get("visible") and n.get("mouseHandlers")
+                         and 0 < n.get("height", 0) <= 2 and n.get("text", "").startswith("Resume selected goal")), None)
+        popup = wait(popup_control, "no actual selectable resume popup control")
+        check("delayed-form-native-popup", owner_state()["first"]["status"] == "paused")
+        x, y = popup["x"] + 2, popup["y"]
+        assert 0 <= x < cols and 0 <= y < rows, "resume popup row outside viewport"
+        send(f"\x1b[<0;{x + 1};{y + 1}M\x1b[<0;{x + 1};{y + 1}m".encode())
+        wait(lambda: owner_state()["first"]["status"] == "waiting", "real popup pick did not resume exact goal")
+        check("popup-resume-delivered-once", owner_state()["first"]["runId"] == info["firstRunId"] and owner_state()["second"]["status"] == "waiting" and owner_state().get("firstResumes") == 1)
+        request = urllib.request.Request(info["controlURL"] + "/pause-held", data=b"{}", method="POST")
+        json.load(urllib.request.urlopen(request, timeout=10))
+        wait(lambda: owner_state()["first"]["status"] == "paused", "QA cleanup could not pause inspected goal")
+        x, y = wait(tab_position, "original tab missing after popup inspection")
+        send(f"\x1b[<0;{x + 1};{y + 1}M\x1b[<0;{x + 1};{y + 1}m".encode())
+        wait(lambda: observed().get("route", {}).get("sessionID") == info["sessionID"], "original tab not restored")
+        if observed().get("panel", {}).get("name") != "goal-dashboard": send(b"\x1b[20~")
+        if not node("goal-manager-details"): choose("goal-manager-list", first_key)
+        wait(lambda: node("goal-manager-actions") and node("goal-manager-actions")["focused"], "selected actions not refocused")
+    if info.get("managerOnly"):
+        json.dump({"pass": True, "checks": results}, open(os.path.join(out, "pty-result.json"), "w"), indent=2)
+        sys.exit(0)
     # Exit the old run via the real native confirmation, then perform a
     # fixture-owner fresh launch and prove the UI actually focuses its tab.
     choose("goal-manager-actions", "abort")
@@ -224,7 +257,11 @@ try:
     request = urllib.request.Request(info["controlURL"] + "/fresh", data=b"{}", method="POST")
     response = json.load(urllib.request.urlopen(request, timeout=30))
     fresh = response["first"]["sessionID"]
-    wait(lambda: observed().get("route", {}).get("sessionID") == fresh, "fresh launch did not focus its new root session")
+    # Router navigation and tab hydration settle independently. Require
+    # BOTH real observations before asserting focus; a route-only snapshot
+    # can precede registration of the new native tab by one render pass.
+    wait(lambda: observed().get("route", {}).get("sessionID") == fresh and
+         any(t["sessionID"] == fresh and t["active"] for t in observed().get("tabs", [])), "fresh launch did not register and focus its new root tab")
     check("fresh-tab-focus", any(t["sessionID"] == fresh and t["active"] for t in observed()["tabs"]) and owner_state()["second"]["status"] == "waiting")
     json.dump({"pass": True, "checks": results}, open(os.path.join(out, "pty-result.json"), "w"), indent=2)
 except Exception as error:
