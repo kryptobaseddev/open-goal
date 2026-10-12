@@ -27,7 +27,11 @@ const primary: any = await client.session.create({ location, title: "Deployed Re
 const out = join(evidence, "manager-pty"), observer = join(out, "render-tree.json")
 await mkdir(out, { recursive: true })
 // This affects only the isolated QA location, not any global configuration.
-await writeFile(join(root, ".opencode/opencode.json"), JSON.stringify({ plugins: [{ package: join(import.meta.dir, "../test/fixtures/manager-pty-probe"), options: { output: observer } }] }, null, 2))
+const configPath = join(root, ".opencode/opencode.json")
+const isolatedConfig = JSON.parse(await readFile(configPath, "utf8").catch(() => "{}"))
+const probePath = join(import.meta.dir, "../test/fixtures/manager-pty-probe")
+isolatedConfig.plugins = [...(isolatedConfig.plugins ?? []).filter((p: any) => (typeof p === "string" ? p : p.package) !== probePath), { package: probePath, options: { output: observer } }]
+await writeFile(configPath, JSON.stringify(isolatedConfig, null, 2))
 await client.location.reload({ location } as any)
 // The interview goal correctly completed after the test owner's resume.
 // Preserve it and create independent fixed-scope inspection goals instead
