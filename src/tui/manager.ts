@@ -70,9 +70,10 @@ export function orderedGoals(goals: readonly GoalSummary[], sessionID: string): 
 
 export function sidebarCards(goals: readonly GoalSummary[], sessionID: string, width = 40, maxLines = 12) {
   const active = orderedGoals(goals.filter((g) => !g.archived && !g.terminal && !terminal.has(g.status)), sessionID)
-  // Header + (one gap, two selectable lines, one progress line) per card;
+  // Header + (one gap, two selectable lines, progress, optional handoff
+  // slug/session pointer) per card; reserve for the largest card shape.
   // reserve a final SELECTABLE manager pointer whenever anything overflows.
-  const capacity = Math.max(1, Math.floor((maxLines - 2) / 4))
+  const capacity = Math.max(1, Math.floor((maxLines - 2) / 5))
   const visible = active.slice(0, capacity)
   return {
     total: active.length, hidden: Math.max(0, active.length - visible.length),
@@ -82,7 +83,9 @@ export function sidebarCards(goals: readonly GoalSummary[], sessionID: string, w
       const tone: Tone = goal.status === "blocked" ? "error" : ["running", "waiting", "verifying"].includes(goal.status) ? "success" : "warning"
       const steps = goal.steps ?? []
       const plan = steps.length ? `${steps.filter((s) => s.status === "done").length}/${steps.length} plan · ` : ""
-      return { key: goalKey(goal), goal, tone, title: fitColumns(goal.title, Math.max(1, width - 2)), description: fitColumns(`${goal.status}${goal.launch?.status === "executing" ? " · starting" : goal.launch?.status === "expired" ? " · review expired" : ""} · ${where}`, Math.max(1, width - 2)), progress: fitColumns(`${goal.handoff?.fromSessionID === sessionID ? "from here · " : ""}${plan}${goal.proven}/${goal.total} proven · ${goal.agent ?? "agent unknown"}`, width) }
+      const handoffPointer = goal.handoff?.fromSessionID === sessionID && goal.sessionID
+        ? `${fitColumns(goal.slug, Math.max(1, width - 17))} · ses…${goal.sessionID.slice(-8)}` : undefined
+      return { key: goalKey(goal), goal, tone, title: fitColumns(goal.title, Math.max(1, width - 2)), description: fitColumns(`${goal.status}${goal.launch?.status === "executing" ? " · starting" : goal.launch?.status === "expired" ? " · review expired" : ""} · ${where}`, Math.max(1, width - 2)), progress: fitColumns(`${goal.handoff?.fromSessionID === sessionID ? "from here · " : ""}${plan}${goal.proven}/${goal.total} proven · ${goal.agent ?? "agent unknown"}`, width), handoffPointer: handoffPointer ? fitColumns(handoffPointer, width) : undefined }
     }),
     pointer: fitColumns(active.length > visible.length ? `+${active.length - visible.length} ${active.length - visible.length === 1 ? "goal" : "goals"} — F9 manager` : "F9 goals manager", width),
   }

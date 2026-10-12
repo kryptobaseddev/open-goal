@@ -151,3 +151,24 @@ for (const mode of ["context", "default"] as const) test(`installed inventory us
     expect(ui.terminal.captureCharFrame()).not.toContain("Inventory unavailable")
   } finally { ui.stop() }
 })
+
+test("the original author keeps a rendered slug/session pointer until a fresh run ends, with full identifiers in details", async () => {
+  const ui = await mount()
+  try {
+    const fresh = { ...goals[0]!, handoff: { fromSessionID: primary, toSessionID: goals[0]!.sessionID! } }
+    ui.deliver({ goals: [fresh, goals[1]], directory: ui.location.directory })
+    ui.refresh([fresh, goals[1]!]); await ui.render()
+    const pointer = ui.control(`goal-handoff-pointer:${fresh.key}`)
+    expect(pointer).toBeDefined()
+    expect(pointer.x + pointer.width).toBeLessThanOrEqual(ui.terminal.renderer.terminalWidth)
+    expect(ui.terminal.captureCharFrame()).toContain("alpha · ses…es_alpha")
+    const card = ui.control(`goal-card:${fresh.key}`)
+    expect(card.getSelectedOption().description).toContain("elsewhere")
+    await ui.terminal.mockMouse.click(card.x + 1, card.y + 1); await ui.render()
+    expect(ui.jumps).toEqual([])
+    expect(ui.terminal.captureCharFrame()).toContain("Goal: alpha")
+    expect(ui.terminal.captureCharFrame()).toContain("Session ID: ses_alpha")
+    ui.refresh([{ ...fresh, terminal: true, status: "complete" }, goals[1]!]); await ui.render()
+    expect(ui.control(`goal-handoff-pointer:${fresh.key}`)).toBeUndefined()
+  } finally { ui.stop() }
+})

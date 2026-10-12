@@ -543,7 +543,7 @@ function orderedGoals(goals, sessionID) {
 }
 function sidebarCards(goals, sessionID, width = 40, maxLines = 12) {
   const active = orderedGoals(goals.filter((g) => !g.archived && !g.terminal && !terminal.has(g.status)), sessionID);
-  const capacity = Math.max(1, Math.floor((maxLines - 2) / 4));
+  const capacity = Math.max(1, Math.floor((maxLines - 2) / 5));
   const visible = active.slice(0, capacity);
   return {
     total: active.length,
@@ -554,7 +554,8 @@ function sidebarCards(goals, sessionID, width = 40, maxLines = 12) {
       const tone = goal.status === "blocked" ? "error" : ["running", "waiting", "verifying"].includes(goal.status) ? "success" : "warning";
       const steps = goal.steps ?? [];
       const plan = steps.length ? `${steps.filter((s) => s.status === "done").length}/${steps.length} plan \xB7 ` : "";
-      return { key: goalKey(goal), goal, tone, title: fitColumns(goal.title, Math.max(1, width - 2)), description: fitColumns(`${goal.status}${goal.launch?.status === "executing" ? " \xB7 starting" : goal.launch?.status === "expired" ? " \xB7 review expired" : ""} \xB7 ${where}`, Math.max(1, width - 2)), progress: fitColumns(`${goal.handoff?.fromSessionID === sessionID ? "from here \xB7 " : ""}${plan}${goal.proven}/${goal.total} proven \xB7 ${goal.agent ?? "agent unknown"}`, width) };
+      const handoffPointer = goal.handoff?.fromSessionID === sessionID && goal.sessionID ? `${fitColumns(goal.slug, Math.max(1, width - 17))} \xB7 ses\u2026${goal.sessionID.slice(-8)}` : undefined;
+      return { key: goalKey(goal), goal, tone, title: fitColumns(goal.title, Math.max(1, width - 2)), description: fitColumns(`${goal.status}${goal.launch?.status === "executing" ? " \xB7 starting" : goal.launch?.status === "expired" ? " \xB7 review expired" : ""} \xB7 ${where}`, Math.max(1, width - 2)), progress: fitColumns(`${goal.handoff?.fromSessionID === sessionID ? "from here \xB7 " : ""}${plan}${goal.proven}/${goal.total} proven \xB7 ${goal.agent ?? "agent unknown"}`, width), handoffPointer: handoffPointer ? fitColumns(handoffPointer, width) : undefined };
     }),
     pointer: fitColumns(active.length > visible.length ? `+${active.length - visible.length} ${active.length - visible.length === 1 ? "goal" : "goals"} \u2014 F9 manager` : "F9 goals manager", width)
   };
@@ -941,6 +942,8 @@ var tui_default = {
                 var _el$2 = _$createElement("text"), _el$3 = _$createTextNode(`Goals (`), _el$4 = _$createTextNode(`)`);
                 _$insertNode(_el$2, _el$3);
                 _$insertNode(_el$2, _el$4);
+                _$setProp(_el$2, "height", 1);
+                _$setProp(_el$2, "flexShrink", 0);
                 _$setProp(_el$2, "wrapMode", "none");
                 _$setProp(_el$2, "truncate", true);
                 _$insert(_el$2, () => model().total, _el$4);
@@ -963,15 +966,35 @@ var tui_default = {
                     _$insertNode(_el$6, _el$8);
                     _$setProp(_el$6, "flexDirection", "column");
                     _$setProp(_el$6, "marginTop", 1);
+                    _$setProp(_el$6, "flexShrink", 0);
                     _$setProp(_el$7, "id", `goal-card:${key}`);
                     _$setProp(_el$7, "height", 2);
+                    _$setProp(_el$7, "flexShrink", 0);
                     _$setProp(_el$7, "showDescription", true);
                     _$setProp(_el$7, "showSelectionIndicator", false);
                     _$setProp(_el$7, "onSelect", expand);
                     _$setProp(_el$7, "onMouseUp", expand);
+                    _$setProp(_el$8, "height", 1);
+                    _$setProp(_el$8, "flexShrink", 0);
                     _$setProp(_el$8, "wrapMode", "none");
                     _$setProp(_el$8, "truncate", true);
                     _$insert(_el$8, () => card()?.progress ?? "");
+                    _$insert(_el$6, _$createComponent(Show, {
+                      get when() {
+                        return card()?.handoffPointer;
+                      },
+                      children: (pointer) => (() => {
+                        var _el$9 = _$createElement("text");
+                        _$setProp(_el$9, "id", `goal-handoff-pointer:${key}`);
+                        _$setProp(_el$9, "height", 1);
+                        _$setProp(_el$9, "flexShrink", 0);
+                        _$setProp(_el$9, "wrapMode", "none");
+                        _$setProp(_el$9, "truncate", true);
+                        _$insert(_el$9, pointer);
+                        _$effect((_$p) => _$setProp(_el$9, "fg", color("muted"), _$p));
+                        return _el$9;
+                      })()
+                    }), null);
                     _$effect((_p$) => {
                       var _v$ = [{
                         name: card()?.title ?? "",
@@ -997,6 +1020,7 @@ var tui_default = {
           }), _el$5);
           _$setProp(_el$5, "id", "goal-sidebar-manager");
           _$setProp(_el$5, "height", 1);
+          _$setProp(_el$5, "flexShrink", 0);
           _$setProp(_el$5, "showDescription", false);
           _$setProp(_el$5, "onSelect", () => {
             openPanel();
@@ -1027,10 +1051,10 @@ var tui_default = {
             return _$memo(() => !!input.sessionID)() ? views[input.sessionID] : undefined;
           },
           children: (view) => (() => {
-            var _el$9 = _$createElement("text");
-            _$insert(_el$9, () => pillText(view(), now()));
-            _$effect((_$p) => _$setProp(_el$9, "fg", color(view().status === "running" ? "success" : "muted"), _$p));
-            return _el$9;
+            var _el$0 = _$createElement("text");
+            _$insert(_el$0, () => pillText(view(), now()));
+            _$effect((_$p) => _$setProp(_el$0, "fg", color(view().status === "running" ? "success" : "muted"), _$p));
+            return _el$0;
           })()
         });
       }
@@ -1048,51 +1072,51 @@ var tui_default = {
           return view ? bannerText(view) : undefined;
         };
         return (() => {
-          var _el$0 = _$createElement("box");
-          _$setProp(_el$0, "flexDirection", "column");
-          _$setProp(_el$0, "paddingLeft", 1);
-          _$setProp(_el$0, "paddingRight", 1);
-          _$insert(_el$0, _$createComponent(Show, {
+          var _el$1 = _$createElement("box");
+          _$setProp(_el$1, "flexDirection", "column");
+          _$setProp(_el$1, "paddingLeft", 1);
+          _$setProp(_el$1, "paddingRight", 1);
+          _$insert(_el$1, _$createComponent(Show, {
             get when() {
               return launchStatusText(currentLaunch(input.sessionID));
             },
             children: (line) => (() => {
-              var _el$1 = _$createElement("text");
-              _$setProp(_el$1, "id", "goal-launch-admission");
-              _$setProp(_el$1, "wrapMode", "none");
-              _$setProp(_el$1, "truncate", true);
-              _$insert(_el$1, line);
-              _$effect((_$p) => _$setProp(_el$1, "fg", color(currentLaunch(input.sessionID)?.status === "executing" ? "muted" : "warning"), _$p));
-              return _el$1;
+              var _el$10 = _$createElement("text");
+              _$setProp(_el$10, "id", "goal-launch-admission");
+              _$setProp(_el$10, "wrapMode", "none");
+              _$setProp(_el$10, "truncate", true);
+              _$insert(_el$10, line);
+              _$effect((_$p) => _$setProp(_el$10, "fg", color(currentLaunch(input.sessionID)?.status === "executing" ? "muted" : "warning"), _$p));
+              return _el$10;
             })()
           }), null);
-          _$insert(_el$0, _$createComponent(For, {
+          _$insert(_el$1, _$createComponent(For, {
             get each() {
               return tracer();
             },
             children: (line) => (() => {
-              var _el$10 = _$createElement("text");
-              _$setProp(_el$10, "wrapMode", "none");
-              _$setProp(_el$10, "truncate", true);
-              _$insert(_el$10, () => line.text);
-              _$effect((_$p) => _$setProp(_el$10, "fg", color(line.tone), _$p));
-              return _el$10;
+              var _el$11 = _$createElement("text");
+              _$setProp(_el$11, "wrapMode", "none");
+              _$setProp(_el$11, "truncate", true);
+              _$insert(_el$11, () => line.text);
+              _$effect((_$p) => _$setProp(_el$11, "fg", color(line.tone), _$p));
+              return _el$11;
             })()
           }), null);
-          _$insert(_el$0, _$createComponent(Show, {
+          _$insert(_el$1, _$createComponent(Show, {
             get when() {
               return banner();
             },
             children: (b) => (() => {
-              var _el$11 = _$createElement("text");
-              _$setProp(_el$11, "wrapMode", "none");
-              _$setProp(_el$11, "truncate", true);
-              _$insert(_el$11, () => b().text);
-              _$effect((_$p) => _$setProp(_el$11, "fg", color(b().tone), _$p));
-              return _el$11;
+              var _el$12 = _$createElement("text");
+              _$setProp(_el$12, "wrapMode", "none");
+              _$setProp(_el$12, "truncate", true);
+              _$insert(_el$12, () => b().text);
+              _$effect((_$p) => _$setProp(_el$12, "fg", color(b().tone), _$p));
+              return _el$12;
             })()
           }), null);
-          return _el$0;
+          return _el$1;
         })();
       }
     }));
@@ -1188,76 +1212,76 @@ var tui_default = {
           },
           get fallback() {
             return (() => {
-              var _el$12 = _$createElement("box"), _el$13 = _$createElement("text"), _el$14 = _$createElement("b"), _el$16 = _$createElement("select"), _el$17 = _$createElement("text");
-              _$insertNode(_el$12, _el$13);
-              _$insertNode(_el$12, _el$16);
-              _$insertNode(_el$12, _el$17);
-              _$setProp(_el$12, "id", "goal-manager");
-              _$setProp(_el$12, "flexDirection", "column");
-              _$setProp(_el$12, "paddingLeft", 1);
-              _$setProp(_el$12, "paddingRight", 1);
-              _$setProp(_el$12, "height", "100%");
-              _$setProp(_el$12, "minHeight", 0);
-              _$setProp(_el$12, "overflow", "hidden");
+              var _el$13 = _$createElement("box"), _el$14 = _$createElement("text"), _el$15 = _$createElement("b"), _el$17 = _$createElement("select"), _el$18 = _$createElement("text");
               _$insertNode(_el$13, _el$14);
-              _$setProp(_el$13, "height", 1);
-              _$setProp(_el$13, "flexShrink", 0);
-              _$setProp(_el$13, "wrapMode", "none");
-              _$setProp(_el$13, "truncate", true);
-              _$insertNode(_el$14, _$createTextNode(`Goals manager \xB7 this project`));
+              _$insertNode(_el$13, _el$17);
+              _$insertNode(_el$13, _el$18);
+              _$setProp(_el$13, "id", "goal-manager");
+              _$setProp(_el$13, "flexDirection", "column");
+              _$setProp(_el$13, "paddingLeft", 1);
+              _$setProp(_el$13, "paddingRight", 1);
+              _$setProp(_el$13, "height", "100%");
+              _$setProp(_el$13, "minHeight", 0);
+              _$setProp(_el$13, "overflow", "hidden");
+              _$insertNode(_el$14, _el$15);
+              _$setProp(_el$14, "height", 1);
+              _$setProp(_el$14, "flexShrink", 0);
+              _$setProp(_el$14, "wrapMode", "none");
+              _$setProp(_el$14, "truncate", true);
+              _$insertNode(_el$15, _$createTextNode(`Goals manager \xB7 this project`));
               _$use((control) => {
                 closeControl = control;
                 rememberFocus(control);
-              }, _el$16);
-              _$setProp(_el$16, "id", "goal-manager-close");
-              _$setProp(_el$16, "height", 1);
-              _$setProp(_el$16, "flexShrink", 0);
-              _$setProp(_el$16, "options", [{
+              }, _el$17);
+              _$setProp(_el$17, "id", "goal-manager-close");
+              _$setProp(_el$17, "height", 1);
+              _$setProp(_el$17, "flexShrink", 0);
+              _$setProp(_el$17, "options", [{
                 name: "Close manager \xB7 F9: return to sidebar",
                 description: "Return to this session's basic sidebar without changing the goal",
                 value: "close"
               }]);
-              _$setProp(_el$16, "showDescription", false);
-              _$setProp(_el$16, "onSelect", () => {
+              _$setProp(_el$17, "showDescription", false);
+              _$setProp(_el$17, "onSelect", () => {
                 if (typeof input.close === "function")
                   input.close();
                 else
                   context.ui.panel.close();
               });
-              _$setProp(_el$16, "onMouseUp", () => {
+              _$setProp(_el$17, "onMouseUp", () => {
                 if (typeof input.close === "function")
                   input.close();
                 else
                   context.ui.panel.close();
               });
-              _$setProp(_el$17, "height", 1);
-              _$setProp(_el$17, "flexShrink", 0);
-              _$setProp(_el$17, "wrapMode", "none");
-              _$setProp(_el$17, "truncate", true);
-              _$insert(_el$17, () => fitColumns("Tab: focus \xB7 \u2191\u2193: select \xB7 Enter: activate", width() - 2));
-              _$insert(_el$12, _$createComponent(Show, {
+              _$setProp(_el$18, "height", 1);
+              _$setProp(_el$18, "flexShrink", 0);
+              _$setProp(_el$18, "wrapMode", "none");
+              _$setProp(_el$18, "truncate", true);
+              _$insert(_el$18, () => fitColumns("Tab: focus \xB7 \u2191\u2193: select \xB7 Enter: activate", width() - 2));
+              _$insert(_el$13, _$createComponent(Show, {
                 get when() {
                   return goalsState() === "loading";
                 },
                 get children() {
-                  var _el$18 = _$createElement("text");
-                  _$insertNode(_el$18, _$createTextNode(`Loading project goals\u2026`));
-                  _$effect((_$p) => _$setProp(_el$18, "fg", color("muted"), _$p));
-                  return _el$18;
+                  var _el$19 = _$createElement("text");
+                  _$insertNode(_el$19, _$createTextNode(`Loading project goals\u2026`));
+                  _$effect((_$p) => _$setProp(_el$19, "fg", color("muted"), _$p));
+                  return _el$19;
                 }
               }), null);
-              _$insert(_el$12, _$createComponent(Show, {
+              _$insert(_el$13, _$createComponent(Show, {
                 get when() {
                   return goalsState() === "error";
                 },
                 get children() {
-                  var _el$20 = _$createElement("text");
-                  _$insertNode(_el$20, _$createTextNode(`Inventory unavailable; F9 retries.`));
-                  _$effect((_$p) => _$setProp(_el$20, "fg", color("error"), _$p));
-                  return _el$20;
+                  var _el$21 = _$createElement("text");
+                  _$insertNode(_el$21, _$createTextNode(`Inventory unavailable; F9 retries.`));
+                  _$effect((_$p) => _$setProp(_el$21, "fg", color("error"), _$p));
+                  return _el$21;
                 }
               }), null);
-              _$insert(_el$12, _$createComponent(Show, {
+              _$insert(_el$13, _$createComponent(Show, {
                 get when() {
                   return managerRows().length;
                 },
@@ -1267,33 +1291,33 @@ var tui_default = {
                       return goalsState() === "ready";
                     },
                     get children() {
-                      var _el$23 = _$createElement("text");
-                      _$insertNode(_el$23, _$createTextNode(`No goals \u2014 /goal starts the interview.`));
-                      _$effect((_$p) => _$setProp(_el$23, "fg", color("muted"), _$p));
-                      return _el$23;
+                      var _el$24 = _$createElement("text");
+                      _$insertNode(_el$24, _$createTextNode(`No goals \u2014 /goal starts the interview.`));
+                      _$effect((_$p) => _$setProp(_el$24, "fg", color("muted"), _$p));
+                      return _el$24;
                     }
                   });
                 },
                 get children() {
-                  var _el$22 = _$createElement("select");
+                  var _el$23 = _$createElement("select");
                   _$use((control) => {
                     managerControl = control;
                     rememberFocus(control);
                     if (!selectedGoal())
                       focusControl(control);
-                  }, _el$22);
-                  _$setProp(_el$22, "id", "goal-manager-list");
-                  _$setProp(_el$22, "flexShrink", 0);
-                  _$setProp(_el$22, "showDescription", true);
-                  _$setProp(_el$22, "onMouseDown", (event) => {
+                  }, _el$23);
+                  _$setProp(_el$23, "id", "goal-manager-list");
+                  _$setProp(_el$23, "flexShrink", 0);
+                  _$setProp(_el$23, "showDescription", true);
+                  _$setProp(_el$23, "onMouseDown", (event) => {
                     event.stopPropagation();
                     event.preventDefault();
                   });
-                  _$setProp(_el$22, "onMouseUp", (event) => {
+                  _$setProp(_el$23, "onMouseUp", (event) => {
                     input.focus?.();
                     pointerSelect(managerControl, event, 2);
                   });
-                  _$setProp(_el$22, "onSelect", (_index, option) => {
+                  _$setProp(_el$23, "onSelect", (_index, option) => {
                     const goal = managerRows().find((g) => goalKey(g) === option?.value);
                     if (goal) {
                       setSelectedGoalKey(goalKey(goal));
@@ -1307,199 +1331,203 @@ var tui_default = {
                       description: fitColumns(`${g.status}${g.launch?.status === "executing" ? " \xB7 starting" : g.launch?.status === "expired" ? " \xB7 review expired" : ""} \xB7 ${g.proven}/${g.total} proven`, width() - 4),
                       value: goalKey(g)
                     })), _v$7 = !selectedGoal();
-                    _v$5 !== _p$.e && (_p$.e = _$setProp(_el$22, "height", _v$5, _p$.e));
-                    _v$6 !== _p$.t && (_p$.t = _$setProp(_el$22, "options", _v$6, _p$.t));
-                    _v$7 !== _p$.a && (_p$.a = _$setProp(_el$22, "focused", _v$7, _p$.a));
+                    _v$5 !== _p$.e && (_p$.e = _$setProp(_el$23, "height", _v$5, _p$.e));
+                    _v$6 !== _p$.t && (_p$.t = _$setProp(_el$23, "options", _v$6, _p$.t));
+                    _v$7 !== _p$.a && (_p$.a = _$setProp(_el$23, "focused", _v$7, _p$.a));
                     return _p$;
                   }, {
                     e: undefined,
                     t: undefined,
                     a: undefined
                   });
-                  return _el$22;
+                  return _el$23;
                 }
               }), null);
-              _$insert(_el$12, _$createComponent(Show, {
+              _$insert(_el$13, _$createComponent(Show, {
                 get when() {
                   return selectedGoal();
                 },
                 children: (goal) => (() => {
-                  var _el$25 = _$createElement("box"), _el$26 = _$createElement("text"), _el$27 = _$createElement("text"), _el$29 = _$createElement("text"), _el$31 = _$createElement("scrollbox"), _el$32 = _$createElement("text"), _el$33 = _$createElement("b"), _el$35 = _$createElement("text"), _el$36 = _$createElement("text"), _el$40 = _$createElement("text"), _el$41 = _$createElement("b"), _el$43 = _$createElement("select");
-                  _$insertNode(_el$25, _el$26);
-                  _$insertNode(_el$25, _el$27);
-                  _$insertNode(_el$25, _el$29);
-                  _$insertNode(_el$25, _el$31);
-                  _$insertNode(_el$25, _el$40);
-                  _$insertNode(_el$25, _el$43);
-                  _$setProp(_el$25, "id", "goal-manager-details");
-                  _$setProp(_el$25, "flexDirection", "column");
-                  _$setProp(_el$25, "flexGrow", 1);
-                  _$setProp(_el$25, "flexShrink", 1);
-                  _$setProp(_el$25, "minHeight", 0);
-                  _$setProp(_el$25, "marginTop", 1);
-                  _$setProp(_el$26, "height", 1);
-                  _$setProp(_el$26, "flexShrink", 0);
-                  _$setProp(_el$26, "wrapMode", "none");
-                  _$setProp(_el$26, "truncate", true);
-                  _$insert(_el$26, () => fitColumns(`${goal().status} \xB7 ${goal().proven}/${goal().total} host-proven \xB7 ${goal().agent ?? "agent unknown"}`, width() - 2));
+                  var _el$26 = _$createElement("box"), _el$27 = _$createElement("text"), _el$28 = _$createElement("text"), _el$30 = _$createElement("text"), _el$32 = _$createElement("scrollbox"), _el$33 = _$createElement("text"), _el$34 = _$createElement("b"), _el$36 = _$createElement("text"), _el$37 = _$createElement("text"), _el$38 = _$createElement("text"), _el$42 = _$createElement("text"), _el$43 = _$createElement("b"), _el$45 = _$createElement("select");
+                  _$insertNode(_el$26, _el$27);
+                  _$insertNode(_el$26, _el$28);
+                  _$insertNode(_el$26, _el$30);
+                  _$insertNode(_el$26, _el$32);
+                  _$insertNode(_el$26, _el$42);
+                  _$insertNode(_el$26, _el$45);
+                  _$setProp(_el$26, "id", "goal-manager-details");
+                  _$setProp(_el$26, "flexDirection", "column");
+                  _$setProp(_el$26, "flexGrow", 1);
+                  _$setProp(_el$26, "flexShrink", 1);
+                  _$setProp(_el$26, "minHeight", 0);
+                  _$setProp(_el$26, "marginTop", 1);
                   _$setProp(_el$27, "height", 1);
                   _$setProp(_el$27, "flexShrink", 0);
                   _$setProp(_el$27, "wrapMode", "none");
                   _$setProp(_el$27, "truncate", true);
-                  _$insert(_el$27, () => fitColumns(`Session: ${goal().sessionTitle ?? goal().sessionID ?? "unassigned"}`, width() - 2));
-                  _$insert(_el$25, _$createComponent(Show, {
+                  _$insert(_el$27, () => fitColumns(`${goal().status} \xB7 ${goal().proven}/${goal().total} host-proven \xB7 ${goal().agent ?? "agent unknown"}`, width() - 2));
+                  _$setProp(_el$28, "height", 1);
+                  _$setProp(_el$28, "flexShrink", 0);
+                  _$setProp(_el$28, "wrapMode", "none");
+                  _$setProp(_el$28, "truncate", true);
+                  _$insert(_el$28, () => fitColumns(`Session: ${goal().sessionTitle ?? goal().sessionID ?? "unassigned"}`, width() - 2));
+                  _$insert(_el$26, _$createComponent(Show, {
                     get when() {
                       return managerNotice();
                     },
                     children: (notice) => (() => {
-                      var _el$44 = _$createElement("text");
-                      _$setProp(_el$44, "id", "goal-manager-feedback");
-                      _$setProp(_el$44, "height", 1);
-                      _$setProp(_el$44, "flexShrink", 0);
-                      _$setProp(_el$44, "wrapMode", "none");
-                      _$setProp(_el$44, "truncate", true);
-                      _$insert(_el$44, () => fitColumns(notice().message, width() - 2));
-                      _$effect((_$p) => _$setProp(_el$44, "fg", color(notice().tone), _$p));
-                      return _el$44;
+                      var _el$46 = _$createElement("text");
+                      _$setProp(_el$46, "id", "goal-manager-feedback");
+                      _$setProp(_el$46, "height", 1);
+                      _$setProp(_el$46, "flexShrink", 0);
+                      _$setProp(_el$46, "wrapMode", "none");
+                      _$setProp(_el$46, "truncate", true);
+                      _$insert(_el$46, () => fitColumns(notice().message, width() - 2));
+                      _$effect((_$p) => _$setProp(_el$46, "fg", color(notice().tone), _$p));
+                      return _el$46;
                     })()
-                  }), _el$29);
-                  _$insert(_el$25, _$createComponent(Show, {
+                  }), _el$30);
+                  _$insert(_el$26, _$createComponent(Show, {
                     get when() {
                       return goal().steps?.length;
                     },
                     get children() {
-                      var _el$28 = _$createElement("text");
-                      _$setProp(_el$28, "height", 1);
-                      _$setProp(_el$28, "flexShrink", 0);
-                      _$setProp(_el$28, "wrapMode", "none");
-                      _$setProp(_el$28, "truncate", true);
-                      _$insert(_el$28, () => fitColumns(`Plan: ${goal().steps?.filter((s) => s.status === "done").length}/${goal().steps?.length} done \xB7 ${goal().steps?.find((s) => s.status === "active")?.title ?? "no active step"}`, width() - 2));
-                      _$effect((_$p) => _$setProp(_el$28, "fg", color("muted"), _$p));
-                      return _el$28;
+                      var _el$29 = _$createElement("text");
+                      _$setProp(_el$29, "height", 1);
+                      _$setProp(_el$29, "flexShrink", 0);
+                      _$setProp(_el$29, "wrapMode", "none");
+                      _$setProp(_el$29, "truncate", true);
+                      _$insert(_el$29, () => fitColumns(`Plan: ${goal().steps?.filter((s) => s.status === "done").length}/${goal().steps?.length} done \xB7 ${goal().steps?.find((s) => s.status === "active")?.title ?? "no active step"}`, width() - 2));
+                      _$effect((_$p) => _$setProp(_el$29, "fg", color("muted"), _$p));
+                      return _el$29;
                     }
-                  }), _el$29);
-                  _$insertNode(_el$29, _$createTextNode(`Details \xB7 Tab to focus \xB7 wheel/PgUp/PgDn scroll`));
-                  _$setProp(_el$29, "height", 1);
-                  _$setProp(_el$29, "flexShrink", 0);
-                  _$setProp(_el$29, "wrapMode", "none");
-                  _$setProp(_el$29, "truncate", true);
-                  _$insertNode(_el$31, _el$32);
-                  _$insertNode(_el$31, _el$35);
-                  _$insertNode(_el$31, _el$36);
+                  }), _el$30);
+                  _$insertNode(_el$30, _$createTextNode(`Details \xB7 Tab to focus \xB7 wheel/PgUp/PgDn scroll`));
+                  _$setProp(_el$30, "height", 1);
+                  _$setProp(_el$30, "flexShrink", 0);
+                  _$setProp(_el$30, "wrapMode", "none");
+                  _$setProp(_el$30, "truncate", true);
+                  _$insertNode(_el$32, _el$33);
+                  _$insertNode(_el$32, _el$36);
+                  _$insertNode(_el$32, _el$37);
+                  _$insertNode(_el$32, _el$38);
                   _$use((control) => {
                     detailsControl = control;
                     rememberFocus(control);
-                  }, _el$31);
-                  _$setProp(_el$31, "id", "goal-manager-detail-text");
-                  _$setProp(_el$31, "flexGrow", 1);
-                  _$setProp(_el$31, "flexShrink", 1);
-                  _$setProp(_el$31, "minHeight", 1);
-                  _$setProp(_el$31, "scrollX", false);
-                  _$setProp(_el$31, "scrollY", true);
-                  _$setProp(_el$31, "viewportOptions", {
+                  }, _el$32);
+                  _$setProp(_el$32, "id", "goal-manager-detail-text");
+                  _$setProp(_el$32, "flexGrow", 1);
+                  _$setProp(_el$32, "flexShrink", 1);
+                  _$setProp(_el$32, "minHeight", 1);
+                  _$setProp(_el$32, "scrollX", false);
+                  _$setProp(_el$32, "scrollY", true);
+                  _$setProp(_el$32, "viewportOptions", {
                     overflow: "hidden"
                   });
-                  _$setProp(_el$31, "contentOptions", {
+                  _$setProp(_el$32, "contentOptions", {
                     flexDirection: "column"
                   });
-                  _$setProp(_el$31, "onMouseDown", () => {
+                  _$setProp(_el$32, "onMouseDown", () => {
                     input.focus?.();
                     detailsControl?.focus();
                   });
-                  _$insertNode(_el$32, _el$33);
-                  _$insertNode(_el$33, _$createTextNode(`Outcome`));
-                  _$setProp(_el$35, "wrapMode", "word");
-                  _$insert(_el$35, () => goal().outcome ?? goal().title);
+                  _$insertNode(_el$33, _el$34);
+                  _$insertNode(_el$34, _$createTextNode(`Outcome`));
                   _$setProp(_el$36, "wrapMode", "word");
-                  _$insert(_el$36, () => `Session ID: ${goal().sessionID ?? "unassigned"}`);
-                  _$insert(_el$31, _$createComponent(Show, {
+                  _$insert(_el$36, () => `Goal: ${goal().slug}`);
+                  _$setProp(_el$37, "wrapMode", "word");
+                  _$insert(_el$37, () => goal().outcome ?? goal().title);
+                  _$setProp(_el$38, "wrapMode", "word");
+                  _$insert(_el$38, () => `Session ID: ${goal().sessionID ?? "unassigned"}`);
+                  _$insert(_el$32, _$createComponent(Show, {
                     get when() {
                       return launchStatusText(goal().launch);
                     },
                     children: (line) => (() => {
-                      var _el$45 = _$createElement("text");
-                      _$setProp(_el$45, "wrapMode", "word");
-                      _$insert(_el$45, line);
-                      _$effect((_$p) => _$setProp(_el$45, "fg", color("warning"), _$p));
-                      return _el$45;
+                      var _el$47 = _$createElement("text");
+                      _$setProp(_el$47, "wrapMode", "word");
+                      _$insert(_el$47, line);
+                      _$effect((_$p) => _$setProp(_el$47, "fg", color("warning"), _$p));
+                      return _el$47;
                     })()
                   }), null);
-                  _$insert(_el$31, _$createComponent(Show, {
+                  _$insert(_el$32, _$createComponent(Show, {
                     get when() {
                       return goal().details?.criteria?.length;
                     },
                     get children() {
-                      var _el$37 = _$createElement("text"), _el$38 = _$createElement("b");
-                      _$insertNode(_el$37, _el$38);
-                      _$insertNode(_el$38, _$createTextNode(`Evidence`));
-                      _$effect((_$p) => _$setProp(_el$37, "fg", color("base"), _$p));
-                      return _el$37;
+                      var _el$39 = _$createElement("text"), _el$40 = _$createElement("b");
+                      _$insertNode(_el$39, _el$40);
+                      _$insertNode(_el$40, _$createTextNode(`Evidence`));
+                      _$effect((_$p) => _$setProp(_el$39, "fg", color("base"), _$p));
+                      return _el$39;
                     }
                   }), null);
-                  _$insert(_el$31, _$createComponent(For, {
+                  _$insert(_el$32, _$createComponent(For, {
                     get each() {
                       return goal().details?.criteria ?? [];
                     },
                     children: (criterion) => (() => {
-                      var _el$46 = _$createElement("text");
-                      _$setProp(_el$46, "wrapMode", "word");
-                      _$insert(_el$46, () => `${criterion.id} [${criterion.status}] ${criterion.statement}${criterion.by ? ` (${criterion.by})` : ""}`);
-                      _$effect((_$p) => _$setProp(_el$46, "fg", color(criterion.status === "fail" ? "error" : "muted"), _$p));
-                      return _el$46;
+                      var _el$48 = _$createElement("text");
+                      _$setProp(_el$48, "wrapMode", "word");
+                      _$insert(_el$48, () => `${criterion.id} [${criterion.status}] ${criterion.statement}${criterion.by ? ` (${criterion.by})` : ""}`);
+                      _$effect((_$p) => _$setProp(_el$48, "fg", color(criterion.status === "fail" ? "error" : "muted"), _$p));
+                      return _el$48;
                     })()
                   }), null);
-                  _$insert(_el$31, _$createComponent(For, {
+                  _$insert(_el$32, _$createComponent(For, {
                     get each() {
                       return goal().issues ?? [];
                     },
                     children: (issue) => (() => {
-                      var _el$47 = _$createElement("text");
-                      _$setProp(_el$47, "wrapMode", "word");
-                      _$insert(_el$47, issue);
-                      _$effect((_$p) => _$setProp(_el$47, "fg", color("error"), _$p));
-                      return _el$47;
+                      var _el$49 = _$createElement("text");
+                      _$setProp(_el$49, "wrapMode", "word");
+                      _$insert(_el$49, issue);
+                      _$effect((_$p) => _$setProp(_el$49, "fg", color("error"), _$p));
+                      return _el$49;
                     })()
                   }), null);
-                  _$insertNode(_el$40, _el$41);
-                  _$setProp(_el$40, "height", 1);
-                  _$setProp(_el$40, "flexShrink", 0);
-                  _$insertNode(_el$41, _$createTextNode(`Actions \xB7 \u2191\u2193 and Enter, or click`));
+                  _$insertNode(_el$42, _el$43);
+                  _$setProp(_el$42, "height", 1);
+                  _$setProp(_el$42, "flexShrink", 0);
+                  _$insertNode(_el$43, _$createTextNode(`Actions \xB7 \u2191\u2193 and Enter, or click`));
                   _$use((control) => {
                     actionsControl = control;
                     rememberFocus(control);
                     focusControl(control);
-                  }, _el$43);
-                  _$setProp(_el$43, "id", "goal-manager-actions");
-                  _$setProp(_el$43, "flexShrink", 0);
-                  _$setProp(_el$43, "showDescription", false);
-                  _$setProp(_el$43, "focused", true);
-                  _$setProp(_el$43, "onMouseDown", (event) => {
+                  }, _el$45);
+                  _$setProp(_el$45, "id", "goal-manager-actions");
+                  _$setProp(_el$45, "flexShrink", 0);
+                  _$setProp(_el$45, "showDescription", false);
+                  _$setProp(_el$45, "focused", true);
+                  _$setProp(_el$45, "onMouseDown", (event) => {
                     event.stopPropagation();
                     event.preventDefault();
                   });
-                  _$setProp(_el$43, "onMouseUp", (event) => {
+                  _$setProp(_el$45, "onMouseUp", (event) => {
                     input.focus?.();
                     pointerSelect(actionsControl, event, 1);
                   });
-                  _$setProp(_el$43, "onSelect", (_index, option) => {
+                  _$setProp(_el$45, "onSelect", (_index, option) => {
                     if (option?.value)
                       manageSelected(option.value);
                   });
                   _$effect((_p$) => {
-                    var _v$0 = color("base"), _v$1 = color("muted"), _v$10 = color("muted"), _v$11 = color("base"), _v$12 = color("base"), _v$13 = color("muted"), _v$14 = color("base"), _v$15 = Math.min(8, actions().length), _v$16 = actions().map((r) => ({
+                    var _v$0 = color("base"), _v$1 = color("muted"), _v$10 = color("muted"), _v$11 = color("base"), _v$12 = color("muted"), _v$13 = color("base"), _v$14 = color("muted"), _v$15 = color("base"), _v$16 = Math.min(8, actions().length), _v$17 = actions().map((r) => ({
                       name: r.label,
                       description: r.description,
                       value: r
                     }));
-                    _v$0 !== _p$.e && (_p$.e = _$setProp(_el$26, "fg", _v$0, _p$.e));
-                    _v$1 !== _p$.t && (_p$.t = _$setProp(_el$27, "fg", _v$1, _p$.t));
-                    _v$10 !== _p$.a && (_p$.a = _$setProp(_el$29, "fg", _v$10, _p$.a));
-                    _v$11 !== _p$.o && (_p$.o = _$setProp(_el$32, "fg", _v$11, _p$.o));
-                    _v$12 !== _p$.i && (_p$.i = _$setProp(_el$35, "fg", _v$12, _p$.i));
-                    _v$13 !== _p$.n && (_p$.n = _$setProp(_el$36, "fg", _v$13, _p$.n));
-                    _v$14 !== _p$.s && (_p$.s = _$setProp(_el$40, "fg", _v$14, _p$.s));
-                    _v$15 !== _p$.h && (_p$.h = _$setProp(_el$43, "height", _v$15, _p$.h));
-                    _v$16 !== _p$.r && (_p$.r = _$setProp(_el$43, "options", _v$16, _p$.r));
+                    _v$0 !== _p$.e && (_p$.e = _$setProp(_el$27, "fg", _v$0, _p$.e));
+                    _v$1 !== _p$.t && (_p$.t = _$setProp(_el$28, "fg", _v$1, _p$.t));
+                    _v$10 !== _p$.a && (_p$.a = _$setProp(_el$30, "fg", _v$10, _p$.a));
+                    _v$11 !== _p$.o && (_p$.o = _$setProp(_el$33, "fg", _v$11, _p$.o));
+                    _v$12 !== _p$.i && (_p$.i = _$setProp(_el$36, "fg", _v$12, _p$.i));
+                    _v$13 !== _p$.n && (_p$.n = _$setProp(_el$37, "fg", _v$13, _p$.n));
+                    _v$14 !== _p$.s && (_p$.s = _$setProp(_el$38, "fg", _v$14, _p$.s));
+                    _v$15 !== _p$.h && (_p$.h = _$setProp(_el$42, "fg", _v$15, _p$.h));
+                    _v$16 !== _p$.r && (_p$.r = _$setProp(_el$45, "height", _v$16, _p$.r));
+                    _v$17 !== _p$.d && (_p$.d = _$setProp(_el$45, "options", _v$17, _p$.d));
                     return _p$;
                   }, {
                     e: undefined,
@@ -1510,21 +1538,22 @@ var tui_default = {
                     n: undefined,
                     s: undefined,
                     h: undefined,
-                    r: undefined
+                    r: undefined,
+                    d: undefined
                   });
-                  return _el$25;
+                  return _el$26;
                 })()
               }), null);
               _$effect((_p$) => {
                 var _v$8 = color("base"), _v$9 = color("muted");
-                _v$8 !== _p$.e && (_p$.e = _$setProp(_el$13, "fg", _v$8, _p$.e));
-                _v$9 !== _p$.t && (_p$.t = _$setProp(_el$17, "fg", _v$9, _p$.t));
+                _v$8 !== _p$.e && (_p$.e = _$setProp(_el$14, "fg", _v$8, _p$.e));
+                _v$9 !== _p$.t && (_p$.t = _$setProp(_el$18, "fg", _v$9, _p$.t));
                 return _p$;
               }, {
                 e: undefined,
                 t: undefined
               });
-              return _el$12;
+              return _el$13;
             })();
           },
           get children() {
@@ -1533,39 +1562,39 @@ var tui_default = {
                 return view();
               },
               children: (v) => (() => {
-                var _el$48 = _$createElement("box");
-                _$setProp(_el$48, "flexDirection", "column");
-                _$setProp(_el$48, "paddingLeft", 1);
-                _$setProp(_el$48, "paddingRight", 1);
-                _$insert(_el$48, _$createComponent(For, {
+                var _el$50 = _$createElement("box");
+                _$setProp(_el$50, "flexDirection", "column");
+                _$setProp(_el$50, "paddingLeft", 1);
+                _$setProp(_el$50, "paddingRight", 1);
+                _$insert(_el$50, _$createComponent(For, {
                   get each() {
                     return dashboardLines(v(), tab(), now(), width(), goalsList());
                   },
                   children: (line) => (() => {
-                    var _el$50 = _$createElement("text");
-                    _$setProp(_el$50, "wrapMode", "none");
-                    _$setProp(_el$50, "truncate", true);
-                    _$insert(_el$50, (() => {
+                    var _el$52 = _$createElement("text");
+                    _$setProp(_el$52, "wrapMode", "none");
+                    _$setProp(_el$52, "truncate", true);
+                    _$insert(_el$52, (() => {
                       var _c$ = _$memo(() => !!line.bold);
                       return () => _c$() ? (() => {
-                        var _el$51 = _$createElement("b");
-                        _$insert(_el$51, () => line.text);
-                        return _el$51;
+                        var _el$53 = _$createElement("b");
+                        _$insert(_el$53, () => line.text);
+                        return _el$53;
                       })() : line.text;
                     })());
-                    _$effect((_$p) => _$setProp(_el$50, "fg", color(line.tone), _$p));
-                    return _el$50;
+                    _$effect((_$p) => _$setProp(_el$52, "fg", color(line.tone), _$p));
+                    return _el$52;
                   })()
                 }), null);
-                _$insert(_el$48, _$createComponent(Show, {
+                _$insert(_el$50, _$createComponent(Show, {
                   get when() {
                     return rows().length;
                   },
                   get children() {
-                    var _el$49 = _$createElement("select");
-                    _$setProp(_el$49, "showDescription", true);
-                    _$setProp(_el$49, "focused", true);
-                    _$setProp(_el$49, "onSelect", (_index, option) => {
+                    var _el$51 = _$createElement("select");
+                    _$setProp(_el$51, "showDescription", true);
+                    _$setProp(_el$51, "focused", true);
+                    _$setProp(_el$51, "onSelect", (_index, option) => {
                       const row = option?.value;
                       if (row?.act)
                         act(row.act, row.arg);
@@ -1576,15 +1605,15 @@ var tui_default = {
                           variant: "info"
                         });
                     });
-                    _$effect((_$p) => _$setProp(_el$49, "options", rows().map((r) => ({
+                    _$effect((_$p) => _$setProp(_el$51, "options", rows().map((r) => ({
                       name: r.label,
                       description: r.description,
                       value: r
                     })), _$p));
-                    return _el$49;
+                    return _el$51;
                   }
                 }), null);
-                return _el$48;
+                return _el$50;
               })()
             });
           }

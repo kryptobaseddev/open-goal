@@ -275,25 +275,26 @@ export default {
           return (
             <box id="goal-sidebar" flexDirection="column" maxHeight={12}>
               <Show when={model().total}>
-                <text fg={color("base")} wrapMode="none" truncate>Goals ({model().total})</text>
+                <text height={1} flexShrink={0} fg={color("base")} wrapMode="none" truncate>Goals ({model().total})</text>
                 <For each={model().cards.map((c) => c.key)}>
                   {(key) => {
                     const card = () => model().cards.find((c) => c.key === key)
                     const expand = () => { const current = card(); if (current) expandGoal(current.goal) }
                     return (
-                      <box flexDirection="column" marginTop={1}>
-                        <select id={`goal-card:${key}`} height={2}
+                      <box flexDirection="column" marginTop={1} flexShrink={0}>
+                        <select id={`goal-card:${key}`} height={2} flexShrink={0}
                           options={[{ name: card()?.title ?? "", description: card()?.description ?? "", value: key }]}
                           showDescription showSelectionIndicator={false}
                           textColor={color("base")} descriptionColor={color(card()?.tone ?? "muted")}
                           onSelect={expand} onMouseUp={expand} />
-                        <text fg={color("muted")} wrapMode="none" truncate>{card()?.progress ?? ""}</text>
+                        <text height={1} flexShrink={0} fg={color("muted")} wrapMode="none" truncate>{card()?.progress ?? ""}</text>
+                        <Show when={card()?.handoffPointer}>{(pointer) => <text id={`goal-handoff-pointer:${key}`} height={1} flexShrink={0} fg={color("muted")} wrapMode="none" truncate>{pointer()}</text>}</Show>
                       </box>
                     )
                   }}
                 </For>
               </Show>
-              <select id="goal-sidebar-manager" height={1} showDescription={false}
+              <select id="goal-sidebar-manager" height={1} flexShrink={0} showDescription={false}
                 options={[{ name: goalsState() === "error" ? "Retry goals — F9 manager" : model().pointer, description: "Open the project Goals manager", value: "manager" }]}
                 onSelect={() => { openPanel(); setTab("goals"); void ensureGoals(true) }}
                 onMouseUp={() => { openPanel(); setTab("goals"); void ensureGoals(true) }} />
@@ -457,6 +458,7 @@ export default {
                       <scrollbox id="goal-manager-detail-text" ref={(control: any) => { detailsControl = control; rememberFocus(control) }} flexGrow={1} flexShrink={1} minHeight={1}
                         scrollX={false} scrollY={true} viewportOptions={{ overflow: "hidden" }} contentOptions={{ flexDirection: "column" }} onMouseDown={() => { input.focus?.(); detailsControl?.focus() }}>
                       <text fg={color("base")}><b>Outcome</b></text>
+                      <text fg={color("muted")} wrapMode="word">{`Goal: ${goal().slug}`}</text>
                       <text fg={color("base")} wrapMode="word">{goal().outcome ?? goal().title}</text>
                       <text fg={color("muted")} wrapMode="word">{`Session ID: ${goal().sessionID ?? "unassigned"}`}</text>
                       <Show when={launchStatusText(goal().launch)}>{(line) => <text fg={color("warning")} wrapMode="word">{line()}</text>}</Show>
