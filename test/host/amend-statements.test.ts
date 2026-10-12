@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import { join } from "node:path"
-import { goalHost, newSession, run, script, waitStatus } from "./goal.helpers"
+import { goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
+import { until } from "./harness"
 
 const yaml = `schema: goal/v1
 id: semantic-amend
@@ -34,6 +35,10 @@ test("changing only a criterion STATEMENT invalidates its proof even when the ch
     // conversational path must use the SAME semantic invalidation rule.
     await Bun.write(join(host.project, ".opencode/goals/semantic-amend/goal.yaml"), yaml.replace("the marker SHALL exist", "the marker SHALL exist and represent the new requested outcome"))
     await host.client.session.command({ sessionID, name: "goal", text: "amend confirm" } as any)
+    // The command API acknowledges deferred admission, not completion of
+    // the still-finishing needs-review turn. Require the actual host commit
+    // receipt before reading its state; all invalidation assertions remain.
+    await until(async () => (await ledger(host, "semantic-amend")).some((e) => e.type === "amended" && e.oldLock === before.lock), 10000)
     const after = await run(host, "semantic-amend")
     expect(after.lock).not.toBe(before.lock)
     expect(after.criteria.C1.status).toBe("unknown")

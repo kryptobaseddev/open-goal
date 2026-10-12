@@ -44,7 +44,9 @@ const view: GoalView = {
 
 describe("tui formatting", () => {
   test("the pill and banner", () => {
-    expect(pillText(view, 0)).toBe("◎ ▶ 1/4 · t7 · 42m")
+    expect(pillText(view, 0)).toBe("◎ ▶ 1/3 plan · 1/4 proven · t7 · 42m")
+    // Agent-reported plan completion must never manufacture host proof.
+    expect(pillText({ ...view, steps: view.steps.map((s) => ({ ...s, status: "done" })), criteria: view.criteria.map((c) => ({ ...c, status: "unknown" })) }, 0)).toBe("◎ ▶ 3/3 plan · 0/4 proven · t7 · 42m")
     expect(bannerText(view)).toBeUndefined()
     expect(bannerText({ ...view, status: "blocked", reason: "x", blocker: { key: "k", count: 3, reason: "need the API token" } })?.text).toMatch(/blocked — need the API token/)
     expect(bannerText({ ...view, awaitingUser: true })?.text).toMatch(/waiting for your answer/)

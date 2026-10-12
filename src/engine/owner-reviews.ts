@@ -11,6 +11,9 @@ export type ReviewRequest = {
   question: string
   createdAt: number
   expiresAt: number
+  /** Target-bound lifecycle decisions have no clock expiry; legacy records
+   * and sealed launch approvals remain timed by default. */
+  expiryPolicy?: "time" | "target"
   issuerPID: number
   status: "pending" | "interrupted" | "executing" | "succeeded" | "rejected" | "commented" | "cancelled" | "expired" | "failed"
   formID?: string
@@ -23,6 +26,11 @@ export type ReviewRequest = {
 }
 type ReviewData<T> = { version: 1; requests: Record<string, T> }
 export type ReviewChoice = { value: string; label: string; description: string }
+
+/** Clock expiry is reserved for explicitly timed/legacy reviews. */
+export function reviewExpired(request: Pick<ReviewRequest, "expiresAt" | "expiryPolicy">, now = Date.now()): boolean {
+  return request.expiryPolicy !== "target" && request.expiresAt < now
+}
 
 /** Interpret only the values actually offered in the bound field. Internal
  * aliases typed as custom commentary are not selectable owner consent. */
@@ -88,7 +96,7 @@ export class OwnerReviewStore<T extends ReviewRequest> {
   bind(form: { id: string; sessionID: string; fields?: Array<{ key?: string; title?: string; description?: string; options?: Array<{ value: string; label: string }> }> }): T | undefined {
     const matches = (p: T) => {
       const choices = this.reviewChoices(p)
-      return p.sessionID === form.sessionID && p.status === "pending" && !p.formID && p.expiresAt >= Date.now() && form.fields?.length === 1 && form.fields.some((f) => !!f.key && (f.title === p.question || f.description === p.question) && f.options?.length === choices.length && choices.every((c) => f.options?.some((o) => o.label === c.label && (o.value === c.value || o.value === c.label))))
+      return p.sessionID === form.sessionID && p.status === "pending" && !p.formID && !reviewExpired(p) && form.fields?.length === 1 && form.fields.some((f) => !!f.key && (f.title === p.question || f.description === p.question) && f.options?.length === choices.length && choices.every((c) => f.options?.some((o) => o.label === c.label && (o.value === c.value || o.value === c.label))))
     }
     // Most forms have nothing to do with this store. Do not fsync an empty
     // sidecar on every unrelated form; revalidate under the lock if matched.
@@ -147,7 +155,7 @@ export class OwnerReviewStore<T extends ReviewRequest> {
       // with an earlier all() read in the caller.
       if (p.ownerMessageID && Object.values(data.requests).some((other) => other.id !== id
         && other.ownerMessageID === p.ownerMessageID && ["executing", "succeeded", "failed"].includes(other.status))) return undefined
-      if (p.expiresAt < Date.now()) { p.status = "expired"; return undefined }
+      if (reviewExpired(p)) { p.status = "expired"; return undefined }
       if (p.issuerPID !== process.pid && processAlive(p.issuerPID)) return undefined
       p.status = "executing"
       p.issuerPID = process.pid

@@ -3,15 +3,14 @@
 // a banner when the owner is needed, notices as toasts and desktop attention,
 // and palette commands. Fed only by the server's GoalRpc (S6), never by files.
 import type { Plugin } from "@opencode/plugin/tui"
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js"
+import { createEffect, createSignal, For, onCleanup, Show, untrack } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { GoalRpc, type GoalSummary, type GoalView } from "../rpc"
+import { GoalRpc, type GoalSummary, type GoalView, type LaunchView } from "../rpc"
 import { bannerText, pillText, statusText, type Tone } from "./format"
 import { tracerLines } from "./tracer"
 import { cardAffordanceTab, dashboardLines, decisionRows, dialogDigest, DASHBOARD_TABS, quickActRows, type DashboardTab } from "./dashboard"
-import { fitColumns, goalKey, managerActions, orderedGoals, sidebarCards, targetOf, wrapColumns, type ManagerAction } from "./manager"
+import { fitColumns, goalKey, launchStatusText, managerActions, orderedGoals, sidebarCards, targetOf, wrapColumns, type ManagerAction } from "./manager"
 import { openGoalSession } from "./navigation"
-import { decisionFormAnswer } from "./decision-form"
 import { pointerSelect } from "./pointer-select"
 
 type Context = Plugin.Context
@@ -25,6 +24,8 @@ export default {
   async setup(context: Context) {
     const rpc = context.client.rpc(GoalRpc as any) as any
     const [views, setViews] = createStore<Record<string, GoalView | null>>({})
+    const [launches, setLaunches] = createStore<Record<string, LaunchView[]>>({})
+    const currentLaunch = (sessionID: string) => [...(launches[sessionID] ?? [])].sort((a, b) => Number(b.status === "executing") - Number(a.status === "executing") || (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0]
     const [now, setNow] = createSignal(Date.now())
     const timer = setInterval(() => setNow(Date.now()), 1000)
     const requested = new Set<string>()
@@ -32,6 +33,7 @@ export default {
     const [goalsState, setGoalsState] = createSignal<"loading" | "ready" | "error">("loading")
     const [selectedGoalKey, setSelectedGoalKey] = createSignal<string>()
     const [selectedDetails, setSelectedDetails] = createSignal<GoalSummary>()
+    const [managerNotice, setManagerNotice] = createSignal<{ message: string; tone: Tone }>()
     let detailRequest = 0
     let goalsFetchedAt = 0
     let goalsRequested = false
@@ -39,6 +41,15 @@ export default {
     let goalsRefreshAgain = false
     let goalsDirectory: string | undefined
     let disposed = false
+    let focusManagerSection: (() => void) | undefined
+    // OpenCode 2.0.26 can render a fullscreen session.panel while
+    // ui.panel.current() is null. Track the real mounted slot, not a guessed
+    // global toggle flag, and use its own documented close capability.
+    const mountedPanels = new Map<string, { close: () => void }>()
+    const currentMountedPanel = () => {
+      const route = context.ui.router.current()
+      return route.type === "session" ? mountedPanels.get(route.sessionID) : undefined
+    }
 
     const locationOf = (sessionID?: string) => (sessionID ? (context.data.session.get(sessionID) as any)?.location : undefined) ?? context.location ?? context.data.location?.default()
     const ensureGoals = async (force = false) => {
@@ -84,6 +95,7 @@ export default {
         const location = locationOf(sessionID)
         const result = await rpc.snapshot({ sessionID }, location ? { location } : undefined)
         setViews(sessionID, reconcile((result?.view ?? null) as GoalView | null))
+        if (Array.isArray(result?.launches)) setLaunches(sessionID, reconcile(result.launches as LaunchView[]))
       } catch {
         // the server plugin may not be loaded for this location; show nothing
       }
@@ -95,9 +107,11 @@ export default {
     }
 
     const offUpdated = rpc.events.on("updated", (event: any) => {
-      const { sessionID, view } = event.data ?? {}
+      const data = event.data ?? {}, { sessionID, view, launch } = data
       if (typeof sessionID === "string") {
-        setViews(sessionID, reconcile((view ?? null) as GoalView | null))
+        // Launch-only notifications must not erase another live run's view.
+        if ("view" in data) setViews(sessionID, reconcile((view ?? null) as GoalView | null))
+        if (launch && typeof launch.decisionId === "string") setLaunches(sessionID, reconcile([...(launches[sessionID] ?? []).filter((p) => p.decisionId !== launch.decisionId), launch]))
       }
       if (goalsRequested) void ensureGoals(true)
     })
@@ -119,9 +133,7 @@ export default {
     // in the dialog), only for the session the goal belongs to.
     // T065: dialogs are not scrollable — the full text once overflowed off
     // the screen; dialogs carry a screen-fit digest, the panel keeps the rest.
-    // T066: sequencing state — dialogs stay FIRST at a transition; a summary
-    // arriving while a decision dialog is open queues behind it and renders
-    // as the screen-fit digest when the decision closes.
+    // A summary must not displace an unanswered native Composer decision.
     const openDecisions = new Map<string, number>()
     const pendingSummaries = new Map<string, { headline: string; text: string; status: string }>()
     const flushSummary = (sessionID: string) => {
@@ -140,9 +152,7 @@ export default {
         context.ui.toast.show({ title: "Goal summary", message: String(data.headline ?? data.text ?? ""), variant: "info", ...(data.sessionID ? { sessionID: data.sessionID } : {}) })
         return
       }
-      // T066: at a transition the decision dialog renders FIRST — a summary
-      // arriving while one is open queues behind it (headline as a toast so
-      // nothing is silent) and renders as the digest when the decision closes.
+      // Queue the digest behind an actual pending native review.
       if (openDecisions.has(data.sessionID)) {
         pendingSummaries.set(data.sessionID, { headline: String(data.headline ?? "summary"), text: String(data.text ?? data.headline ?? ""), status: String(data.status ?? "") })
         context.ui.toast.show({ title: "Goal summary queued", message: String(data.headline ?? "the full summary opens after the decision"), variant: "info", ...(data.sessionID ? { sessionID: data.sessionID } : {}) })
@@ -153,57 +163,13 @@ export default {
         message: dialogDigest(String(data.headline ?? "summary"), String(data.text ?? data.headline ?? "")),
       })
     })
-    // A dialog choice is the owner's real choice, but the native question
-    // must settle too. Executing rpc.act beside it leaves the model blocked
-    // in question and every later command deferred forever (T082).
-    const dialogChoices = new Map<string, { sessionID: string; question: string; label: string; deadline: number; waitingNotice?: boolean }>()
-    const replyingChoices = new Set<string>()
-    const replyDialogChoice = async (id: string) => {
-      const choice = dialogChoices.get(id)
-      if (!choice || replyingChoices.has(id)) return
-      if (choice.deadline <= Date.now()) {
-        dialogChoices.delete(id)
-        context.ui.toast.show({ title: "Goal decision", message: "Review expired or its native form did not arrive; nothing executed. Request the exact review again.", variant: "warning", duration: 8000 })
-        return
-      }
-      replyingChoices.add(id)
-      const location = locationOf(choice.sessionID)
-      try {
-        await context.data.session.form.sync(choice.sessionID, location)
-        if (dialogChoices.get(id) !== choice) return
-        const answer = decisionFormAnswer(context.data.session.form.list(choice.sessionID, location) ?? [], choice.question, choice.label)
-        if (!answer) {
-          if (!choice.waitingNotice) {
-            choice.waitingNotice = true
-            context.ui.toast.show({ title: "Goal decision", message: "Choice not yet delivered; operation not executed. Waiting for its exact native form.", variant: "warning", duration: 8000 })
-          }
-          return // retry only this exact question, on real form creation/reconnect/ticker
-        }
-        await context.data.session.form.reply({ sessionID: choice.sessionID, ...answer }, location)
-        dialogChoices.delete(id)
-        context.ui.toast.show({ title: "Goal decision", message: "Choice delivered; awaiting the engine's operation result.", variant: "info" })
-      } catch (error) {
-        dialogChoices.delete(id)
-        context.ui.toast.show({ title: "Goal decision", message: `Native choice could not be delivered; the review remains available: ${String(error)}`, variant: "warning" })
-      } finally { replyingChoices.delete(id) }
-    }
+    // Composer's core form is the sole decision surface. A notification
+    // never synthesizes an answer or remembers a second popup choice.
     const offData = context.data.listen(({ details }: any) => {
-      if (details?.type === "form.cancelled") {
-        // A dismissed native question withdraws undelivered popup intent.
-        // Never carry that old pick into a re-presented form after reload.
-        for (const [id, choice] of dialogChoices) if (choice.sessionID === details.data?.sessionID) {
-          dialogChoices.delete(id)
-          context.ui.toast.show({ title: "Goal decision", message: replyingChoices.has(id)
-            ? "Native form dismissed; queued choice withdrawn. Delivery may have been in flight; inspect goal state before another review."
-            : "Native form dismissed; queued choice withdrawn. Nothing executed. Request the review again before choosing.", variant: "warning", duration: 8000 })
-        }
-      }
       if (details?.type === "server.connected") {
         for (const id of requested) void fetchView(id)
         if (goalsRequested) void ensureGoals(true)
       }
-      if (details?.type === "form.created" || details?.type === "server.connected")
-        for (const id of dialogChoices.keys()) void replyDialogChoice(id)
     })
     const offHandoff = rpc.events.on("handoff", (event: any) => {
       const data = event.data ?? {}
@@ -224,7 +190,6 @@ export default {
       // Refresh every requested session, including old completed goals.
       for (const id of requested) refreshIfStale(id)
       if (goalsRequested) void ensureGoals()
-      for (const id of dialogChoices.keys()) void replyDialogChoice(id)
     }, STALE_MS)
 
     // T056: the panel opens ON DEMAND (the v0.2 auto-open displaced the
@@ -244,12 +209,14 @@ export default {
     const togglePanel = () => {
       // The host changes active panel ownership when tabs change. A local
       // boolean becomes stale and turns the first F9 into an invisible close.
-      if (context.ui.panel.current()?.name === PANEL_NAME) {
-        context.ui.panel.close()
+      const mounted = currentMountedPanel()
+      if (mounted || context.ui.panel.current()?.name === PANEL_NAME) {
+        if (mounted) mounted.close(); else context.ui.panel.close()
       } else openPanel()
     }
     const [tab, setTab] = createSignal<DashboardTab>("now")
     const expandGoal = (goal: GoalSummary) => {
+      setManagerNotice(undefined)
       openPanel()
       setSelectedGoalKey(goalKey(goal))
       setSelectedDetails(goal)
@@ -272,16 +239,19 @@ export default {
     }
     const manageSelected = async (row: ManagerAction) => {
       const goal = selectedGoal(), sessionID = currentSession()
-      if (row.action === "back") { setSelectedGoalKey(undefined); setSelectedDetails(undefined); return }
+      if (row.action === "back") { setSelectedGoalKey(undefined); setSelectedDetails(undefined); setManagerNotice(undefined); return }
       if (!goal || !sessionID) return
       if (row.action === "jump") { if (goal.sessionID && goal.sessionState === "present") openGoalSession(context.ui, goal.sessionID); return }
       const location = locationOf(sessionID)
       try {
         const result = await rpc.manage({ sessionID, action: row.action, target: targetOf(goal) }, location ? { location } : undefined)
-        context.ui.toast.show({ title: "Selected goal", message: result.message, variant: result.pending ? "info" : result.ok ? "success" : "warning" })
+        // Native toast overlays can take the keyboard focus away from the
+        // selected action after a resize. Keep manager feedback in place;
+        // actual owner decisions still reveal their Composer form.
+        setManagerNotice({ message: String(result.message), tone: result.pending ? "muted" : result.ok ? "success" : "warning" })
         void ensureGoals(true)
         if (!result.pending) void fetchDetails(goal)
-      } catch (error) { context.ui.toast.show({ title: "Selected goal", message: `Operation unavailable: ${String(error)}`, variant: "warning" }) }
+      } catch (error) { setManagerNotice({ message: `Operation unavailable: ${String(error)}`, tone: "warning" }) }
     }
 
     const color = (tone: Tone) => {
@@ -365,6 +335,9 @@ export default {
           }
           return (
             <box flexDirection="column" paddingLeft={1} paddingRight={1}>
+              <Show when={launchStatusText(currentLaunch(input.sessionID))}>
+                {(line) => <text id="goal-launch-admission" fg={color(currentLaunch(input.sessionID)?.status === "executing" ? "muted" : "warning")} wrapMode="none" truncate>{line()}</text>}
+              </Show>
               <For each={tracer()}>
                 {(line) => (
                   <text fg={color(line.tone)} wrapMode="none" truncate>
@@ -390,11 +363,16 @@ export default {
         append: "session.panel",
         render: (input: any) => {
           if (input.name !== PANEL_NAME) return null
+          const mount = { close: () => { if (typeof input.close === "function") input.close(); else context.ui.panel.close() } }
+          mountedPanels.set(input.sessionID, mount)
+          onCleanup(() => { if (mountedPanels.get(input.sessionID) === mount) mountedPanels.delete(input.sessionID) })
           ensure(input.sessionID)
           void ensureGoals()
           const view = () => views[input.sessionID]
           if (!view() && !selectedGoalKey()) setTab("goals")
-          const width = typeof input.width === "number" ? input.width : 46
+          // PanelInput.width/focused are reactive host props; capturing a
+          // number once leaves every wrapped line stale after a resize.
+          const width = () => typeof input.width === "number" ? input.width : 46
           // T074 sign-off fix: focus the panel once on open (the composer
           // otherwise keeps swallowing tab/↑↓)
           if (input.name === PANEL_NAME && panelFocusPending && typeof input.focus === "function") {
@@ -420,17 +398,49 @@ export default {
             }, 0)
             onCleanup(() => clearTimeout(scheduled))
           }
-          let managerControl: any, actionsControl: any
+          let managerControl: any, actionsControl: any, detailsControl: any, closeControl: any, lastFocusedControl: any
+          let resizeFocusTimer: ReturnType<typeof setTimeout> | undefined
+          onCleanup(() => clearTimeout(resizeFocusTimer))
+          const rememberFocus = (control: any) => { control.on?.("focused", () => { lastFocusedControl = control }) }
+          const restoreAfterResize = () => {
+            if (tab() !== "goals" || mountedPanels.get(input.sessionID) !== mount || !lastFocusedControl) return
+            const route = context.ui.router.current()
+            if (route.type !== "session" || route.sessionID !== input.sessionID) return
+            clearTimeout(resizeFocusTimer)
+            resizeFocusTimer = setTimeout(() => {
+              if (mountedPanels.get(input.sessionID) !== mount || (context.data.session.form?.list(input.sessionID, locationOf(input.sessionID))?.length ?? 0) > 0) return
+              input.focus?.()
+              lastFocusedControl?.focus()
+            }, 0)
+          }
+          context.renderer?.on?.("resize", restoreAfterResize)
+          onCleanup(() => context.renderer?.off?.("resize", restoreAfterResize))
+          createEffect(() => {
+            if (input.focused === true && tab() === "goals") untrack(() => focusControl(selectedGoal() ? actionsControl : managerControl))
+          })
+          const cycleSection = () => {
+            const controls = [managerControl, detailsControl, actionsControl, closeControl].filter((c) => c && c.visible !== false)
+            if (!controls.length) return
+            const at = controls.findIndex((c) => c.focused)
+            input.focus?.()
+            controls[(at + 1) % controls.length].focus()
+          }
+          focusManagerSection = cycleSection
+          onCleanup(() => { if (focusManagerSection === cycleSection) focusManagerSection = undefined })
           return (
             <Show when={tab() !== "goals"} fallback={
-              <box id="goal-manager" flexDirection="column" paddingLeft={1} paddingRight={1}>
-                <text fg={color("base")} wrapMode="none" truncate><b>Goals manager · this project</b></text>
-                <text fg={color("muted")} wrapMode="none" truncate>{fitColumns("↑↓ select · enter expands · jump is explicit", width - 2)}</text>
+              <box id="goal-manager" flexDirection="column" paddingLeft={1} paddingRight={1} height="100%" minHeight={0} overflow="hidden">
+                <text height={1} flexShrink={0} fg={color("base")} wrapMode="none" truncate><b>Goals manager · this project</b></text>
+                <select id="goal-manager-close" ref={(control: any) => { closeControl = control; rememberFocus(control) }} height={1} flexShrink={0}
+                  options={[{ name: "Close manager · F9: return to sidebar", description: "Return to this session's basic sidebar without changing the goal", value: "close" }]}
+                  showDescription={false} onSelect={() => { if (typeof input.close === "function") input.close(); else context.ui.panel.close() }}
+                  onMouseUp={() => { if (typeof input.close === "function") input.close(); else context.ui.panel.close() }} />
+                <text height={1} flexShrink={0} fg={color("muted")} wrapMode="none" truncate>{fitColumns("Tab: focus · ↑↓: select · Enter: activate", width() - 2)}</text>
                 <Show when={goalsState() === "loading"}><text fg={color("muted")}>Loading project goals…</text></Show>
                 <Show when={goalsState() === "error"}><text fg={color("error")}>Inventory unavailable; F9 retries.</text></Show>
                 <Show when={managerRows().length} fallback={<Show when={goalsState() === "ready"}><text fg={color("muted")}>No goals — /goal starts the interview.</text></Show>}>
-                  <select id="goal-manager-list" ref={(control: any) => { managerControl = control; if (!selectedGoal()) focusControl(control) }} height={selectedGoal() ? 2 : Math.min(8, Math.max(2, managerRows().length * 2))}
-                    options={managerRows().map((g) => ({ name: fitColumns(`${g.title}${g.archived ? " [archived]" : ""}`, width - 4), description: fitColumns(`${g.status} · ${g.proven}/${g.total} · ${g.agent ?? "agent unknown"}`, width - 4), value: goalKey(g) }))}
+                  <select id="goal-manager-list" ref={(control: any) => { managerControl = control; rememberFocus(control); if (!selectedGoal()) focusControl(control) }} height={selectedGoal() ? 2 : Math.min(8, Math.max(2, managerRows().length * 2))} flexShrink={0}
+                    options={managerRows().map((g) => ({ name: fitColumns(`${g.title}${g.archived ? " [archived]" : ""}`, width() - 4), description: fitColumns(`${g.status}${g.launch?.status === "executing" ? " · starting" : g.launch?.status === "expired" ? " · review expired" : ""} · ${g.proven}/${g.total} proven`, width() - 4), value: goalKey(g) }))}
                     showDescription focused={!selectedGoal()}
                     onMouseDown={(event: any) => { event.stopPropagation(); event.preventDefault() }}
                     onMouseUp={(event: any) => { input.focus?.(); pointerSelect(managerControl, event, 2) }}
@@ -438,17 +448,26 @@ export default {
                 </Show>
                 <Show when={selectedGoal()}>
                   {(goal) => (
-                    <box id="goal-manager-details" flexDirection="column" marginTop={1}>
-                      <scrollbox id="goal-manager-detail-text" height={Math.max(4, Math.min(8, (input.height ?? 24) - actions().length - 6))}>
-                      <For each={wrapColumns(goal().outcome ?? goal().title, width - 2)}>{(line) => <text fg={color("base")}>{line}</text>}</For>
-                      <text fg={color("muted")} wrapMode="none" truncate>{fitColumns(`${goal().status} · ${goal().proven}/${goal().total} · ${goal().agent ?? "agent unknown"}`, width - 2)}</text>
-                      <For each={wrapColumns(`session: ${goal().sessionID ?? "unassigned"}`, width - 2)}>{(line) => <text fg={color("muted")}>{line}</text>}</For>
+                    <box id="goal-manager-details" flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0} marginTop={1}>
+                      <text height={1} flexShrink={0} fg={color("base")} wrapMode="none" truncate>{fitColumns(`${goal().status} · ${goal().proven}/${goal().total} host-proven · ${goal().agent ?? "agent unknown"}`, width() - 2)}</text>
+                      <text height={1} flexShrink={0} fg={color("muted")} wrapMode="none" truncate>{fitColumns(`Session: ${goal().sessionTitle ?? goal().sessionID ?? "unassigned"}`, width() - 2)}</text>
+                      <Show when={managerNotice()}>{(notice) => <text id="goal-manager-feedback" height={1} flexShrink={0} fg={color(notice().tone)} wrapMode="none" truncate>{fitColumns(notice().message, width() - 2)}</text>}</Show>
+                      <Show when={goal().steps?.length}><text height={1} flexShrink={0} fg={color("muted")} wrapMode="none" truncate>{fitColumns(`Plan: ${goal().steps?.filter((s) => s.status === "done").length}/${goal().steps?.length} done · ${goal().steps?.find((s) => s.status === "active")?.title ?? "no active step"}`, width() - 2)}</text></Show>
+                      <text height={1} flexShrink={0} fg={color("muted")} wrapMode="none" truncate>Details · Tab to focus · wheel/PgUp/PgDn scroll</text>
+                      <scrollbox id="goal-manager-detail-text" ref={(control: any) => { detailsControl = control; rememberFocus(control) }} flexGrow={1} flexShrink={1} minHeight={1}
+                        scrollX={false} scrollY={true} viewportOptions={{ overflow: "hidden" }} contentOptions={{ flexDirection: "column" }} onMouseDown={() => { input.focus?.(); detailsControl?.focus() }}>
+                      <text fg={color("base")}><b>Outcome</b></text>
+                      <text fg={color("base")} wrapMode="word">{goal().outcome ?? goal().title}</text>
+                      <text fg={color("muted")} wrapMode="word">{`Session ID: ${goal().sessionID ?? "unassigned"}`}</text>
+                      <Show when={launchStatusText(goal().launch)}>{(line) => <text fg={color("warning")} wrapMode="word">{line()}</text>}</Show>
+                      <Show when={goal().details?.criteria?.length}><text fg={color("base")}><b>Evidence</b></text></Show>
                       <For each={goal().details?.criteria ?? []}>{(criterion) => (
-                        <For each={wrapColumns(`${criterion.id} [${criterion.status}] ${criterion.statement}${criterion.by ? ` (${criterion.by})` : ""}`, width - 2)}>{(line) => <text fg={color(criterion.status === "fail" ? "error" : "muted")}>{line}</text>}</For>
+                        <text fg={color(criterion.status === "fail" ? "error" : "muted")} wrapMode="word">{`${criterion.id} [${criterion.status}] ${criterion.statement}${criterion.by ? ` (${criterion.by})` : ""}`}</text>
                       )}</For>
-                      <For each={goal().issues ?? []}>{(issue) => <For each={wrapColumns(issue, width - 2)}>{(line) => <text fg={color("error")}>{line}</text>}</For>}</For>
+                      <For each={goal().issues ?? []}>{(issue) => <text fg={color("error")} wrapMode="word">{issue}</text>}</For>
                       </scrollbox>
-                      <select id="goal-manager-actions" ref={(control: any) => { actionsControl = control; focusControl(control) }} height={Math.min(8, actions().length)}
+                      <text height={1} flexShrink={0} fg={color("base")}><b>Actions · ↑↓ and Enter, or click</b></text>
+                      <select id="goal-manager-actions" ref={(control: any) => { actionsControl = control; rememberFocus(control); focusControl(control) }} height={Math.min(8, actions().length)} flexShrink={0}
                         options={actions().map((r) => ({ name: r.label, description: r.description, value: r }))}
                         showDescription={false} focused
                         onMouseDown={(event: any) => { event.stopPropagation(); event.preventDefault() }}
@@ -462,7 +481,7 @@ export default {
             <Show when={view()}>
               {(v) => (
                 <box flexDirection="column" paddingLeft={1} paddingRight={1}>
-                  <For each={dashboardLines(v(), tab(), now(), width, goalsList() as any)}>
+                  <For each={dashboardLines(v(), tab(), now(), width(), goalsList() as any)}>
                     {(line) => (
                       <text fg={color(line.tone)} wrapMode="none" truncate>
                         {line.bold ? <b>{line.text}</b> : line.text}
@@ -518,100 +537,52 @@ export default {
       const id = currentSession()
       return !!(id && views[id])
     }
-    // T050: decision dialogs. Every engine decision payload renders as a
-    // selectable dialog wired to rpc.act — the owner picks instead of typing
-    // commands. Choices without an act (guidance-only) fall back to an alert.
-    // T066: the dialog stays open until answered; its close flushes any
-    // queued summary digest for the same session.
+    // Owner-approved T086: lifecycle choices belong only in native Composer ask forms.
+    // Preserve attention/result notifications, never open a duplicate dialog.
     const openDecisionIdentity = new Map<string, string>()
     const offDecision = rpc.events.on("decision", (event: any) => {
       const data = event.data ?? {}
-      const current = context.ui.router.current()
-      const here = current.type === "session" && current.sessionID === data.sessionID
       const choices = (data.choices ?? []) as Array<{ label: string; act?: string; arg?: string; run?: string }>
-      if (!here) {
-        context.ui.toast.show({ title: "Goal decision", message: `${String(data.message ?? "").slice(0, 160)} (${choices.map((c) => c.run ?? c.label).slice(0, 3).join(" · ")})`, variant: "warning", ...(data.sessionID ? { sessionID: data.sessionID } : {}) })
-        return
+      const route = context.ui.router.current()
+      // A full-screen Goals panel must not hide or retain Enter focus over
+      // the sole native Composer question. Close only OUR panel here; never
+      // dismiss an unrelated host dialog or jump to another session.
+      if (choices.some((c) => c.act) && route.type === "session" && route.sessionID === data.sessionID) {
+        const mounted = mountedPanels.get(data.sessionID)
+        if (mounted) mounted.close()
+        else if (context.ui.panel?.current?.()?.name === PANEL_NAME) context.ui.panel.close()
       }
-      void (async () => {
-        const actionable = choices.filter((c) => c.act)
-        const guidance = choices.filter((c) => !c.act)
-        if (!actionable.length) {
-          await context.ui.dialog.alert({ title: `Goal — ${data.kind ?? "decision"}`, message: `${data.message ?? ""}\n\n${choices.map((c) => `• ${c.run ?? c.label}`).join("\n")}` })
-          return
-        }
-        openDecisions.set(data.sessionID, (openDecisions.get(data.sessionID) ?? 0) + 1)
+      if (typeof data.sessionID === "string" && typeof data.decisionId === "string" && choices.some((c) => c.act)) {
+        openDecisions.set(data.sessionID, 1)
         openDecisionIdentity.set(data.sessionID, data.decisionId)
-        try {
-          // T067: guidance-only choices render as visible rows (they carry
-          // no act; picking one shows how to run them) instead of being
-          // dropped — the complete dialog once showed Archive alone.
-          const pick = await context.ui.dialog.select({
-            title: `Goal — ${data.kind ?? "decision"}`,
-            options: [
-              ...actionable.map((c, i) => ({ title: c.label, value: String(i), description: c.run ?? "" })),
-              // T070: guidance rows are marked as guidance in the copy itself
-              ...guidance.map((c, i) => ({ title: `ℹ ${c.label}`, value: `guide:${i}`, description: `guidance — ${c.run ?? ""}` })),
-            ],
-          })
-          if (pick === undefined || pick === null) return
-          if (String(pick).startsWith("guide:")) {
-            const row = guidance[Number(String(pick).slice(6))]
-            context.ui.toast.show({ title: "Goal guidance", message: row?.run ?? row?.label ?? "", variant: "info", duration: 8000 })
-            return
-          }
-          const chosen = actionable[Number(pick)]
-          if (chosen?.act) {
-            if (typeof data.question === "string" && typeof data.decisionId === "string") {
-              const deadline = Math.min(typeof data.expiresAt === "number" ? data.expiresAt : Infinity, Date.now() + 120000)
-              dialogChoices.set(data.decisionId, { sessionID: data.sessionID, question: data.question, label: chosen.label, deadline })
-              await replyDialogChoice(data.decisionId)
-            } else await act(chosen.act, chosen.arg, { sessionID: data.sessionID, decisionId: data.decisionId })
-          }
-        } finally {
-          const depth = (openDecisions.get(data.sessionID) ?? 1) - 1
-          if (depth <= 0) openDecisions.delete(data.sessionID)
-          else openDecisions.set(data.sessionID, depth)
-          if (openDecisionIdentity.get(data.sessionID) === data.decisionId) openDecisionIdentity.delete(data.sessionID)
-          flushSummary(data.sessionID)
-        }
-      })()
+      }
+      context.ui.toast.show({ title: "Goal decision", message: choices.some((c) => c.act)
+        ? "Owner decision pending in this session's Composer. No operation executed."
+        : String(data.message ?? "Goal guidance is available in the manager."), variant: "info", ...(data.sessionID ? { sessionID: data.sessionID } : {}) })
     })
 
-    // T075: answering either surface suppresses the other. When the native
-    // form (or any other owner act) resolves the decision, any open decision
-    // dialog for that session closes — the pick already happened.
+    // Only engine resolution closes pending review state. Never dismiss an
+    // unrelated host dialog or synthesize native answers from notifications.
     const offResolved = rpc.events.on("decision.resolved", (event: any) => {
       const data = event.data ?? {}
-      dialogChoices.delete(data.decisionId)
       if (data.message) context.ui.toast.show({ title: "Goal decision", message: data.message, variant: "success" })
       if (openDecisionIdentity.get(data.sessionID) !== data.decisionId) return
-      const depth = openDecisions.get(data.sessionID) ?? 0
-      if (!depth) return
       openDecisions.delete(data.sessionID)
-      try {
-        context.ui.dialog.clear()
-      } catch {
-        // no dialog open on this attachment
-      }
+      openDecisionIdentity.delete(data.sessionID)
       flushSummary(data.sessionID)
     })
     const offFailed = rpc.events.on("decision.failed", (event: any) => {
       const data = event.data ?? {}
-      dialogChoices.delete(data.decisionId)
       context.ui.toast.show({ title: "Goal decision", message: String(data.message ?? "Owner operation did not execute; inspect the goal and request a new review."), variant: "warning", duration: 8000 })
+      if (openDecisionIdentity.get(data.sessionID) === data.decisionId) {
+        openDecisions.delete(data.sessionID)
+        openDecisionIdentity.delete(data.sessionID)
+        flushSummary(data.sessionID)
+      }
     })
 
-    // T049: goals are reachable from any session. When this session has no
-    // goal, the palette still lists the project's goals so the owner can
-    // attach one here instead of hunting for the session that started it.
-    const attachables = async (): Promise<Array<{ slug: string; title: string; status: string }>> => {
-      const sessionID = currentSession()
-      if (!sessionID) return []
-      const location = locationOf(sessionID)
-      const listed = await rpc.list({}, location ? { location } : undefined)
-      return ((listed?.goals ?? []) as Array<{ slug: string; title: string; status: string; attachable?: boolean }>).filter((g) => g.attachable)
-    }
+    // Navigation lives in the existing Goals manager: expand a row before
+    // deliberately attaching or jumping. No separate palette chooser.
     disposers.push(
       context.ui.slot({
         append: "app",
@@ -621,26 +592,11 @@ export default {
             commands: [
               {
                 id: "goal.attach",
-                title: "Goal: attach/switch to a goal",
+                title: "Goal: manage or attach a project goal",
                 group: "Goal",
                 palette: true,
                 enabled: () => true,
-                run: async () => {
-                  try {
-                    const goals = await attachables()
-                    if (!goals.length) {
-                      context.ui.toast.show({ title: "Goal", message: "No attachable goal in this project (none is live and stopped). /goal list shows everything.", variant: "info" })
-                      return
-                    }
-                    const pick = await context.ui.dialog.select({
-                      title: "Attach which goal to this session?",
-                      options: goals.map((g) => ({ title: `${g.slug} — ${g.title}`, value: g.slug, description: g.status })),
-                    })
-                    if (pick) await act("attach", pick)
-                  } catch (error) {
-                    context.ui.toast.show({ title: "Goal", message: `Goal plugin unavailable: ${String(error)}`, variant: "error" })
-                  }
-                },
+                run: () => { setTab("goals"); openPanel() },
               },
               {
                 id: "goal.panel",
@@ -665,8 +621,9 @@ export default {
                 group: "Goal",
                 palette: true,
                 bind: "tab",
-                enabled: () => hasGoal() || context.ui.panel.current()?.name === PANEL_NAME,
+                enabled: () => hasGoal() || !!currentMountedPanel() || context.ui.panel.current()?.name === PANEL_NAME,
                 run: () => {
+                  if (tab() === "goals" && (currentMountedPanel() || context.ui.panel.current()?.name === PANEL_NAME) && focusManagerSection) { focusManagerSection(); return }
                   const order = DASHBOARD_TABS
                   setTab(order[(order.indexOf(tab()) + 1) % order.length]!)
                 },
@@ -687,18 +644,18 @@ export default {
               { id: "goal.verify", title: "Goal: verify now", group: "Goal", palette: true, enabled: hasGoal, run: () => act("verify") },
               {
                 id: "goal.approve",
-                title: "Goal: approve a criterion",
+                title: "Goal: open native review in Composer",
                 group: "Goal",
                 palette: true,
-                enabled: hasGoal,
+                enabled: () => !!currentSession(),
                 run: async () => {
-                  const view = views[currentSession()!]
-                  if (!view) return
-                  const pick = await context.ui.dialog.select({
-                    title: "Approve which criterion?",
-                    options: view.criteria.filter((c) => !c.invariant && c.status !== "pass").map((c) => ({ title: `${c.id} ${c.statement}`, value: c.id, description: c.kind })),
-                  })
-                  if (pick) await act("approve", pick)
+                  const sessionID = currentSession()
+                  if (!sessionID) return
+                  const location = locationOf(sessionID)
+                  try {
+                    const result = await rpc.review({ sessionID }, location ? { location } : undefined)
+                    context.ui.toast.show({ title: "Goal review", message: result.message, variant: result.ok ? "info" : "warning" })
+                  } catch (error) { context.ui.toast.show({ title: "Goal review", message: String(error), variant: "warning" }) }
                 },
               },
               {
@@ -708,8 +665,16 @@ export default {
                 palette: true,
                 enabled: hasGoal,
                 run: async () => {
-                  const ok = await context.ui.dialog.confirm({ title: "Abort the goal?", message: "The run stops for good; its ledger and evidence stay on disk.", label: { confirm: "Abort", cancel: "Keep running" } })
-                  if (ok) await act("abort")
+                  const sessionID = currentSession()
+                  if (!sessionID) return
+                  const location = locationOf(sessionID)
+                  try {
+                    const listed = await rpc.list({}, location ? { location } : undefined)
+                    const goal = (listed?.goals as GoalSummary[] | undefined)?.find((g) => g.sessionID === sessionID && g.runId === views[sessionID]?.runId && !g.archived)
+                    if (!goal) { context.ui.toast.show({ title: "Goal", message: "Current target changed; inspect its details before aborting.", variant: "warning" }); return }
+                    const result = await rpc.manage({ sessionID, action: "abort", target: targetOf(goal) }, location ? { location } : undefined)
+                    context.ui.toast.show({ title: "Goal", message: result.message, variant: result.ok ? "info" : "warning" })
+                  } catch (error) { context.ui.toast.show({ title: "Goal", message: String(error), variant: "warning" }) }
                 },
               },
             ],

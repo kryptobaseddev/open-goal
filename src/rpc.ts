@@ -2,6 +2,8 @@
 // function), so neither side needs @opencode/plugin at runtime.
 const anyObject = { type: "object", additionalProperties: true } as const
 import type { Handoff } from "./engine/state"
+import type { LaunchView } from "./engine/launches"
+export type { LaunchView } from "./engine/launches"
 // V2 RPC's schema adapter rejects regex patterns. Length is declared here;
 // the host validates hex syntax AND exact target identity before execution.
 const targetObject = { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 256 }, lock: { type: "string", minLength: 64, maxLength: 64 }, runId: { type: "string", minLength: 1, maxLength: 128 }, sessionID: { type: "string", minLength: 1, maxLength: 256 } }, required: ["key", "lock"], additionalProperties: false } as const
@@ -23,6 +25,10 @@ export const GoalRpc = {
     },
     details: {
       input: { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 256 } }, required: ["key"], additionalProperties: false },
+      output: anyObject,
+    },
+    review: {
+      input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 }, decisionId: { type: "string", minLength: 1, maxLength: 256 } }, required: ["sessionID"], additionalProperties: false },
       output: anyObject,
     },
     manage: {
@@ -162,6 +168,8 @@ export type GoalSummary = {
   issues?: string[]
   details?: { criteria: CriterionView[]; constraints: string[]; nonGoals: string[] }
   handoff?: Handoff
+  /** Latest exact launch review/admission receipt, distinct from run status. */
+  launch?: LaunchView
 }
 export type GoalTarget = { key: string; lock: string; runId?: string; sessionID?: string }
 export type ManageAction = "pause" | "resume" | "verify" | "attach" | "abort" | "archive"

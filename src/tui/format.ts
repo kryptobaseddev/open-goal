@@ -69,7 +69,9 @@ const clock = (t: number) => new Date(t).toTimeString().slice(0, 8)
 
 export function pillText(view: GoalView, now: number): string {
   const st = statusOf(view.status)
-  return `◎ ${st.icon} ${proven(view)}/${view.criteria.length} · t${view.turn} · ${fmtDuration(elapsed(view, now))}`
+  const steps = view.steps ?? []
+  const plan = steps.length ? `${steps.filter((s) => s.status === "done").length}/${steps.length} plan · ` : ""
+  return `◎ ${st.icon} ${plan}${proven(view)}/${view.criteria.length} proven · t${view.turn} · ${fmtDuration(elapsed(view, now))}`
 }
 
 const RESUME = "/goal resume"

@@ -215,8 +215,24 @@ try:
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
     os.kill(pid, signal.SIGWINCH)
     wait(lambda: observed().get("width") == cols, "narrow resize not observed")
-    actions = wait(lambda: node("goal-manager-actions"), "narrow selected controls disappeared")
+    # Host width and input ownership settle on separate render passes.
+    # Require the actual native focus/bounds, not just the first width
+    # snapshot. A permanently lost focus still fails this bounded wait.
+    actions = wait(lambda: node("goal-manager-actions") if node("goal-manager-actions") and
+                   node("goal-manager-actions")["focused"] and node("goal-manager-actions")["x"] >= 0 and
+                   node("goal-manager-actions")["x"] + node("goal-manager-actions")["width"] <= cols and
+                   node("goal-manager-actions")["y"] + node("goal-manager-actions")["height"] <= rows else None,
+                   "narrow selected controls did not regain focus inside the viewport")
     check("narrow-focus-and-bounds", actions["focused"] and actions["x"] >= 0 and actions["x"] + actions["width"] <= cols and actions["y"] + actions["height"] <= rows)
+    close = wait(lambda: node("goal-manager-close"), "no visible manager Close control")
+    assert close["select"] and close["x"] + close["width"] <= cols and close["y"] + close["height"] <= rows, "Close control clipped"
+    x, y = close["x"] + 2, close["y"]
+    send(f"\x1b[<0;{x + 1};{y + 1}M\x1b[<0;{x + 1};{y + 1}m".encode())
+    wait(lambda: observed().get("panel", {}).get("name") != "goal-dashboard" and not node("goal-manager"), "Close did not return to the basic session/sidebar")
+    check("visible-close-to-sidebar", observed().get("route", {}).get("sessionID") == info["sessionID"])
+    send(b"\x1b[20~")
+    wait(lambda: node("goal-manager-actions") and node("goal-manager-actions")["focused"], "F9 reopen did not restore the selected action focus")
+    check("f9-reopen-selected-focus", observed().get("route", {}).get("sessionID") == info["sessionID"])
     if info.get("decisionBridge"):
         choose("goal-manager-actions", "jump")
         wait(lambda: observed().get("route", {}).get("sessionID") == info["firstSessionID"], "resume popup target session not focused")

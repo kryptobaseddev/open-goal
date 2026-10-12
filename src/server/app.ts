@@ -13,10 +13,10 @@ import { GoalRpc, type GoalSummary, type GoalTarget, type GoalView, type ManageA
 import { account, budgetUse, initialRun, isActive, isTerminal, modelCan, ownerCan, setStatus, type Handoff, type PendingKind, type RunState, type Status } from "../engine/state"
 import { Store } from "../engine/store"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
-import { LaunchStore, launchChoices, processAlive, type LaunchRequest } from "../engine/launches"
+import { LaunchStore, launchChoices, launchView, processAlive, type LaunchActivity, type LaunchRequest } from "../engine/launches"
 import { amendmentDiff, amendedState } from "../engine/amendment"
 import { AmendmentStore, amendmentChoices, type AmendmentRequest } from "../engine/amendments"
-import { selectedReviewChoice } from "../engine/owner-reviews"
+import { selectedReviewChoice, reviewExpired } from "../engine/owner-reviews"
 import { DecisionStore, decisionChoices, type DecisionKind, type DecisionRequest, type DecisionTarget } from "../engine/decisions"
 import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
@@ -443,7 +443,7 @@ export class GoalApp {
     const target = this.decisionTarget(slug)
     const request = this.decisions.create({ sessionID, slug, kind, lock: target.lock, target,
       candidates: Object.fromEntries(message.choices.filter((c) => c.act === "start" && c.arg).map((c) => [c.arg!, this.decisionTarget(c.arg!)])),
-      title: message.id, message, extra, createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid,
+      title: message.id, message, extra, createdAt: now, expiresAt: 0, expiryPolicy: "target", issuerPID: process.pid,
       question: `${message.id}\n${renderMessage(message)}\nGoal: ${slug}; run: ${target.runId ?? "draft"}; lock: ${target.lock || "picker"}.\nOnly an offered option executes its described operation; commentary is not consent.`,
     })
     const decisionId = request.id
@@ -461,18 +461,17 @@ export class GoalApp {
       choices: message.choices.map((c) => (c.act ? { label: c.label, act: c.act, ...(c.arg ? { arg: c.arg } : {}) } : { label: c.label, guidance: true })),
     })
     this.noticeM(sessionID, message)
-    // T075: every decision ALSO asks through a native OpenCode form — the
-    // owner directive: decisions belong in the in-composer ask tool, not
-    // palette hints. The form is asked by the session's own model (the
-    // question tool is the only form-creation surface a server plugin has);
-    // a reply is wired to the same act the dialog carries.
+    // The sole decision surface is the session's native Composer form.
+    // Notifications are not answers and elapsed time is not revocation;
+    // exact target/generation, offered values and one-use reservation remain.
     void this.askDecisionForm(sessionID, slug, kind, decisionId, message)
   }
 
   private publishDecision(request: DecisionRequest) {
     this.pendingDecisions.set(request.sessionID, { id: request.id, kind: request.kind, slug: request.slug, at: request.createdAt, message: request.message })
     const choices = request.message.choices.map((c) => ({ label: c.label, run: c.run, ...(c.act ? { act: c.act } : { guidance: true }), ...(c.arg ? { arg: c.arg } : {}) }))
-    void this.rpc?.events.emit("decision", { sessionID: request.sessionID, slug: request.slug, kind: request.kind, decisionId: request.id, title: request.title, message: renderMessage(request.message), question: request.question, expiresAt: request.expiresAt, choices, ...request.extra }).catch(() => {})
+    void this.rpc?.events.emit("decision", { sessionID: request.sessionID, slug: request.slug, kind: request.kind, decisionId: request.id, title: request.title, message: renderMessage(request.message), question: request.question,
+      ...(request.expiryPolicy === "target" ? { expiryPolicy: "target" } : { expiresAt: request.expiresAt, expiryPolicy: "time" }), choices, ...request.extra }).catch(() => {})
   }
 
   /**
@@ -506,7 +505,7 @@ export class GoalApp {
     const actable = message.choices.filter((c) => c.act)
     if (!actable.length) return // guidance-only: nothing to wire a form to
     const request = this.decisions.get(decisionId)
-    if (!request || request.status !== "pending" || request.formID || request.expiresAt < Date.now()) return
+    if (!request || request.status !== "pending" || request.formID || reviewExpired(request)) return
     this.pendingFormDecisions.set(sessionID, { decisionId, kind, slug, choices: message.choices.map((c) => ({ label: c.label, act: c.act, arg: c.arg })), askedAt: Date.now() })
     const payload = { questions: [{ header: "Goal", question: request.question, options: decisionChoices(request).map((c) => ({ label: c.label, description: c.description })) }] }
     const presentation = newRunId()
@@ -528,6 +527,26 @@ export class GoalApp {
     await this.ctx.session.synthetic({ sessionID, text, resume: false } as any).catch(() => {})
   }
 
+  private publishLaunch(request: LaunchRequest) {
+    void this.rpc?.events.emit("updated", { sessionID: request.sessionID, launch: launchView(request) }).catch(() => {})
+  }
+
+  private async launchDisposition(request: LaunchRequest, status: LaunchRequest["status"], result: string, type: string) {
+    const settled = this.launches.update(request.id, { status, result })
+    this.store.ledger(request.slug, { type, decisionId: request.id, sessionID: request.sessionID, lock: request.lock, fresh: request.fresh, status, result })
+    this.publishLaunch(settled)
+    this.notice(request.sessionID, result, status === "succeeded" ? "success" : "warning")
+    await this.transcript(request.sessionID, `◎ Launch ${request.slug} (${status}; decision ${request.id}): ${result}`)
+  }
+
+  private launchActivity(decisionId: string | undefined, activity: LaunchActivity) {
+    if (!decisionId || !this.launches.get(decisionId)) return
+    const request = this.launches.activity(decisionId, activity)
+    this.store.ledger(request.slug, { type: "launch-activity", decisionId, sessionID: request.sessionID, lock: request.lock, fresh: request.fresh, ...activity })
+    this.publishLaunch(request)
+    this.notice(request.sessionID, `${request.slug}: ${activity.detail}`)
+  }
+
   /** Preparation is not execution or consent. The complete target/hash/mode
    * is persisted before asking so a lost model/tool result cannot lose the
    * owner's choice, and the model never needs to call start afterwards. */
@@ -537,6 +556,7 @@ export class GoalApp {
     const here = this.runs.get(sessionID)
     if (!fresh && here && !isTerminal(here.status)) throw new Error(`This session owns ${here.slug}; choose a fresh session rather than replacing a live goal.`)
     if ([...this.runs.values()].some((s) => s.slug === slug && !isTerminal(s.status))) throw new Error(`Goal ${slug} is already live; manage it instead of launching again.`)
+    if (this.launches.all().some((p) => p.status === "executing" && (p.slug === slug || p.sessionID === sessionID))) throw new Error("A launch admission is already starting; inspect its receipt before preparing another review.")
     const { contract, lock } = loaded
     const question = [
       `Review and launch: ${contract.title}`,
@@ -550,7 +570,13 @@ export class GoalApp {
     const now = Date.now()
     const request = this.launches.create({ sessionID, slug, lock, fresh, title: contract.title, question, createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid })
     this.store.ledger(slug, { type: "launch-proposed", decisionId: request.id, sessionID, lock, fresh, expiresAt: request.expiresAt })
-    const transport = await this.presentLaunch(request)
+    this.publishLaunch(request)
+    let transport: "native-form" | "question-tool"
+    try { transport = await this.presentLaunch(request) }
+    catch (error) {
+      await this.launchDisposition(request, "failed", `Launch review could not be presented; nothing started. ${String(error)}`, "launch-presentation-failed")
+      throw error
+    }
     return { decisionId: request.id, slug, lock, fresh, status: "pending", transport, message: "Launch review offered natively. The host, not a later model call, executes the owner's choice." }
   }
 
@@ -584,12 +610,20 @@ export class GoalApp {
         const start = this.store.recent(p.slug, 1000).find((e) => e.type === "start" && e.decisionId === p.id && e.lock === p.lock && e.runId === state?.runId)
         const clean = p.fresh ? this.store.recent(p.slug, 1000).find((e) => e.type === "clean-start" && e.decisionId === p.id && e.from === p.sessionID && e.to === state?.sessionID) : undefined
         const succeeded = !!state && !!start && (p.fresh ? !!clean || state.handoff?.fromSessionID === p.sessionID && state.handoff?.toSessionID === state.sessionID : state.sessionID === p.sessionID)
-        this.launches.update(p.id, { status: succeeded ? "succeeded" : "failed", result: succeeded ? `Recovered already-started run ${state!.runId}; approval was not replayed.` : "Launch was interrupted with no matching run receipt. Inspect state, then prepare a new review; approval was not replayed." })
+        await this.launchDisposition(p, succeeded ? "succeeded" : "failed", succeeded ? `Recovered already-started run ${state!.runId}; approval was not replayed.` : "Launch was interrupted with no matching run receipt. Inspect state, then prepare a new review; approval was not replayed.", "launch-recovery-disposition")
         this.store.ledger(p.slug, { type: "launch-recovery", decisionId: p.id, ok: succeeded, ...(succeeded ? { runId: state!.runId } : {}) })
         continue
       }
       if (!["pending", "interrupted"].includes(p.status) || p.issuerPID !== process.pid && processAlive(p.issuerPID)) continue
-      if (p.expiresAt < Date.now()) { this.launches.update(p.id, { status: "expired" }); continue }
+      if (p.expiresAt < Date.now()) {
+        await this.launchDisposition(p, "expired", "Launch review expired. Prepare a fresh review; nothing started.", "launch-expired")
+        continue
+      }
+      const loaded = this.load(p.slug, true)
+      if ("error" in loaded || loaded.lock !== p.lock) {
+        await this.launchDisposition(p, "failed", "The draft changed or is invalid after reload; nothing launched. Prepare a new review of the current contract.", "launch-changed")
+        continue
+      }
       if (p.formID && typeof api?.get === "function") {
         try {
           const form = await api.get({ sessionID: p.sessionID, formID: p.formID })
@@ -604,7 +638,8 @@ export class GoalApp {
       const next = this.launches.reopenForm(p.id)
       if (next) {
         this.store.ledger(p.slug, { type: "launch-review-restored", decisionId: p.id, previousFormID: p.formID, lock: p.lock, fresh: p.fresh })
-        await this.presentLaunch(next)
+        try { await this.presentLaunch(next) }
+        catch (error) { await this.launchDisposition(next, "failed", `Launch review could not be restored; nothing started. ${String(error)}`, "launch-presentation-failed") }
       }
     }
   }
@@ -615,48 +650,97 @@ export class GoalApp {
     await this.recoverDecisions()
   }
 
+  private async reviewLaunch(sessionID: string, request: LaunchRequest) {
+    if (request.sessionID !== sessionID) throw new Error("That launch review belongs to another authoring session; nothing was reused.")
+    if (request.issuerPID !== process.pid && processAlive(request.issuerPID)) throw new Error("Another live server owns this launch review; inspect it there.")
+    if (!["pending", "interrupted", "expired"].includes(request.status)) throw new Error(`Launch review is ${request.status}; inspect its disposition, then prepare a new review rather than replaying approval.`)
+    const loaded = this.load(request.slug, true)
+    if ("error" in loaded) throw new Error(loaded.error)
+    if (loaded.lock !== request.lock) throw new Error("The reviewed draft changed; old choices cannot be reused. Prepare a new launch review of the current contract.")
+    if (request.status === "expired" || request.expiresAt < Date.now()) {
+      if (request.status !== "expired") await this.launchDisposition(request, "expired", "Launch review expired. Prepare a fresh review; nothing started.", "launch-expired")
+      const next = await this.prepareLaunch(sessionID, request.slug, request.fresh)
+      this.store.ledger(request.slug, { type: "launch-review-replaced", decisionId: request.id, replacementDecisionId: next.decisionId, sessionID, lock: request.lock, fresh: request.fresh })
+      return `Expired launch review replaced by new native review ${next.decisionId}. A NEW real owner selection is required; the old approval was not replayed and nothing started.`
+    }
+    const api = (this.ctx.session as any).form
+    // Server plugins do not always expose Core's form.get capability. The
+    // exact bound form's authenticated creation/cancel/reply events are
+    // still tracked locally; do not enqueue a duplicate native question.
+    if (request.formID && this.factsOf(sessionID).forms.has(request.formID))
+      return "The exact launch review is already present in the native composer. Nothing started."
+    if (request.formID && typeof api?.get === "function") {
+      try {
+        const form = await api.get({ sessionID, formID: request.formID })
+        if (form.state?.status === "pending") return "The exact launch review is already present in the native composer. Nothing started."
+      } catch { /* Core form can disappear; re-present, never consume an answer here. */ }
+    }
+    const next = this.launches.reopenForm(request.id)
+    if (!next) throw new Error("Launch review changed while restoring it; refresh the receipt.")
+    this.store.ledger(request.slug, { type: "launch-review-restored", decisionId: request.id, previousFormID: request.formID, lock: request.lock, fresh: request.fresh })
+    try { await this.presentLaunch(next) }
+    catch (error) {
+      await this.launchDisposition(next, "failed", `Launch review could not be restored; nothing started. ${String(error)}`, "launch-presentation-failed")
+      throw error
+    }
+    this.publishLaunch(next)
+    return "The same exact launch review has been re-presented natively. No approval was inferred and nothing started."
+  }
+
   private async resolveLaunch(request: LaunchRequest, answer: Record<string, unknown>) {
+    request = this.launches.get(request.id) ?? request
     if (request.status !== "pending") return // replay, including during execution
     if (request.issuerPID !== process.pid && processAlive(request.issuerPID)) return // another live session server owns it
     const value = request.fieldKey ? answer[request.fieldKey] : undefined
     const selected = selectedReviewChoice(request, launchChoices, answer)
     if (request.expiresAt < Date.now()) {
-      this.launches.update(request.id, { status: "expired", result: "Launch review expired. Prepare a fresh review; nothing started." })
-      this.noticeM(request.sessionID, M.launchExpired())
+      await this.launchDisposition(request, "expired", "Launch review expired. Prepare a fresh review; nothing started.", "launch-expired")
       return
     }
     if (!selected || selected.value === "revise") {
       const comment = typeof value === "string" ? value : "Owner requested revision."
       this.launches.update(request.id, { status: "commented", comment })
-      this.store.ledger(request.slug, { type: "launch-revision-requested", decisionId: request.id, comment })
+      await this.launchDisposition(request, "commented", `Draft revision requested; nothing launched. Commentary: ${comment}`, "launch-revision-requested")
       await this.ctx.session.prompt({ sessionID: request.sessionID, text: `Revise the draft goal ${request.slug} with the write-goal interview. Owner commentary: ${JSON.stringify(comment)}. Nothing launched; show the revised contract before another launch review.`, skills: [{ id: "write-goal" }] } as any)
       return
     }
     if (selected.value === "save") {
-      this.launches.update(request.id, { status: "rejected", result: "Draft saved; nothing launched." })
-      this.store.ledger(request.slug, { type: "launch-declined", decisionId: request.id })
+      await this.launchDisposition(request, "rejected", "Draft saved; nothing launched.", "launch-declined")
       return
     }
     const loaded = this.load(request.slug, true)
     if ("error" in loaded || loaded.lock !== request.lock) {
-      this.launches.update(request.id, { status: "failed", result: "The draft changed since review; nothing launched. Review the new contract." })
-      this.noticeM(request.sessionID, M.launchChanged())
+      await this.launchDisposition(request, "failed", "The draft changed since review; nothing launched. Prepare a new review of the current contract.", "launch-changed")
       return
     }
-    const reserved = this.launches.reserve(request.id)
-    if (!reserved) return
     try {
+      const reserved = this.launches.reserve(request.id)
+      if (!reserved) {
+        const current = this.launches.get(request.id)!
+        if (current.status === "expired") {
+          await this.launchDisposition(current, "expired", "Launch review expired at reservation. Prepare a fresh review; nothing started.", "launch-expired")
+        } else if (current.status === "pending") {
+          await this.launchDisposition(current, "failed", "Launch reservation refused: another admission owns this draft/session. No second launch started; inspect the active launch receipt.", "launch-reservation-refused")
+        } else {
+          const result = `Launch reservation refused: review is ${current.status}. Approval was not replayed.`
+          this.store.ledger(request.slug, { type: "launch-reservation-refused", decisionId: request.id, status: current.status, result })
+          this.notice(request.sessionID, result, "warning")
+          await this.transcript(request.sessionID, `◎ ${result}`)
+        }
+        return
+      }
+      this.store.ledger(request.slug, { type: "launch-reserved", decisionId: request.id, sessionID: request.sessionID, lock: request.lock, fresh: request.fresh })
+      this.launchActivity(request.id, { phase: "starting", since: Date.now(), detail: "Owner-approved admission starting; no new run exists yet.", completed: 0, total: 0 })
+      await this.transcript(request.sessionID, `◎ Launch ${request.slug}: owner-approved admission starting (decision ${request.id}). Rehearsing checks before creating a new run; this is not running yet.`)
       const binding = { expectedLock: request.lock, decisionId: request.id }
       const result = request.fresh ? await this.startClean(request.sessionID, request.slug, binding) : await this.startGoal(request.sessionID, request.slug, "tool", binding)
       const ok = result.startsWith('Goal "') || result.startsWith("Started clean")
-      this.launches.update(request.id, { status: ok ? "succeeded" : "failed", result })
+      await this.launchDisposition(request, ok ? "succeeded" : "failed", result, ok ? "launch-succeeded" : "launch-failed")
       this.store.ledger(request.slug, { type: "launch-resolved", decisionId: request.id, sessionID: request.sessionID, lock: request.lock, fresh: request.fresh, ok, result })
-      await this.transcript(request.sessionID, `◎ Launch decision ${ok ? "executed" : "failed"}: ${request.slug}. ${result}`)
     } catch (error) {
       const result = String(error)
-      this.launches.update(request.id, { status: "failed", result })
+      await this.launchDisposition(request, "failed", result, "launch-failed")
       this.store.ledger(request.slug, { type: "launch-resolved", decisionId: request.id, ok: false, result })
-      this.noticeM(request.sessionID, M.launchFailed(result))
     }
   }
 
@@ -669,18 +753,18 @@ export class GoalApp {
   private ownedAmendmentQuestion(sessionID: string, input: any): boolean {
     const q = input?.questions
     if (!Array.isArray(q) || q.length !== 1 || !Array.isArray(q[0]?.options)) return false
-    return this.amendmentReviews.all(sessionID).some((p) => p.status === "pending" && p.expiresAt >= Date.now() && p.question === q[0].question && q[0].options.length === amendmentChoices.length && amendmentChoices.every((c) => q[0].options.some((o: any) => o.label === c.label)))
+    return this.amendmentReviews.all(sessionID).some((p) => p.status === "pending" && !reviewExpired(p) && p.question === q[0].question && q[0].options.length === amendmentChoices.length && amendmentChoices.every((c) => q[0].options.some((o: any) => o.label === c.label)))
   }
 
   private ownedDecisionQuestion(sessionID: string, input: any): boolean {
     const q = input?.questions
     if (!Array.isArray(q) || q.length !== 1 || !Array.isArray(q[0]?.options)) return false
-    return this.decisions.all(sessionID).some((p) => p.status === "pending" && p.expiresAt >= Date.now() && p.question === q[0].question && q[0].options.length === p.message.choices.length && p.message.choices.every((c) => q[0].options.some((o: any) => o.label === c.label)))
+    return this.decisions.all(sessionID).some((p) => p.status === "pending" && !reviewExpired(p) && p.question === q[0].question && q[0].options.length === p.message.choices.length && p.message.choices.every((c) => q[0].options.some((o: any) => o.label === c.label)))
   }
 
   private async resolveDecisionForm(request: DecisionRequest, answer: Record<string, unknown>) {
     if (!["pending", "expired"].includes(request.status) || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
-    if (request.status === "expired" || request.expiresAt < Date.now()) {
+    if (request.status === "expired" || reviewExpired(request)) {
       const message = "Decision review expired; nothing executed. Request the exact review again."
       this.decisions.update(request.id, { status: "expired", result: message })
       this.store.ledger(request.slug, { type: "decision-form-operation-failed", decision: request.id, ok: false, message })
@@ -728,7 +812,7 @@ export class GoalApp {
         continue
       }
       if (!["pending", "interrupted"].includes(p.status)) continue
-      if (p.expiresAt < Date.now()) { this.decisions.update(p.id, { status: "expired", result: "Decision review expired; inspect status before a new review." }); continue }
+      if (reviewExpired(p)) { this.decisions.update(p.id, { status: "expired", result: "Decision review expired; inspect status before a new review." }); continue }
       const current = this.decisionTarget(p.slug)
       if (current.lock !== p.target.lock || current.runId !== p.target.runId || current.sessionID !== p.target.sessionID) { this.decisions.update(p.id, { status: "failed", result: "Goal generation/session changed; old review invalidated." }); continue }
       this.publishDecision(p)
@@ -745,6 +829,11 @@ export class GoalApp {
   }
 
   private async reviewDecision(sessionID: string, decisionId?: string) {
+    const amendment = decisionId ? this.amendmentReviews.get(decisionId) : this.amendmentReviews.all(sessionID).filter((p) => ["pending", "interrupted", "expired"].includes(p.status)).sort((a, b) => b.createdAt - a.createdAt)[0]
+    const launch = decisionId ? this.launches.get(decisionId) : this.launches.all(sessionID).filter((p) => ["pending", "interrupted", "expired"].includes(p.status)).sort((a, b) => b.createdAt - a.createdAt)[0]
+    const decision = decisionId ? this.decisions.get(decisionId) : this.decisions.all(sessionID).filter((p) => ["pending", "interrupted", "expired"].includes(p.status)).sort((a, b) => b.createdAt - a.createdAt)[0]
+    if (amendment && (decisionId || amendment.createdAt >= Math.max(launch?.createdAt ?? 0, decision?.createdAt ?? 0))) return this.reviewAmendment(sessionID, amendment)
+    if (launch && (decisionId || !decision || launch.createdAt >= decision.createdAt)) return this.reviewLaunch(sessionID, launch)
     const request = decisionId ? this.decisions.get(decisionId) : this.decisions.all(sessionID).filter((p) => ["pending", "interrupted", "expired"].includes(p.status)).sort((a, b) => b.createdAt - a.createdAt)[0]
     if (!request || request.sessionID !== sessionID) throw new Error("No pending engine decision in this session; inspect the selected goal's status.")
     const current = this.decisionTarget(request.slug)
@@ -784,7 +873,7 @@ export class GoalApp {
       const p = this.amendmentReviews.create({
         sessionID, targetSessionID: state.sessionID, slug: state.slug, runId: state.runId,
         lock: state.lock, nextLock: next.lock, nextText: input.yaml, rationale: input.rationale,
-        diff, title: next.contract.title, createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid,
+        diff, title: next.contract.title, createdAt: now, expiresAt: 0, expiryPolicy: "target", issuerPID: process.pid,
         question: [
           `Amend ${state.slug} (run ${state.runId})?`,
           `From SHA256 ${state.lock} to ${next.lock}.`, `Rationale: ${input.rationale}`,
@@ -817,13 +906,40 @@ export class GoalApp {
     }
   }
 
+  private async reviewAmendment(sessionID: string, request: AmendmentRequest) {
+    if (request.sessionID !== sessionID) throw new Error("That amendment review belongs to another authoring session; nothing was reused.")
+    if (request.issuerPID !== process.pid && processAlive(request.issuerPID)) throw new Error("Another live server owns this amendment review; inspect it there.")
+    if (!["pending", "interrupted", "expired"].includes(request.status)) throw new Error(`Amendment review is ${request.status}; old approval cannot be replayed.`)
+    const state = this.runs.get(request.targetSessionID), disk = this.store.readContract(request.slug)
+    if (!state || isTerminal(state.status) || state.runId !== request.runId || state.lock !== request.lock || !disk?.contract || disk.lock !== request.lock)
+      throw new Error("The reviewed amendment target changed; old choices cannot be reused.")
+    if (request.status === "expired" || reviewExpired(request)) {
+      if (request.status !== "expired") {
+        this.amendmentReviews.update(request.id, { status: "expired", result: "Legacy timed review expired; nothing applied." })
+        this.store.ledger(request.slug, { type: "amendment-review-expired", decisionId: request.id, actionExecuted: false })
+      }
+      const replacement = await this.proposeAmendment(sessionID, { slug: request.slug, expectedLock: request.lock, yaml: request.nextText, rationale: request.rationale })
+      this.store.ledger(request.slug, { type: "amendment-review-replaced", decisionId: request.id, replacementDecisionId: replacement.decisionId, actionExecuted: false })
+      return "Expired amendment review replaced by a validated native Composer review. A NEW real owner selection is required; no old approval was replayed."
+    }
+    if (request.formID && this.factsOf(sessionID).forms.has(request.formID)) return "The exact amendment review is already present in the native Composer; nothing applied."
+    const next = this.amendmentReviews.reopenForm(request.id)
+    if (!next) throw new Error("Amendment review changed while restoring it; inspect its receipt.")
+    this.store.ledger(request.slug, { type: "amendment-review-restored", decisionId: request.id, previousFormID: request.formID, actionExecuted: false })
+    await this.presentAmendment(next)
+    return "The same exact amendment review is restored in the Composer. No approval, application or resume was inferred."
+  }
+
   private async resolveAmendment(request: AmendmentRequest, answer: Record<string, unknown>) {
+    request = this.amendmentReviews.get(request.id) ?? request
     if (request.status !== "pending" || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
     const value = request.fieldKey ? answer[request.fieldKey] : undefined
     const selected = selectedReviewChoice(request, amendmentChoices, answer)
-    if (request.expiresAt < Date.now()) {
+    if (reviewExpired(request)) {
       this.amendmentReviews.update(request.id, { status: "expired", result: "Review expired; the locked contract is unchanged." })
+      this.store.ledger(request.slug, { type: "amendment-review-expired", decisionId: request.id, sessionID: request.sessionID, actionExecuted: false })
       this.noticeM(request.sessionID, M.amendmentExpired())
+      await this.transcript(request.sessionID, `◎ Amendment review ${request.id} expired; nothing applied. Request a fresh Composer review of this exact diff; the old approval cannot be replayed.`)
       return
     }
     if (selected?.value !== "accept") {
@@ -906,7 +1022,12 @@ export class GoalApp {
     const api = (this.ctx.session as any).form
     for (const p of this.amendmentReviews.all()) {
       if (!["pending", "interrupted"].includes(p.status) || p.issuerPID !== process.pid && processAlive(p.issuerPID)) continue
-      if (p.expiresAt < Date.now()) { this.amendmentReviews.update(p.id, { status: "expired" }); continue }
+      if (reviewExpired(p)) {
+        this.amendmentReviews.update(p.id, { status: "expired", result: "Legacy timed review expired; the locked contract is unchanged." })
+        this.store.ledger(p.slug, { type: "amendment-review-expired", decisionId: p.id, actionExecuted: false })
+        await this.transcript(p.sessionID, `◎ Amendment review ${p.id} expired after reload; nothing applied. Request a fresh Composer review; no old approval will be replayed.`)
+        continue
+      }
       if (p.formID && typeof api?.get === "function") {
         try {
           const form = await api.get({ sessionID: p.sessionID, formID: p.formID })
@@ -1014,17 +1135,26 @@ export class GoalApp {
       // stderr, so `grep missing-file` stays a valid red baseline.
       const commandChecks = [...contract.criteria, ...contract.invariants].filter((c) => c.check.kind === "command")
       const rehearsal: Array<{ id: string; pass: boolean; unrunnable: boolean; ms: number; detail: string }> = []
+      this.launchActivity(options.decisionId, { phase: "rehearsal", since: Date.now(), detail: `Rehearsing ${commandChecks.length} command checks before run creation.`, completed: 0, total: commandChecks.length })
       for (const c of commandChecks) {
         const started = Date.now()
+        this.launchActivity(options.decisionId, { phase: "check", since: started, detail: `Rehearsing ${c.id} (${rehearsal.length + 1}/${commandChecks.length}); no run yet.`, checkId: c.id, completed: rehearsal.length, total: commandChecks.length })
         const result = await runHostCheck(c.check, this.root, headCommit(this.root))
+        if (this.disposed) return "Launch admission interrupted by host reload; no run created. Inspect the receipt and prepare a new review."
         const last = Array.isArray(result.raw) ? (result.raw as unknown[]).at(-1) as { exit?: number; stderr?: string } | undefined : undefined
         const unrunnable = Number(last?.exit) === 126 || Number(last?.exit) === 127 || /\b(zsh|bash|sh|dash):(\d+:)?\s.*(permission denied|command not found|no such file or directory)/i.test(String(last?.stderr ?? ""))
         rehearsal.push({ id: c.id, pass: result.pass, unrunnable, ms: Date.now() - started, detail: result.detail.slice(0, 400) })
+        this.launchActivity(options.decisionId, { phase: "rehearsal", since: Date.now(), detail: `Rehearsed ${c.id}: ${unrunnable ? "unrunnable" : result.pass ? "pass" : "red baseline"} (${rehearsal.length}/${commandChecks.length}).`, completed: rehearsal.length, total: commandChecks.length })
         if (unrunnable) {
           this.store.ledger(slug, { type: "rehearsal-refused", id: c.id, exit: last?.exit, detail: result.detail.split("\n").slice(0, 3).join(" | ").slice(0, 300) })
           const diagnostic = String(last?.stderr ?? "").split("\n").find((l) => /permission denied|command not found|no such file/i.test(l)) ?? `exit ${last?.exit}`
           return `Refused to start "${slug}": the check command for ${c.id} cannot run — ${diagnostic.trim()}. Command checks must be runnable from the project root; keep each on ONE line (YAML folded scalars keep newlines before indented lines) and rehearse the stored command. Fix goal.yaml and /goal start again.`
         }
+      }
+      if (this.disposed) return "Launch admission interrupted by host reload; no run created."
+      if (options.expectedLock) {
+        const current = this.load(slug, true)
+        if ("error" in current || current.lock !== options.expectedLock) return "Refused: contract changed during launch rehearsal; no run created. Prepare a new review."
       }
       const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(this.root) })
       if (options.handoff) state.handoff = options.handoff
@@ -1132,7 +1262,9 @@ export class GoalApp {
       } catch {
         await this.ctx.session.prompt(payload as any)
       }
-      state.counters.failures = Math.max(0, state.counters.failures - 1)
+      // An accepted prompt is not a successful model execution. Reducing
+      // the failure streak here cancelled every execution failure and made
+      // provider errors retry forever (observed turns 10–36 in dogfood).
     } catch (error) {
       state.counters.failures += 1
       this.store.ledger(state.slug, { type: "admit-failed", turn: state.turn, error: String(error) })
@@ -1381,6 +1513,9 @@ export class GoalApp {
   }
 
   private async onTurnEnd(state: RunState) {
+    // Only the host's actual execution.succeeded signal clears the streak.
+    // This also covers successful goal_wait turns, whose status is waiting.
+    if (isActive(state.status)) state.counters.failures = 0
     if (state.status !== "running") return
     const contract = this.contractOf(state)
     if (!contract) return
@@ -1472,19 +1607,23 @@ export class GoalApp {
     if (!isActive(state.status)) return
     const message = String(error?.message ?? error?.type ?? error ?? "unknown error")
     state.pending = undefined
+    this.notes.delete(state.sessionID)
+    state.counters.failures += 1
+    this.store.ledger(state.slug, { type: "turn-failed", error: message, failures: state.counters.failures })
     let reason: string | undefined
-    if (/quota|insufficient|billing|credit|usage limit/i.test(message)) reason = `provider usage limit: ${message}`
+    if (/\bmodel\b[^\n]*(?:unavailable|not found|not available|does not exist|disabled)/i.test(message)) reason = `model unavailable: ${message}`
+    else if (/quota|insufficient|billing|credit|usage limit/i.test(message)) reason = `provider usage limit: ${message}`
     else if (/context|too long|maximum.*tokens/i.test(message)) reason = `context overflow: ${message}`
     else if (/auth|unauthorized|forbidden|api key/i.test(message)) reason = `provider auth error: ${message}`
     else {
-      state.counters.failures += 1
-      this.store.ledger(state.slug, { type: "turn-failed", error: message, failures: state.counters.failures })
       if (state.counters.failures < this.options.maxPromptFailures) {
         this.persist(state)
         return this.schedule(state, 5000 * 2 ** state.counters.failures, "continue")
       }
       reason = `repeated errors: ${message}`
     }
+    clearTimeout(this.timers.get(state.sessionID))
+    this.timers.delete(state.sessionID)
     setStatus(state, "paused", reason.slice(0, 300))
     this.store.ledger(state.slug, { type: "paused", reason })
     this.noticeM(state.sessionID, M.pausedInterrupted(reason))
@@ -2192,7 +2331,7 @@ export class GoalApp {
   }
 
   list(): GoalSummary[] {
-    return projectInventory(this.store, this.runs.values())
+    return projectInventory(this.store, this.runs.values(), { launches: this.launches.all() })
   }
 
   private async inventory(): Promise<GoalSummary[]> {
@@ -2238,7 +2377,7 @@ export class GoalApp {
         const generationAt = Math.max(state.createdAt, ...state.amendments.filter((a) => a.status === "accepted").map((a) => a.at),
           ...this.store.recent(state.slug, 1000).filter((e) => e.type === "paused").map((e) => Number(e.t) || 0))
         const messages: any = await this.ctx.session.context({ sessionID } as any)
-        const review = this.decisions.all(sessionID).filter((p) => ["pending", "interrupted"].includes(p.status) && p.expiresAt >= Date.now()
+        const review = this.decisions.all(sessionID).filter((p) => ["pending", "interrupted"].includes(p.status) && !reviewExpired(p)
           && p.kind === "owner-operation" && p.extra.targetKey === selected.key && p.target.lock === state.lock
           && p.target.runId === state.runId && p.target.sessionID === sessionID && p.target.status === state.status
           && p.message.choices.some((c) => c.act === "resume")).sort((a, b) => b.createdAt - a.createdAt)[0]
@@ -2248,7 +2387,7 @@ export class GoalApp {
           const request = this.decisions.create({ sessionID, slug: state.slug, kind: "owner-operation", lock: state.lock,
             target: this.decisionTarget(state.slug), candidates: {}, title: message.id, message,
             extra: { targetKey: selected.key }, ownerMessageID: consent.id, question: consent.text,
-            createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid })
+            createdAt: now, expiresAt: 0, expiryPolicy: "target", issuerPID: process.pid })
           const reserved = this.decisions.reserve(request.id)
           if (!reserved) return { ok: false, message: "The owner request was already consumed; no operation executed." }
           // Consume BEFORE attempting: a failed operation cannot turn an old
@@ -2265,6 +2404,15 @@ export class GoalApp {
         }
       }
       if (forceReview || action === "abort" || action === "archive") {
+        const existing = this.decisions.all(sessionID).find((p) => ["pending", "interrupted"].includes(p.status) && !reviewExpired(p)
+          && p.kind === "owner-operation" && p.extra.targetKey === selected.key && p.target.lock === state.lock
+          && p.target.runId === state.runId && p.target.sessionID === state.sessionID && p.target.status === state.status
+          && p.message.choices.some((c) => c.act === action))
+        if (existing) {
+          this.publishDecision(existing)
+          if (existing.status === "pending") void this.askDecisionForm(sessionID, selected.slug, existing.kind, existing.id, existing.message)
+          return { ok: true, pending: true, decisionId: existing.id, message: "The exact native decision is already pending in the Composer; no second review or operation was created." }
+        }
         this.decide(sessionID, selected.slug, "owner-operation", M.managerOperation(action, selected.title), { targetKey: selected.key })
         const decisionId = this.pendingDecisions.get(sessionID)?.id
         return { ok: true, pending: true, decisionId, message: `Native ${action} confirmation offered for ${selected.slug}; no operation executed yet.` }
@@ -2341,10 +2489,15 @@ export class GoalApp {
         provenance: async (input: { sessionID?: string }) => this.provenance(input.sessionID),
         snapshot: async (input: { sessionID: string }) => {
           const state = this.runs.get(input.sessionID)
-          return { view: state ? (this.view(state) ?? null) : null }
+          const launches = this.launches.all(input.sessionID).map(launchView)
+          return { view: state ? (this.view(state) ?? null) : null, launches }
         },
         list: async () => ({ goals: await this.inventory(), directory: this.root }),
-        details: async (input: { key: string }) => ({ goal: (await this.withSessionMetadata(projectInventory(this.store, this.runs.values(), { detailsForKey: input.key }).filter((g) => g.key === input.key)))[0] ?? null }),
+        details: async (input: { key: string }) => ({ goal: (await this.withSessionMetadata(projectInventory(this.store, this.runs.values(), { detailsForKey: input.key, launches: this.launches.all() }).filter((g) => g.key === input.key)))[0] ?? null }),
+        review: async (input: { sessionID: string; decisionId?: string }) => {
+          try { return { ok: true, message: await this.reviewDecision(input.sessionID, input.decisionId) } }
+          catch (error) { return { ok: false, message: String(error instanceof Error ? error.message : error), actionExecuted: false } }
+        },
         manage: async (input: { sessionID: string; action: ManageAction; target: GoalTarget }) => this.manageGoal(input.sessionID, input.action, input.target),
         act: async (input: { sessionID: string; action: any; arg?: string; decisionId?: string }) => this.ownerAct(input.sessionID, input.action, input.arg, "dialog", input.decisionId),
       })
@@ -2400,7 +2553,7 @@ export class GoalApp {
       }),
       tool(
         "progress",
-        "Record progress on the goal: the plan step you are on (and whether it is done), one line on what changed, and the next concrete action. Feeds the owner's sidebar and the ledger.",
+        "Record progress only on the active goal in this session. Check goal_status after interruption/reload; stopped or terminal goals return recorded:false with their exact status and no mutation. Do not retry a stopped goal or infer resume permission. Keep note and next within 400 characters each; plan progress is not host-proven criteria.",
         {
           properties: {
             step: { type: "string", description: "Plan step id, e.g. S2" },
@@ -2412,7 +2565,12 @@ export class GoalApp {
         },
         async (args, context) =>
           this.serial(() => {
-            const state = guard(context, "progress")
+            const selected = forSession(context)
+            const unavailable = modelCan(selected, "progress")
+            if (unavailable) return { ok: false, recorded: false, status: selected?.status ?? "none", message: unavailable,
+              nextAction: selected && !isTerminal(selected.status) ? "Owner may resume this exact goal; do not retry progress while stopped." : "Inspect goal_status; no progress was recorded.",
+              ...(selected ? { slug: selected.slug, runId: selected.runId } : {}) }
+            const state = selected!
             const contract = this.contractOf(state)
             if (args.step) {
               const id = String(args.step).toUpperCase()
@@ -2429,7 +2587,7 @@ export class GoalApp {
             state.turnFacts.goalCalls += 1
             this.store.ledger(state.slug, { type: "progress", turn: state.turn, step: args.step, done: !!args.step_done, note: state.progress.note, next: state.progress.next })
             this.persist(state)
-            return "Recorded."
+            return { ok: true, recorded: true, status: state.status, slug: state.slug, runId: state.runId, message: "Recorded. Plan progress does not approve completion criteria." }
           }),
       ),
       tool(

@@ -9,7 +9,7 @@ import { createTextNode as _$createTextNode } from "@opentui/solid";
 import { insertNode as _$insertNode } from "@opentui/solid";
 import { setProp as _$setProp } from "@opentui/solid";
 import { createElement as _$createElement } from "@opentui/solid";
-import { createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 
 // src/rpc.ts
@@ -32,6 +32,10 @@ var GoalRpc = {
     },
     details: {
       input: { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 256 } }, required: ["key"], additionalProperties: false },
+      output: anyObject
+    },
+    review: {
+      input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 }, decisionId: { type: "string", minLength: 1, maxLength: 256 } }, required: ["sessionID"], additionalProperties: false },
       output: anyObject
     },
     manage: {
@@ -148,7 +152,9 @@ var usageLine = (view, now) => {
 };
 function pillText(view, now) {
   const st = statusOf(view.status);
-  return `\u25CE ${st.icon} ${proven(view)}/${view.criteria.length} \xB7 t${view.turn} \xB7 ${fmtDuration(elapsed(view, now))}`;
+  const steps = view.steps ?? [];
+  const plan = steps.length ? `${steps.filter((s) => s.status === "done").length}/${steps.length} plan \xB7 ` : "";
+  return `\u25CE ${st.icon} ${plan}${proven(view)}/${view.criteria.length} proven \xB7 t${view.turn} \xB7 ${fmtDuration(elapsed(view, now))}`;
 }
 var RESUME = "/goal resume";
 function endStateCopy(status, slug) {
@@ -501,6 +507,15 @@ function fitColumns(text, width) {
   return out + suffix;
 }
 var targetOf = (goal) => ({ key: goalKey(goal), lock: goal.lock ?? "", ...goal.runId ? { runId: goal.runId } : {}, ...goal.sessionID ? { sessionID: goal.sessionID } : {} });
+function launchStatusText(launch) {
+  if (!launch || launch.status === "succeeded")
+    return;
+  if (launch.status === "executing")
+    return `Starting ${launch.slug} \xB7 ${launch.activity?.detail ?? "owner-approved admission"} \xB7 no run yet`;
+  if (launch.status === "pending" || launch.status === "interrupted")
+    return `Launch review ${launch.slug} \xB7 pending in Composer \xB7 nothing started`;
+  return `Launch ${launch.slug} \xB7 ${launch.status} \xB7 ${launch.result ?? "nothing started; inspect the review"}`;
+}
 function managerActions(goal, actorSessionID, actorHasGoal) {
   const rows = [];
   if (goal.sessionID && goal.sessionState === "present")
@@ -522,25 +537,8 @@ function managerActions(goal, actorSessionID, actorHasGoal) {
   rows.push({ label: "Back to all goals", description: "Collapse details without changing sessions", action: "back" });
   return rows;
 }
-function wrapColumns(text, width) {
-  const limit = Math.max(2, Math.floor(width));
-  const result = [];
-  for (const line of text.split(`
-`)) {
-    let out = "";
-    for (const { segment } of graphemes.segment(line)) {
-      if (out && columns(out + segment) > limit) {
-        result.push(out);
-        out = "";
-      }
-      out += segment;
-    }
-    result.push(out);
-  }
-  return result;
-}
 function orderedGoals(goals, sessionID) {
-  const here = (g) => !g.archived ? g.sessionID === sessionID ? 2 : g.handoff?.fromSessionID === sessionID ? 1 : 0 : 0;
+  const here = (g) => !g.archived ? g.sessionID === sessionID ? 2 : g.handoff?.fromSessionID === sessionID || !g.runId && g.launch?.sessionID === sessionID ? 1 : 0 : 0;
   return [...goals].sort((a, b) => here(b) - here(a) || priorityWeight(b.priority) - priorityWeight(a.priority) || (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
 }
 function sidebarCards(goals, sessionID, width = 40, maxLines = 12) {
@@ -552,9 +550,11 @@ function sidebarCards(goals, sessionID, width = 40, maxLines = 12) {
     hidden: Math.max(0, active.length - visible.length),
     cards: visible.map((goal) => {
       const here = goal.sessionID === sessionID;
-      const where = !goal.sessionID ? "draft" : here ? "here" : "elsewhere";
+      const where = !goal.sessionID ? goal.launch?.sessionID === sessionID ? "author here" : "draft" : here ? "here" : "elsewhere";
       const tone = goal.status === "blocked" ? "error" : ["running", "waiting", "verifying"].includes(goal.status) ? "success" : "warning";
-      return { key: goalKey(goal), goal, tone, title: fitColumns(goal.title, Math.max(1, width - 2)), description: fitColumns(`${goal.status} \xB7 ${where}`, Math.max(1, width - 2)), progress: fitColumns(`${goal.handoff?.fromSessionID === sessionID ? "from here \xB7 " : ""}${goal.proven}/${goal.total} proven \xB7 ${goal.agent ?? "agent unknown"}`, width) };
+      const steps = goal.steps ?? [];
+      const plan = steps.length ? `${steps.filter((s) => s.status === "done").length}/${steps.length} plan \xB7 ` : "";
+      return { key: goalKey(goal), goal, tone, title: fitColumns(goal.title, Math.max(1, width - 2)), description: fitColumns(`${goal.status}${goal.launch?.status === "executing" ? " \xB7 starting" : goal.launch?.status === "expired" ? " \xB7 review expired" : ""} \xB7 ${where}`, Math.max(1, width - 2)), progress: fitColumns(`${goal.handoff?.fromSessionID === sessionID ? "from here \xB7 " : ""}${plan}${goal.proven}/${goal.total} proven \xB7 ${goal.agent ?? "agent unknown"}`, width) };
     }),
     pointer: fitColumns(active.length > visible.length ? `+${active.length - visible.length} ${active.length - visible.length === 1 ? "goal" : "goals"} \u2014 F9 manager` : "F9 goals manager", width)
   };
@@ -568,22 +568,6 @@ function openGoalSession(ui, sessionID) {
   } catch {}
   ui.router.navigate({ type: "session", sessionID });
   return "route";
-}
-
-// src/tui/decision-form.ts
-function decisionFormAnswer(forms, question, label) {
-  for (const form of forms) {
-    if (form.state?.status && form.state.status !== "pending")
-      continue;
-    if (form.fields?.length !== 1)
-      continue;
-    const field = form.fields[0];
-    if (!field.key || field.title !== question && field.description !== question)
-      continue;
-    const option = field.options?.find((o) => o.label === label && typeof o.value === "string");
-    if (option)
-      return { formID: form.id, answer: { [field.key]: option.value } };
-  }
 }
 
 // src/tui/pointer-select.ts
@@ -613,6 +597,8 @@ var tui_default = {
   async setup(context) {
     const rpc = context.client.rpc(GoalRpc);
     const [views, setViews] = createStore({});
+    const [launches, setLaunches] = createStore({});
+    const currentLaunch = (sessionID) => [...launches[sessionID] ?? []].sort((a, b) => Number(b.status === "executing") - Number(a.status === "executing") || (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
     const [now, setNow] = createSignal(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     const requested = new Set;
@@ -620,6 +606,7 @@ var tui_default = {
     const [goalsState, setGoalsState] = createSignal("loading");
     const [selectedGoalKey, setSelectedGoalKey] = createSignal();
     const [selectedDetails, setSelectedDetails] = createSignal();
+    const [managerNotice, setManagerNotice] = createSignal();
     let detailRequest = 0;
     let goalsFetchedAt = 0;
     let goalsRequested = false;
@@ -627,6 +614,12 @@ var tui_default = {
     let goalsRefreshAgain = false;
     let goalsDirectory;
     let disposed = false;
+    let focusManagerSection;
+    const mountedPanels = new Map;
+    const currentMountedPanel = () => {
+      const route = context.ui.router.current();
+      return route.type === "session" ? mountedPanels.get(route.sessionID) : undefined;
+    };
     const locationOf = (sessionID) => (sessionID ? context.data.session.get(sessionID)?.location : undefined) ?? context.location ?? context.data.location?.default();
     const ensureGoals = async (force = false) => {
       goalsRequested = true;
@@ -683,6 +676,8 @@ var tui_default = {
           location
         } : undefined);
         setViews(sessionID, reconcile(result?.view ?? null));
+        if (Array.isArray(result?.launches))
+          setLaunches(sessionID, reconcile(result.launches));
       } catch {}
     };
     const ensure = (sessionID) => {
@@ -692,12 +687,16 @@ var tui_default = {
       fetchView(sessionID);
     };
     const offUpdated = rpc.events.on("updated", (event) => {
-      const {
+      const data = event.data ?? {}, {
         sessionID,
-        view
-      } = event.data ?? {};
+        view,
+        launch
+      } = data;
       if (typeof sessionID === "string") {
-        setViews(sessionID, reconcile(view ?? null));
+        if ("view" in data)
+          setViews(sessionID, reconcile(view ?? null));
+        if (launch && typeof launch.decisionId === "string")
+          setLaunches(sessionID, reconcile([...(launches[sessionID] ?? []).filter((p) => p.decisionId !== launch.decisionId), launch]));
       }
       if (goalsRequested)
         ensureGoals(true);
@@ -783,86 +782,15 @@ var tui_default = {
         message: dialogDigest(String(data.headline ?? "summary"), String(data.text ?? data.headline ?? ""))
       });
     });
-    const dialogChoices = new Map;
-    const replyingChoices = new Set;
-    const replyDialogChoice = async (id) => {
-      const choice = dialogChoices.get(id);
-      if (!choice || replyingChoices.has(id))
-        return;
-      if (choice.deadline <= Date.now()) {
-        dialogChoices.delete(id);
-        context.ui.toast.show({
-          title: "Goal decision",
-          message: "Review expired or its native form did not arrive; nothing executed. Request the exact review again.",
-          variant: "warning",
-          duration: 8000
-        });
-        return;
-      }
-      replyingChoices.add(id);
-      const location = locationOf(choice.sessionID);
-      try {
-        await context.data.session.form.sync(choice.sessionID, location);
-        if (dialogChoices.get(id) !== choice)
-          return;
-        const answer = decisionFormAnswer(context.data.session.form.list(choice.sessionID, location) ?? [], choice.question, choice.label);
-        if (!answer) {
-          if (!choice.waitingNotice) {
-            choice.waitingNotice = true;
-            context.ui.toast.show({
-              title: "Goal decision",
-              message: "Choice not yet delivered; operation not executed. Waiting for its exact native form.",
-              variant: "warning",
-              duration: 8000
-            });
-          }
-          return;
-        }
-        await context.data.session.form.reply({
-          sessionID: choice.sessionID,
-          ...answer
-        }, location);
-        dialogChoices.delete(id);
-        context.ui.toast.show({
-          title: "Goal decision",
-          message: "Choice delivered; awaiting the engine's operation result.",
-          variant: "info"
-        });
-      } catch (error) {
-        dialogChoices.delete(id);
-        context.ui.toast.show({
-          title: "Goal decision",
-          message: `Native choice could not be delivered; the review remains available: ${String(error)}`,
-          variant: "warning"
-        });
-      } finally {
-        replyingChoices.delete(id);
-      }
-    };
     const offData = context.data.listen(({
       details
     }) => {
-      if (details?.type === "form.cancelled") {
-        for (const [id, choice] of dialogChoices)
-          if (choice.sessionID === details.data?.sessionID) {
-            dialogChoices.delete(id);
-            context.ui.toast.show({
-              title: "Goal decision",
-              message: replyingChoices.has(id) ? "Native form dismissed; queued choice withdrawn. Delivery may have been in flight; inspect goal state before another review." : "Native form dismissed; queued choice withdrawn. Nothing executed. Request the review again before choosing.",
-              variant: "warning",
-              duration: 8000
-            });
-          }
-      }
       if (details?.type === "server.connected") {
         for (const id of requested)
           fetchView(id);
         if (goalsRequested)
           ensureGoals(true);
       }
-      if (details?.type === "form.created" || details?.type === "server.connected")
-        for (const id of dialogChoices.keys())
-          replyDialogChoice(id);
     });
     const offHandoff = rpc.events.on("handoff", (event) => {
       const data = event.data ?? {};
@@ -890,8 +818,6 @@ var tui_default = {
         refreshIfStale(id);
       if (goalsRequested)
         ensureGoals();
-      for (const id of dialogChoices.keys())
-        replyDialogChoice(id);
     }, STALE_MS);
     let panelFocusPending = false;
     const openPanel = () => {
@@ -904,13 +830,18 @@ var tui_default = {
       context.ui.panel.open(PANEL_NAME);
     };
     const togglePanel = () => {
-      if (context.ui.panel.current()?.name === PANEL_NAME) {
-        context.ui.panel.close();
+      const mounted = currentMountedPanel();
+      if (mounted || context.ui.panel.current()?.name === PANEL_NAME) {
+        if (mounted)
+          mounted.close();
+        else
+          context.ui.panel.close();
       } else
         openPanel();
     };
     const [tab, setTab] = createSignal("now");
     const expandGoal = (goal) => {
+      setManagerNotice(undefined);
       openPanel();
       setSelectedGoalKey(goalKey(goal));
       setSelectedDetails(goal);
@@ -945,6 +876,7 @@ var tui_default = {
       if (row.action === "back") {
         setSelectedGoalKey(undefined);
         setSelectedDetails(undefined);
+        setManagerNotice(undefined);
         return;
       }
       if (!goal || !sessionID)
@@ -963,19 +895,17 @@ var tui_default = {
         }, location ? {
           location
         } : undefined);
-        context.ui.toast.show({
-          title: "Selected goal",
-          message: result.message,
-          variant: result.pending ? "info" : result.ok ? "success" : "warning"
+        setManagerNotice({
+          message: String(result.message),
+          tone: result.pending ? "muted" : result.ok ? "success" : "warning"
         });
         ensureGoals(true);
         if (!result.pending)
           fetchDetails(goal);
       } catch (error) {
-        context.ui.toast.show({
-          title: "Selected goal",
+        setManagerNotice({
           message: `Operation unavailable: ${String(error)}`,
-          variant: "warning"
+          tone: "warning"
         });
       }
     };
@@ -1122,17 +1052,31 @@ var tui_default = {
           _$setProp(_el$0, "flexDirection", "column");
           _$setProp(_el$0, "paddingLeft", 1);
           _$setProp(_el$0, "paddingRight", 1);
+          _$insert(_el$0, _$createComponent(Show, {
+            get when() {
+              return launchStatusText(currentLaunch(input.sessionID));
+            },
+            children: (line) => (() => {
+              var _el$1 = _$createElement("text");
+              _$setProp(_el$1, "id", "goal-launch-admission");
+              _$setProp(_el$1, "wrapMode", "none");
+              _$setProp(_el$1, "truncate", true);
+              _$insert(_el$1, line);
+              _$effect((_$p) => _$setProp(_el$1, "fg", color(currentLaunch(input.sessionID)?.status === "executing" ? "muted" : "warning"), _$p));
+              return _el$1;
+            })()
+          }), null);
           _$insert(_el$0, _$createComponent(For, {
             get each() {
               return tracer();
             },
             children: (line) => (() => {
-              var _el$1 = _$createElement("text");
-              _$setProp(_el$1, "wrapMode", "none");
-              _$setProp(_el$1, "truncate", true);
-              _$insert(_el$1, () => line.text);
-              _$effect((_$p) => _$setProp(_el$1, "fg", color(line.tone), _$p));
-              return _el$1;
+              var _el$10 = _$createElement("text");
+              _$setProp(_el$10, "wrapMode", "none");
+              _$setProp(_el$10, "truncate", true);
+              _$insert(_el$10, () => line.text);
+              _$effect((_$p) => _$setProp(_el$10, "fg", color(line.tone), _$p));
+              return _el$10;
             })()
           }), null);
           _$insert(_el$0, _$createComponent(Show, {
@@ -1140,12 +1084,12 @@ var tui_default = {
               return banner();
             },
             children: (b) => (() => {
-              var _el$10 = _$createElement("text");
-              _$setProp(_el$10, "wrapMode", "none");
-              _$setProp(_el$10, "truncate", true);
-              _$insert(_el$10, () => b().text);
-              _$effect((_$p) => _$setProp(_el$10, "fg", color(b().tone), _$p));
-              return _el$10;
+              var _el$11 = _$createElement("text");
+              _$setProp(_el$11, "wrapMode", "none");
+              _$setProp(_el$11, "truncate", true);
+              _$insert(_el$11, () => b().text);
+              _$effect((_$p) => _$setProp(_el$11, "fg", color(b().tone), _$p));
+              return _el$11;
             })()
           }), null);
           return _el$0;
@@ -1157,12 +1101,25 @@ var tui_default = {
       render: (input) => {
         if (input.name !== PANEL_NAME)
           return null;
+        const mount = {
+          close: () => {
+            if (typeof input.close === "function")
+              input.close();
+            else
+              context.ui.panel.close();
+          }
+        };
+        mountedPanels.set(input.sessionID, mount);
+        onCleanup(() => {
+          if (mountedPanels.get(input.sessionID) === mount)
+            mountedPanels.delete(input.sessionID);
+        });
         ensure(input.sessionID);
         ensureGoals();
         const view = () => views[input.sessionID];
         if (!view() && !selectedGoalKey())
           setTab("goals");
-        const width = typeof input.width === "number" ? input.width : 46;
+        const width = () => typeof input.width === "number" ? input.width : 46;
         if (input.name === PANEL_NAME && panelFocusPending && typeof input.focus === "function") {
           panelFocusPending = false;
           try {
@@ -1184,50 +1141,123 @@ var tui_default = {
           }, 0);
           onCleanup(() => clearTimeout(scheduled));
         };
-        let managerControl, actionsControl;
+        let managerControl, actionsControl, detailsControl, closeControl, lastFocusedControl;
+        let resizeFocusTimer;
+        onCleanup(() => clearTimeout(resizeFocusTimer));
+        const rememberFocus = (control) => {
+          control.on?.("focused", () => {
+            lastFocusedControl = control;
+          });
+        };
+        const restoreAfterResize = () => {
+          if (tab() !== "goals" || mountedPanels.get(input.sessionID) !== mount || !lastFocusedControl)
+            return;
+          const route = context.ui.router.current();
+          if (route.type !== "session" || route.sessionID !== input.sessionID)
+            return;
+          clearTimeout(resizeFocusTimer);
+          resizeFocusTimer = setTimeout(() => {
+            if (mountedPanels.get(input.sessionID) !== mount || (context.data.session.form?.list(input.sessionID, locationOf(input.sessionID))?.length ?? 0) > 0)
+              return;
+            input.focus?.();
+            lastFocusedControl?.focus();
+          }, 0);
+        };
+        context.renderer?.on?.("resize", restoreAfterResize);
+        onCleanup(() => context.renderer?.off?.("resize", restoreAfterResize));
+        createEffect(() => {
+          if (input.focused === true && tab() === "goals")
+            untrack(() => focusControl(selectedGoal() ? actionsControl : managerControl));
+        });
+        const cycleSection = () => {
+          const controls = [managerControl, detailsControl, actionsControl, closeControl].filter((c) => c && c.visible !== false);
+          if (!controls.length)
+            return;
+          const at = controls.findIndex((c) => c.focused);
+          input.focus?.();
+          controls[(at + 1) % controls.length].focus();
+        };
+        focusManagerSection = cycleSection;
+        onCleanup(() => {
+          if (focusManagerSection === cycleSection)
+            focusManagerSection = undefined;
+        });
         return _$createComponent(Show, {
           get when() {
             return tab() !== "goals";
           },
           get fallback() {
             return (() => {
-              var _el$11 = _$createElement("box"), _el$12 = _$createElement("text"), _el$13 = _$createElement("b"), _el$15 = _$createElement("text");
-              _$insertNode(_el$11, _el$12);
-              _$insertNode(_el$11, _el$15);
-              _$setProp(_el$11, "id", "goal-manager");
-              _$setProp(_el$11, "flexDirection", "column");
-              _$setProp(_el$11, "paddingLeft", 1);
-              _$setProp(_el$11, "paddingRight", 1);
+              var _el$12 = _$createElement("box"), _el$13 = _$createElement("text"), _el$14 = _$createElement("b"), _el$16 = _$createElement("select"), _el$17 = _$createElement("text");
               _$insertNode(_el$12, _el$13);
-              _$setProp(_el$12, "wrapMode", "none");
-              _$setProp(_el$12, "truncate", true);
-              _$insertNode(_el$13, _$createTextNode(`Goals manager \xB7 this project`));
-              _$setProp(_el$15, "wrapMode", "none");
-              _$setProp(_el$15, "truncate", true);
-              _$insert(_el$15, () => fitColumns("\u2191\u2193 select \xB7 enter expands \xB7 jump is explicit", width - 2));
-              _$insert(_el$11, _$createComponent(Show, {
+              _$insertNode(_el$12, _el$16);
+              _$insertNode(_el$12, _el$17);
+              _$setProp(_el$12, "id", "goal-manager");
+              _$setProp(_el$12, "flexDirection", "column");
+              _$setProp(_el$12, "paddingLeft", 1);
+              _$setProp(_el$12, "paddingRight", 1);
+              _$setProp(_el$12, "height", "100%");
+              _$setProp(_el$12, "minHeight", 0);
+              _$setProp(_el$12, "overflow", "hidden");
+              _$insertNode(_el$13, _el$14);
+              _$setProp(_el$13, "height", 1);
+              _$setProp(_el$13, "flexShrink", 0);
+              _$setProp(_el$13, "wrapMode", "none");
+              _$setProp(_el$13, "truncate", true);
+              _$insertNode(_el$14, _$createTextNode(`Goals manager \xB7 this project`));
+              _$use((control) => {
+                closeControl = control;
+                rememberFocus(control);
+              }, _el$16);
+              _$setProp(_el$16, "id", "goal-manager-close");
+              _$setProp(_el$16, "height", 1);
+              _$setProp(_el$16, "flexShrink", 0);
+              _$setProp(_el$16, "options", [{
+                name: "Close manager \xB7 F9: return to sidebar",
+                description: "Return to this session's basic sidebar without changing the goal",
+                value: "close"
+              }]);
+              _$setProp(_el$16, "showDescription", false);
+              _$setProp(_el$16, "onSelect", () => {
+                if (typeof input.close === "function")
+                  input.close();
+                else
+                  context.ui.panel.close();
+              });
+              _$setProp(_el$16, "onMouseUp", () => {
+                if (typeof input.close === "function")
+                  input.close();
+                else
+                  context.ui.panel.close();
+              });
+              _$setProp(_el$17, "height", 1);
+              _$setProp(_el$17, "flexShrink", 0);
+              _$setProp(_el$17, "wrapMode", "none");
+              _$setProp(_el$17, "truncate", true);
+              _$insert(_el$17, () => fitColumns("Tab: focus \xB7 \u2191\u2193: select \xB7 Enter: activate", width() - 2));
+              _$insert(_el$12, _$createComponent(Show, {
                 get when() {
                   return goalsState() === "loading";
                 },
                 get children() {
-                  var _el$16 = _$createElement("text");
-                  _$insertNode(_el$16, _$createTextNode(`Loading project goals\u2026`));
-                  _$effect((_$p) => _$setProp(_el$16, "fg", color("muted"), _$p));
-                  return _el$16;
+                  var _el$18 = _$createElement("text");
+                  _$insertNode(_el$18, _$createTextNode(`Loading project goals\u2026`));
+                  _$effect((_$p) => _$setProp(_el$18, "fg", color("muted"), _$p));
+                  return _el$18;
                 }
               }), null);
-              _$insert(_el$11, _$createComponent(Show, {
+              _$insert(_el$12, _$createComponent(Show, {
                 get when() {
                   return goalsState() === "error";
                 },
                 get children() {
-                  var _el$18 = _$createElement("text");
-                  _$insertNode(_el$18, _$createTextNode(`Inventory unavailable; F9 retries.`));
-                  _$effect((_$p) => _$setProp(_el$18, "fg", color("error"), _$p));
-                  return _el$18;
+                  var _el$20 = _$createElement("text");
+                  _$insertNode(_el$20, _$createTextNode(`Inventory unavailable; F9 retries.`));
+                  _$effect((_$p) => _$setProp(_el$20, "fg", color("error"), _$p));
+                  return _el$20;
                 }
               }), null);
-              _$insert(_el$11, _$createComponent(Show, {
+              _$insert(_el$12, _$createComponent(Show, {
                 get when() {
                   return managerRows().length;
                 },
@@ -1237,31 +1267,33 @@ var tui_default = {
                       return goalsState() === "ready";
                     },
                     get children() {
-                      var _el$21 = _$createElement("text");
-                      _$insertNode(_el$21, _$createTextNode(`No goals \u2014 /goal starts the interview.`));
-                      _$effect((_$p) => _$setProp(_el$21, "fg", color("muted"), _$p));
-                      return _el$21;
+                      var _el$23 = _$createElement("text");
+                      _$insertNode(_el$23, _$createTextNode(`No goals \u2014 /goal starts the interview.`));
+                      _$effect((_$p) => _$setProp(_el$23, "fg", color("muted"), _$p));
+                      return _el$23;
                     }
                   });
                 },
                 get children() {
-                  var _el$20 = _$createElement("select");
+                  var _el$22 = _$createElement("select");
                   _$use((control) => {
                     managerControl = control;
+                    rememberFocus(control);
                     if (!selectedGoal())
                       focusControl(control);
-                  }, _el$20);
-                  _$setProp(_el$20, "id", "goal-manager-list");
-                  _$setProp(_el$20, "showDescription", true);
-                  _$setProp(_el$20, "onMouseDown", (event) => {
+                  }, _el$22);
+                  _$setProp(_el$22, "id", "goal-manager-list");
+                  _$setProp(_el$22, "flexShrink", 0);
+                  _$setProp(_el$22, "showDescription", true);
+                  _$setProp(_el$22, "onMouseDown", (event) => {
                     event.stopPropagation();
                     event.preventDefault();
                   });
-                  _$setProp(_el$20, "onMouseUp", (event) => {
+                  _$setProp(_el$22, "onMouseUp", (event) => {
                     input.focus?.();
                     pointerSelect(managerControl, event, 2);
                   });
-                  _$setProp(_el$20, "onSelect", (_index, option) => {
+                  _$setProp(_el$22, "onSelect", (_index, option) => {
                     const goal = managerRows().find((g) => goalKey(g) === option?.value);
                     if (goal) {
                       setSelectedGoalKey(goalKey(goal));
@@ -1271,141 +1303,228 @@ var tui_default = {
                   });
                   _$effect((_p$) => {
                     var _v$5 = selectedGoal() ? 2 : Math.min(8, Math.max(2, managerRows().length * 2)), _v$6 = managerRows().map((g) => ({
-                      name: fitColumns(`${g.title}${g.archived ? " [archived]" : ""}`, width - 4),
-                      description: fitColumns(`${g.status} \xB7 ${g.proven}/${g.total} \xB7 ${g.agent ?? "agent unknown"}`, width - 4),
+                      name: fitColumns(`${g.title}${g.archived ? " [archived]" : ""}`, width() - 4),
+                      description: fitColumns(`${g.status}${g.launch?.status === "executing" ? " \xB7 starting" : g.launch?.status === "expired" ? " \xB7 review expired" : ""} \xB7 ${g.proven}/${g.total} proven`, width() - 4),
                       value: goalKey(g)
                     })), _v$7 = !selectedGoal();
-                    _v$5 !== _p$.e && (_p$.e = _$setProp(_el$20, "height", _v$5, _p$.e));
-                    _v$6 !== _p$.t && (_p$.t = _$setProp(_el$20, "options", _v$6, _p$.t));
-                    _v$7 !== _p$.a && (_p$.a = _$setProp(_el$20, "focused", _v$7, _p$.a));
+                    _v$5 !== _p$.e && (_p$.e = _$setProp(_el$22, "height", _v$5, _p$.e));
+                    _v$6 !== _p$.t && (_p$.t = _$setProp(_el$22, "options", _v$6, _p$.t));
+                    _v$7 !== _p$.a && (_p$.a = _$setProp(_el$22, "focused", _v$7, _p$.a));
                     return _p$;
                   }, {
                     e: undefined,
                     t: undefined,
                     a: undefined
                   });
-                  return _el$20;
+                  return _el$22;
                 }
               }), null);
-              _$insert(_el$11, _$createComponent(Show, {
+              _$insert(_el$12, _$createComponent(Show, {
                 get when() {
                   return selectedGoal();
                 },
                 children: (goal) => (() => {
-                  var _el$23 = _$createElement("box"), _el$24 = _$createElement("scrollbox"), _el$25 = _$createElement("text"), _el$26 = _$createElement("select");
-                  _$insertNode(_el$23, _el$24);
-                  _$insertNode(_el$23, _el$26);
-                  _$setProp(_el$23, "id", "goal-manager-details");
-                  _$setProp(_el$23, "flexDirection", "column");
-                  _$setProp(_el$23, "marginTop", 1);
-                  _$insertNode(_el$24, _el$25);
-                  _$setProp(_el$24, "id", "goal-manager-detail-text");
-                  _$insert(_el$24, _$createComponent(For, {
-                    get each() {
-                      return wrapColumns(goal().outcome ?? goal().title, width - 2);
+                  var _el$25 = _$createElement("box"), _el$26 = _$createElement("text"), _el$27 = _$createElement("text"), _el$29 = _$createElement("text"), _el$31 = _$createElement("scrollbox"), _el$32 = _$createElement("text"), _el$33 = _$createElement("b"), _el$35 = _$createElement("text"), _el$36 = _$createElement("text"), _el$40 = _$createElement("text"), _el$41 = _$createElement("b"), _el$43 = _$createElement("select");
+                  _$insertNode(_el$25, _el$26);
+                  _$insertNode(_el$25, _el$27);
+                  _$insertNode(_el$25, _el$29);
+                  _$insertNode(_el$25, _el$31);
+                  _$insertNode(_el$25, _el$40);
+                  _$insertNode(_el$25, _el$43);
+                  _$setProp(_el$25, "id", "goal-manager-details");
+                  _$setProp(_el$25, "flexDirection", "column");
+                  _$setProp(_el$25, "flexGrow", 1);
+                  _$setProp(_el$25, "flexShrink", 1);
+                  _$setProp(_el$25, "minHeight", 0);
+                  _$setProp(_el$25, "marginTop", 1);
+                  _$setProp(_el$26, "height", 1);
+                  _$setProp(_el$26, "flexShrink", 0);
+                  _$setProp(_el$26, "wrapMode", "none");
+                  _$setProp(_el$26, "truncate", true);
+                  _$insert(_el$26, () => fitColumns(`${goal().status} \xB7 ${goal().proven}/${goal().total} host-proven \xB7 ${goal().agent ?? "agent unknown"}`, width() - 2));
+                  _$setProp(_el$27, "height", 1);
+                  _$setProp(_el$27, "flexShrink", 0);
+                  _$setProp(_el$27, "wrapMode", "none");
+                  _$setProp(_el$27, "truncate", true);
+                  _$insert(_el$27, () => fitColumns(`Session: ${goal().sessionTitle ?? goal().sessionID ?? "unassigned"}`, width() - 2));
+                  _$insert(_el$25, _$createComponent(Show, {
+                    get when() {
+                      return managerNotice();
                     },
-                    children: (line) => (() => {
-                      var _el$27 = _$createElement("text");
-                      _$insert(_el$27, line);
-                      _$effect((_$p) => _$setProp(_el$27, "fg", color("base"), _$p));
-                      return _el$27;
+                    children: (notice) => (() => {
+                      var _el$44 = _$createElement("text");
+                      _$setProp(_el$44, "id", "goal-manager-feedback");
+                      _$setProp(_el$44, "height", 1);
+                      _$setProp(_el$44, "flexShrink", 0);
+                      _$setProp(_el$44, "wrapMode", "none");
+                      _$setProp(_el$44, "truncate", true);
+                      _$insert(_el$44, () => fitColumns(notice().message, width() - 2));
+                      _$effect((_$p) => _$setProp(_el$44, "fg", color(notice().tone), _$p));
+                      return _el$44;
                     })()
-                  }), _el$25);
-                  _$setProp(_el$25, "wrapMode", "none");
-                  _$setProp(_el$25, "truncate", true);
-                  _$insert(_el$25, () => fitColumns(`${goal().status} \xB7 ${goal().proven}/${goal().total} \xB7 ${goal().agent ?? "agent unknown"}`, width - 2));
-                  _$insert(_el$24, _$createComponent(For, {
-                    get each() {
-                      return wrapColumns(`session: ${goal().sessionID ?? "unassigned"}`, width - 2);
+                  }), _el$29);
+                  _$insert(_el$25, _$createComponent(Show, {
+                    get when() {
+                      return goal().steps?.length;
                     },
-                    children: (line) => (() => {
+                    get children() {
                       var _el$28 = _$createElement("text");
-                      _$insert(_el$28, line);
+                      _$setProp(_el$28, "height", 1);
+                      _$setProp(_el$28, "flexShrink", 0);
+                      _$setProp(_el$28, "wrapMode", "none");
+                      _$setProp(_el$28, "truncate", true);
+                      _$insert(_el$28, () => fitColumns(`Plan: ${goal().steps?.filter((s) => s.status === "done").length}/${goal().steps?.length} done \xB7 ${goal().steps?.find((s) => s.status === "active")?.title ?? "no active step"}`, width() - 2));
                       _$effect((_$p) => _$setProp(_el$28, "fg", color("muted"), _$p));
                       return _el$28;
+                    }
+                  }), _el$29);
+                  _$insertNode(_el$29, _$createTextNode(`Details \xB7 Tab to focus \xB7 wheel/PgUp/PgDn scroll`));
+                  _$setProp(_el$29, "height", 1);
+                  _$setProp(_el$29, "flexShrink", 0);
+                  _$setProp(_el$29, "wrapMode", "none");
+                  _$setProp(_el$29, "truncate", true);
+                  _$insertNode(_el$31, _el$32);
+                  _$insertNode(_el$31, _el$35);
+                  _$insertNode(_el$31, _el$36);
+                  _$use((control) => {
+                    detailsControl = control;
+                    rememberFocus(control);
+                  }, _el$31);
+                  _$setProp(_el$31, "id", "goal-manager-detail-text");
+                  _$setProp(_el$31, "flexGrow", 1);
+                  _$setProp(_el$31, "flexShrink", 1);
+                  _$setProp(_el$31, "minHeight", 1);
+                  _$setProp(_el$31, "scrollX", false);
+                  _$setProp(_el$31, "scrollY", true);
+                  _$setProp(_el$31, "viewportOptions", {
+                    overflow: "hidden"
+                  });
+                  _$setProp(_el$31, "contentOptions", {
+                    flexDirection: "column"
+                  });
+                  _$setProp(_el$31, "onMouseDown", () => {
+                    input.focus?.();
+                    detailsControl?.focus();
+                  });
+                  _$insertNode(_el$32, _el$33);
+                  _$insertNode(_el$33, _$createTextNode(`Outcome`));
+                  _$setProp(_el$35, "wrapMode", "word");
+                  _$insert(_el$35, () => goal().outcome ?? goal().title);
+                  _$setProp(_el$36, "wrapMode", "word");
+                  _$insert(_el$36, () => `Session ID: ${goal().sessionID ?? "unassigned"}`);
+                  _$insert(_el$31, _$createComponent(Show, {
+                    get when() {
+                      return launchStatusText(goal().launch);
+                    },
+                    children: (line) => (() => {
+                      var _el$45 = _$createElement("text");
+                      _$setProp(_el$45, "wrapMode", "word");
+                      _$insert(_el$45, line);
+                      _$effect((_$p) => _$setProp(_el$45, "fg", color("warning"), _$p));
+                      return _el$45;
                     })()
                   }), null);
-                  _$insert(_el$24, _$createComponent(For, {
+                  _$insert(_el$31, _$createComponent(Show, {
+                    get when() {
+                      return goal().details?.criteria?.length;
+                    },
+                    get children() {
+                      var _el$37 = _$createElement("text"), _el$38 = _$createElement("b");
+                      _$insertNode(_el$37, _el$38);
+                      _$insertNode(_el$38, _$createTextNode(`Evidence`));
+                      _$effect((_$p) => _$setProp(_el$37, "fg", color("base"), _$p));
+                      return _el$37;
+                    }
+                  }), null);
+                  _$insert(_el$31, _$createComponent(For, {
                     get each() {
                       return goal().details?.criteria ?? [];
                     },
-                    children: (criterion) => _$createComponent(For, {
-                      get each() {
-                        return wrapColumns(`${criterion.id} [${criterion.status}] ${criterion.statement}${criterion.by ? ` (${criterion.by})` : ""}`, width - 2);
-                      },
-                      children: (line) => (() => {
-                        var _el$29 = _$createElement("text");
-                        _$insert(_el$29, line);
-                        _$effect((_$p) => _$setProp(_el$29, "fg", color(criterion.status === "fail" ? "error" : "muted"), _$p));
-                        return _el$29;
-                      })()
-                    })
+                    children: (criterion) => (() => {
+                      var _el$46 = _$createElement("text");
+                      _$setProp(_el$46, "wrapMode", "word");
+                      _$insert(_el$46, () => `${criterion.id} [${criterion.status}] ${criterion.statement}${criterion.by ? ` (${criterion.by})` : ""}`);
+                      _$effect((_$p) => _$setProp(_el$46, "fg", color(criterion.status === "fail" ? "error" : "muted"), _$p));
+                      return _el$46;
+                    })()
                   }), null);
-                  _$insert(_el$24, _$createComponent(For, {
+                  _$insert(_el$31, _$createComponent(For, {
                     get each() {
                       return goal().issues ?? [];
                     },
-                    children: (issue) => _$createComponent(For, {
-                      get each() {
-                        return wrapColumns(issue, width - 2);
-                      },
-                      children: (line) => (() => {
-                        var _el$30 = _$createElement("text");
-                        _$insert(_el$30, line);
-                        _$effect((_$p) => _$setProp(_el$30, "fg", color("error"), _$p));
-                        return _el$30;
-                      })()
-                    })
+                    children: (issue) => (() => {
+                      var _el$47 = _$createElement("text");
+                      _$setProp(_el$47, "wrapMode", "word");
+                      _$insert(_el$47, issue);
+                      _$effect((_$p) => _$setProp(_el$47, "fg", color("error"), _$p));
+                      return _el$47;
+                    })()
                   }), null);
+                  _$insertNode(_el$40, _el$41);
+                  _$setProp(_el$40, "height", 1);
+                  _$setProp(_el$40, "flexShrink", 0);
+                  _$insertNode(_el$41, _$createTextNode(`Actions \xB7 \u2191\u2193 and Enter, or click`));
                   _$use((control) => {
                     actionsControl = control;
+                    rememberFocus(control);
                     focusControl(control);
-                  }, _el$26);
-                  _$setProp(_el$26, "id", "goal-manager-actions");
-                  _$setProp(_el$26, "showDescription", false);
-                  _$setProp(_el$26, "focused", true);
-                  _$setProp(_el$26, "onMouseDown", (event) => {
+                  }, _el$43);
+                  _$setProp(_el$43, "id", "goal-manager-actions");
+                  _$setProp(_el$43, "flexShrink", 0);
+                  _$setProp(_el$43, "showDescription", false);
+                  _$setProp(_el$43, "focused", true);
+                  _$setProp(_el$43, "onMouseDown", (event) => {
                     event.stopPropagation();
                     event.preventDefault();
                   });
-                  _$setProp(_el$26, "onMouseUp", (event) => {
+                  _$setProp(_el$43, "onMouseUp", (event) => {
                     input.focus?.();
                     pointerSelect(actionsControl, event, 1);
                   });
-                  _$setProp(_el$26, "onSelect", (_index, option) => {
+                  _$setProp(_el$43, "onSelect", (_index, option) => {
                     if (option?.value)
                       manageSelected(option.value);
                   });
                   _$effect((_p$) => {
-                    var _v$0 = Math.max(4, Math.min(8, (input.height ?? 24) - actions().length - 6)), _v$1 = color("muted"), _v$10 = Math.min(8, actions().length), _v$11 = actions().map((r) => ({
+                    var _v$0 = color("base"), _v$1 = color("muted"), _v$10 = color("muted"), _v$11 = color("base"), _v$12 = color("base"), _v$13 = color("muted"), _v$14 = color("base"), _v$15 = Math.min(8, actions().length), _v$16 = actions().map((r) => ({
                       name: r.label,
                       description: r.description,
                       value: r
                     }));
-                    _v$0 !== _p$.e && (_p$.e = _$setProp(_el$24, "height", _v$0, _p$.e));
-                    _v$1 !== _p$.t && (_p$.t = _$setProp(_el$25, "fg", _v$1, _p$.t));
-                    _v$10 !== _p$.a && (_p$.a = _$setProp(_el$26, "height", _v$10, _p$.a));
-                    _v$11 !== _p$.o && (_p$.o = _$setProp(_el$26, "options", _v$11, _p$.o));
+                    _v$0 !== _p$.e && (_p$.e = _$setProp(_el$26, "fg", _v$0, _p$.e));
+                    _v$1 !== _p$.t && (_p$.t = _$setProp(_el$27, "fg", _v$1, _p$.t));
+                    _v$10 !== _p$.a && (_p$.a = _$setProp(_el$29, "fg", _v$10, _p$.a));
+                    _v$11 !== _p$.o && (_p$.o = _$setProp(_el$32, "fg", _v$11, _p$.o));
+                    _v$12 !== _p$.i && (_p$.i = _$setProp(_el$35, "fg", _v$12, _p$.i));
+                    _v$13 !== _p$.n && (_p$.n = _$setProp(_el$36, "fg", _v$13, _p$.n));
+                    _v$14 !== _p$.s && (_p$.s = _$setProp(_el$40, "fg", _v$14, _p$.s));
+                    _v$15 !== _p$.h && (_p$.h = _$setProp(_el$43, "height", _v$15, _p$.h));
+                    _v$16 !== _p$.r && (_p$.r = _$setProp(_el$43, "options", _v$16, _p$.r));
                     return _p$;
                   }, {
                     e: undefined,
                     t: undefined,
                     a: undefined,
-                    o: undefined
+                    o: undefined,
+                    i: undefined,
+                    n: undefined,
+                    s: undefined,
+                    h: undefined,
+                    r: undefined
                   });
-                  return _el$23;
+                  return _el$25;
                 })()
               }), null);
               _$effect((_p$) => {
                 var _v$8 = color("base"), _v$9 = color("muted");
-                _v$8 !== _p$.e && (_p$.e = _$setProp(_el$12, "fg", _v$8, _p$.e));
-                _v$9 !== _p$.t && (_p$.t = _$setProp(_el$15, "fg", _v$9, _p$.t));
+                _v$8 !== _p$.e && (_p$.e = _$setProp(_el$13, "fg", _v$8, _p$.e));
+                _v$9 !== _p$.t && (_p$.t = _$setProp(_el$17, "fg", _v$9, _p$.t));
                 return _p$;
               }, {
                 e: undefined,
                 t: undefined
               });
-              return _el$11;
+              return _el$12;
             })();
           },
           get children() {
@@ -1414,39 +1533,39 @@ var tui_default = {
                 return view();
               },
               children: (v) => (() => {
-                var _el$31 = _$createElement("box");
-                _$setProp(_el$31, "flexDirection", "column");
-                _$setProp(_el$31, "paddingLeft", 1);
-                _$setProp(_el$31, "paddingRight", 1);
-                _$insert(_el$31, _$createComponent(For, {
+                var _el$48 = _$createElement("box");
+                _$setProp(_el$48, "flexDirection", "column");
+                _$setProp(_el$48, "paddingLeft", 1);
+                _$setProp(_el$48, "paddingRight", 1);
+                _$insert(_el$48, _$createComponent(For, {
                   get each() {
-                    return dashboardLines(v(), tab(), now(), width, goalsList());
+                    return dashboardLines(v(), tab(), now(), width(), goalsList());
                   },
                   children: (line) => (() => {
-                    var _el$33 = _$createElement("text");
-                    _$setProp(_el$33, "wrapMode", "none");
-                    _$setProp(_el$33, "truncate", true);
-                    _$insert(_el$33, (() => {
+                    var _el$50 = _$createElement("text");
+                    _$setProp(_el$50, "wrapMode", "none");
+                    _$setProp(_el$50, "truncate", true);
+                    _$insert(_el$50, (() => {
                       var _c$ = _$memo(() => !!line.bold);
                       return () => _c$() ? (() => {
-                        var _el$34 = _$createElement("b");
-                        _$insert(_el$34, () => line.text);
-                        return _el$34;
+                        var _el$51 = _$createElement("b");
+                        _$insert(_el$51, () => line.text);
+                        return _el$51;
                       })() : line.text;
                     })());
-                    _$effect((_$p) => _$setProp(_el$33, "fg", color(line.tone), _$p));
-                    return _el$33;
+                    _$effect((_$p) => _$setProp(_el$50, "fg", color(line.tone), _$p));
+                    return _el$50;
                   })()
                 }), null);
-                _$insert(_el$31, _$createComponent(Show, {
+                _$insert(_el$48, _$createComponent(Show, {
                   get when() {
                     return rows().length;
                   },
                   get children() {
-                    var _el$32 = _$createElement("select");
-                    _$setProp(_el$32, "showDescription", true);
-                    _$setProp(_el$32, "focused", true);
-                    _$setProp(_el$32, "onSelect", (_index, option) => {
+                    var _el$49 = _$createElement("select");
+                    _$setProp(_el$49, "showDescription", true);
+                    _$setProp(_el$49, "focused", true);
+                    _$setProp(_el$49, "onSelect", (_index, option) => {
                       const row = option?.value;
                       if (row?.act)
                         act(row.act, row.arg);
@@ -1457,15 +1576,15 @@ var tui_default = {
                           variant: "info"
                         });
                     });
-                    _$effect((_$p) => _$setProp(_el$32, "options", rows().map((r) => ({
+                    _$effect((_$p) => _$setProp(_el$49, "options", rows().map((r) => ({
                       name: r.label,
                       description: r.description,
                       value: r
                     })), _$p));
-                    return _el$32;
+                    return _el$49;
                   }
                 }), null);
-                return _el$31;
+                return _el$48;
               })()
             });
           }
@@ -1514,95 +1633,30 @@ var tui_default = {
     const openDecisionIdentity = new Map;
     const offDecision = rpc.events.on("decision", (event) => {
       const data = event.data ?? {};
-      const current = context.ui.router.current();
-      const here = current.type === "session" && current.sessionID === data.sessionID;
       const choices = data.choices ?? [];
-      if (!here) {
-        context.ui.toast.show({
-          title: "Goal decision",
-          message: `${String(data.message ?? "").slice(0, 160)} (${choices.map((c) => c.run ?? c.label).slice(0, 3).join(" \xB7 ")})`,
-          variant: "warning",
-          ...data.sessionID ? {
-            sessionID: data.sessionID
-          } : {}
-        });
-        return;
+      const route = context.ui.router.current();
+      if (choices.some((c) => c.act) && route.type === "session" && route.sessionID === data.sessionID) {
+        const mounted = mountedPanels.get(data.sessionID);
+        if (mounted)
+          mounted.close();
+        else if (context.ui.panel?.current?.()?.name === PANEL_NAME)
+          context.ui.panel.close();
       }
-      (async () => {
-        const actionable = choices.filter((c) => c.act);
-        const guidance = choices.filter((c) => !c.act);
-        if (!actionable.length) {
-          await context.ui.dialog.alert({
-            title: `Goal \u2014 ${data.kind ?? "decision"}`,
-            message: `${data.message ?? ""}
-
-${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
-`)}`
-          });
-          return;
-        }
-        openDecisions.set(data.sessionID, (openDecisions.get(data.sessionID) ?? 0) + 1);
+      if (typeof data.sessionID === "string" && typeof data.decisionId === "string" && choices.some((c) => c.act)) {
+        openDecisions.set(data.sessionID, 1);
         openDecisionIdentity.set(data.sessionID, data.decisionId);
-        try {
-          const pick = await context.ui.dialog.select({
-            title: `Goal \u2014 ${data.kind ?? "decision"}`,
-            options: [
-              ...actionable.map((c, i) => ({
-                title: c.label,
-                value: String(i),
-                description: c.run ?? ""
-              })),
-              ...guidance.map((c, i) => ({
-                title: `\u2139 ${c.label}`,
-                value: `guide:${i}`,
-                description: `guidance \u2014 ${c.run ?? ""}`
-              }))
-            ]
-          });
-          if (pick === undefined || pick === null)
-            return;
-          if (String(pick).startsWith("guide:")) {
-            const row = guidance[Number(String(pick).slice(6))];
-            context.ui.toast.show({
-              title: "Goal guidance",
-              message: row?.run ?? row?.label ?? "",
-              variant: "info",
-              duration: 8000
-            });
-            return;
-          }
-          const chosen = actionable[Number(pick)];
-          if (chosen?.act) {
-            if (typeof data.question === "string" && typeof data.decisionId === "string") {
-              const deadline = Math.min(typeof data.expiresAt === "number" ? data.expiresAt : Infinity, Date.now() + 120000);
-              dialogChoices.set(data.decisionId, {
-                sessionID: data.sessionID,
-                question: data.question,
-                label: chosen.label,
-                deadline
-              });
-              await replyDialogChoice(data.decisionId);
-            } else
-              await act(chosen.act, chosen.arg, {
-                sessionID: data.sessionID,
-                decisionId: data.decisionId
-              });
-          }
-        } finally {
-          const depth = (openDecisions.get(data.sessionID) ?? 1) - 1;
-          if (depth <= 0)
-            openDecisions.delete(data.sessionID);
-          else
-            openDecisions.set(data.sessionID, depth);
-          if (openDecisionIdentity.get(data.sessionID) === data.decisionId)
-            openDecisionIdentity.delete(data.sessionID);
-          flushSummary(data.sessionID);
-        }
-      })();
+      }
+      context.ui.toast.show({
+        title: "Goal decision",
+        message: choices.some((c) => c.act) ? "Owner decision pending in this session's Composer. No operation executed." : String(data.message ?? "Goal guidance is available in the manager."),
+        variant: "info",
+        ...data.sessionID ? {
+          sessionID: data.sessionID
+        } : {}
+      });
     });
     const offResolved = rpc.events.on("decision.resolved", (event) => {
       const data = event.data ?? {};
-      dialogChoices.delete(data.decisionId);
       if (data.message)
         context.ui.toast.show({
           title: "Goal decision",
@@ -1611,35 +1665,24 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
         });
       if (openDecisionIdentity.get(data.sessionID) !== data.decisionId)
         return;
-      const depth = openDecisions.get(data.sessionID) ?? 0;
-      if (!depth)
-        return;
       openDecisions.delete(data.sessionID);
-      try {
-        context.ui.dialog.clear();
-      } catch {}
+      openDecisionIdentity.delete(data.sessionID);
       flushSummary(data.sessionID);
     });
     const offFailed = rpc.events.on("decision.failed", (event) => {
       const data = event.data ?? {};
-      dialogChoices.delete(data.decisionId);
       context.ui.toast.show({
         title: "Goal decision",
         message: String(data.message ?? "Owner operation did not execute; inspect the goal and request a new review."),
         variant: "warning",
         duration: 8000
       });
+      if (openDecisionIdentity.get(data.sessionID) === data.decisionId) {
+        openDecisions.delete(data.sessionID);
+        openDecisionIdentity.delete(data.sessionID);
+        flushSummary(data.sessionID);
+      }
     });
-    const attachables = async () => {
-      const sessionID = currentSession();
-      if (!sessionID)
-        return [];
-      const location = locationOf(sessionID);
-      const listed = await rpc.list({}, location ? {
-        location
-      } : undefined);
-      return (listed?.goals ?? []).filter((g) => g.attachable);
-    };
     disposers.push(context.ui.slot({
       append: "app",
       render: () => {
@@ -1647,38 +1690,13 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
           mode: "global",
           commands: [{
             id: "goal.attach",
-            title: "Goal: attach/switch to a goal",
+            title: "Goal: manage or attach a project goal",
             group: "Goal",
             palette: true,
             enabled: () => true,
-            run: async () => {
-              try {
-                const goals = await attachables();
-                if (!goals.length) {
-                  context.ui.toast.show({
-                    title: "Goal",
-                    message: "No attachable goal in this project (none is live and stopped). /goal list shows everything.",
-                    variant: "info"
-                  });
-                  return;
-                }
-                const pick = await context.ui.dialog.select({
-                  title: "Attach which goal to this session?",
-                  options: goals.map((g) => ({
-                    title: `${g.slug} \u2014 ${g.title}`,
-                    value: g.slug,
-                    description: g.status
-                  }))
-                });
-                if (pick)
-                  await act("attach", pick);
-              } catch (error) {
-                context.ui.toast.show({
-                  title: "Goal",
-                  message: `Goal plugin unavailable: ${String(error)}`,
-                  variant: "error"
-                });
-              }
+            run: () => {
+              setTab("goals");
+              openPanel();
             }
           }, {
             id: "goal.panel",
@@ -1694,8 +1712,12 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
             group: "Goal",
             palette: true,
             bind: "tab",
-            enabled: () => hasGoal() || context.ui.panel.current()?.name === PANEL_NAME,
+            enabled: () => hasGoal() || !!currentMountedPanel() || context.ui.panel.current()?.name === PANEL_NAME,
             run: () => {
+              if (tab() === "goals" && (currentMountedPanel() || context.ui.panel.current()?.name === PANEL_NAME) && focusManagerSection) {
+                focusManagerSection();
+                return;
+              }
               const order = DASHBOARD_TABS;
               setTab(order[(order.indexOf(tab()) + 1) % order.length]);
             }
@@ -1736,24 +1758,33 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
             run: () => act("verify")
           }, {
             id: "goal.approve",
-            title: "Goal: approve a criterion",
+            title: "Goal: open native review in Composer",
             group: "Goal",
             palette: true,
-            enabled: hasGoal,
+            enabled: () => !!currentSession(),
             run: async () => {
-              const view = views[currentSession()];
-              if (!view)
+              const sessionID = currentSession();
+              if (!sessionID)
                 return;
-              const pick = await context.ui.dialog.select({
-                title: "Approve which criterion?",
-                options: view.criteria.filter((c) => !c.invariant && c.status !== "pass").map((c) => ({
-                  title: `${c.id} ${c.statement}`,
-                  value: c.id,
-                  description: c.kind
-                }))
-              });
-              if (pick)
-                await act("approve", pick);
+              const location = locationOf(sessionID);
+              try {
+                const result = await rpc.review({
+                  sessionID
+                }, location ? {
+                  location
+                } : undefined);
+                context.ui.toast.show({
+                  title: "Goal review",
+                  message: result.message,
+                  variant: result.ok ? "info" : "warning"
+                });
+              } catch (error) {
+                context.ui.toast.show({
+                  title: "Goal review",
+                  message: String(error),
+                  variant: "warning"
+                });
+              }
             }
           }, {
             id: "goal.abort",
@@ -1762,16 +1793,42 @@ ${choices.map((c) => `\u2022 ${c.run ?? c.label}`).join(`
             palette: true,
             enabled: hasGoal,
             run: async () => {
-              const ok = await context.ui.dialog.confirm({
-                title: "Abort the goal?",
-                message: "The run stops for good; its ledger and evidence stay on disk.",
-                label: {
-                  confirm: "Abort",
-                  cancel: "Keep running"
+              const sessionID = currentSession();
+              if (!sessionID)
+                return;
+              const location = locationOf(sessionID);
+              try {
+                const listed = await rpc.list({}, location ? {
+                  location
+                } : undefined);
+                const goal = listed?.goals?.find((g) => g.sessionID === sessionID && g.runId === views[sessionID]?.runId && !g.archived);
+                if (!goal) {
+                  context.ui.toast.show({
+                    title: "Goal",
+                    message: "Current target changed; inspect its details before aborting.",
+                    variant: "warning"
+                  });
+                  return;
                 }
-              });
-              if (ok)
-                await act("abort");
+                const result = await rpc.manage({
+                  sessionID,
+                  action: "abort",
+                  target: targetOf(goal)
+                }, location ? {
+                  location
+                } : undefined);
+                context.ui.toast.show({
+                  title: "Goal",
+                  message: result.message,
+                  variant: result.ok ? "info" : "warning"
+                });
+              } catch (error) {
+                context.ui.toast.show({
+                  title: "Goal",
+                  message: String(error),
+                  variant: "warning"
+                });
+              }
             }
           }]
         }));

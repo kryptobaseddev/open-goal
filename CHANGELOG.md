@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.7 — 2026-10-12
+
+- **Composer-only owner decisions (T086)** — remove duplicate lifecycle popups and their deferred-choice timers. Native Composer ask forms are the only decision surface. Lifecycle/amendment reviews persist until answered, cancelled or their exact target changes; sealed launch approvals and legacy timed records still expire. Manager decisions reveal the Composer rather than leaving Enter on the underlying action list; identical repeated reviews retain one nonce.
+- **Visible admission and review recovery (T087)** — expired, changed, refused and failed launch outcomes now leave durable ledger/transcript receipts. Approved rehearsal shows starting/check progress without inventing a running goal. Native review recovery finds launches and amendments, requires a new real choice for expired timed consent, and never replays approval. Post-rehearsal contract/reload checks prevent a stale run.
+- **Bounded execution errors (T088)** — successful prompt admission no longer erases execution failures. Only a real successful execution resets the streak; unavailable models pause immediately, transient errors stop at the configured limit, and retry timers are cleared on failure pause. No provider settings are changed.
+- **Truthful progress feedback (T089)** — stopped `goal_progress` reports `recorded:false`, current status and recovery guidance without mutating plan/proof or resuming. Active reports remain journalled. Footer/cards distinguish agent-reported plan work from host-proven criteria.
+- **Readable, operable terminal manager (T090)** — fixed native-theme header with Close/F9 return, compact status/session/plan/proof facts, word-wrapped scrollable details, pinned actions and Tab section focus. Track the actual mounted fullscreen slot when `panel.current()` is null; preserve selected-section input across resize and show operation results inline instead of focus-stealing popups. Long-content native tests and the real terminal gate cover resize, pointer/keyboard actions, close/reopen and fresh-tab focus.
+
 ## 0.3.6 — 2026-10-11
 
 - **Truthful native popup delivery (T085)** — selecting a lifecycle popup before its exact native form exists now visibly says the operation has not executed; the real V2 `form.created` event wakes the bounded delivery queue. Expired reviews cannot submit a still-rendered form. Missing forms, expiry and failed host operations surface recovery guidance rather than silent acceptance. Successful host resolution carries the actual operation result. Target/nonce, source-consent and replay guards are unchanged.

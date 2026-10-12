@@ -4,7 +4,7 @@ import { GoalRpc } from "../../src/rpc"
 import { goalHost, ledger, newSession, run, script, text, waitStatus } from "./goal.helpers"
 import { until } from "./harness"
 
-test("an expired native resume answer reports failure, never succeeds, and leaves an explicit recoverable review", async () => {
+test("a legacy timed native resume answer still reports expiry, never succeeds, and leaves an explicit recoverable review", async () => {
   const asked = new Set<string>()
   let target: any
   const host = await goalHost(script((request, turn) => {
@@ -36,7 +36,14 @@ test("an expired native resume answer reports failure, never succeeds, and leave
       const forms: any[] = await (host.client.session.form as any).list({ sessionID: sid })
       return forms.find((f) => JSON.stringify(f).includes(review.decisionId))
     }, 4000)
-    await Bun.sleep(5250)
+    // Simulate the persisted pre-T086 timed review. New target-bound
+    // lifecycle questions intentionally do not expire with elapsed time.
+    // Keep the original expired-consent rejection assertions unchanged.
+    const file = join(host.project, ".opencode/goals/.owner-decisions.json")
+    const data: any = await Bun.file(file).json()
+    delete data.requests[review.decisionId].expiryPolicy
+    data.requests[review.decisionId].expiresAt = Date.now() - 1
+    await Bun.write(file, JSON.stringify(data))
     const field = form.fields[0], option = field.options.find((o: any) => o.label === "Resume selected goal")
     await (host.client.session.form as any).reply({ sessionID: sid, formID: form.id, answer: { [field.key]: option.value } })
     await until(() => failures.find((f) => f.decisionId === review.decisionId), 10000)

@@ -6,12 +6,13 @@ import type { GoalSummary } from "../rpc"
 import { isActive, isTerminal, type RunState } from "./state"
 import { Store } from "./store"
 import { byPriorityThenRecency } from "./registry"
+import { launchView, type LaunchRequest } from "./launches"
 
 const readableRun = (value?: RunState): value is RunState => !!value && typeof value.slug === "string" && typeof value.runId === "string" && typeof value.lock === "string" && typeof value.sessionID === "string" && typeof value.status === "string" && !!value.criteria && typeof value.criteria === "object" && !Array.isArray(value.criteria) && !!value.steps && typeof value.steps === "object"
 
 /** Project-local, source-of-truth inventory. Archives are READ ONLY. The
  * machine registry and CLEO task tree are not a substitute for goal folders. */
-export function projectInventory(store: Store, live: Iterable<RunState> = [], options: { detailsForKey?: string } = {}): GoalSummary[] {
+export function projectInventory(store: Store, live: Iterable<RunState> = [], options: { detailsForKey?: string; launches?: LaunchRequest[] } = {}): GoalSummary[] {
   const liveBySlug = new Map([...live].filter(readableRun).map((s) => [s.slug, s]))
   const rows: GoalSummary[] = []
   for (const archived of [false, true]) {
@@ -43,6 +44,7 @@ export function projectInventory(store: Store, live: Iterable<RunState> = [], op
       let updatedAt = run?.updatedAt ?? 0
       if (!run) try { updatedAt = statSync(join(dir, "goal.yaml")).mtimeMs } catch { /* Unknown remains 0. */ }
       const key = `${archived ? "archive" : "live"}:${slug}:${run?.runId ?? read?.lock ?? "invalid"}`
+      const launch = !archived ? options.launches?.filter((p) => p.slug === slug).sort((a, b) => Number(b.status === "executing") - Number(a.status === "executing") || b.createdAt - a.createdAt)[0] : undefined
       rows.push({
         key,
         slug, title: run?.title ?? contract?.title ?? slug, status,
@@ -52,6 +54,7 @@ export function projectInventory(store: Store, live: Iterable<RunState> = [], op
         total: run ? states.length : contract ? contract.criteria.length + contract.invariants.length : 0,
         ...(run ? { sessionID: run.sessionID, runId: run.runId, lock: run.lock, turn: run.turn, ...(run.progress ? { progress: { ...run.progress } } : {}) } : read?.lock ? { lock: read.lock } : {}),
         ...(run?.handoff ? { handoff: { ...run.handoff } } : {}),
+        ...(launch ? { launch: launchView(launch) } : {}),
         ...(run?.priority ?? contract?.priority ? { priority: run?.priority ?? contract?.priority } : {}),
         ...(contract ? { outcome: contract.outcome, meta: contract.meta, ...(contract.supersedes ? { supersedes: contract.supersedes } : {}), ...(contract.execution.agent ? { configuredAgent: contract.execution.agent } : {}), steps: contract.plan.map((s) => ({ id: s.id, title: s.title, status: run?.steps[s.id] ?? "pending" })) } : {}),
         sessionState: run || existsSync(join(dir, "run.json")) ? "unknown" : "unassigned",
