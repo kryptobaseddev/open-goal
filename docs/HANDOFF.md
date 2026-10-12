@@ -1,9 +1,29 @@
 ---
-title: 'Handoff: v0.3.7 installed; original resumed goal unfinished'
+title: 'Handoff: v0.3.8 deployed; required manager tasks closed'
 audience: maintainer
 status: draft
 ---
-# Handoff: v0.3.7 installed; original resumed goal unfinished
+# Handoff: v0.3.8 deployed; required manager tasks closed
+
+## Current v0.3.8 state — final goal verification is next
+
+Read this section first. Everything under **Retained v037 handoff** below is an older snapshot, not current installed version, task state or permission. Current canonical evidence is `goal-manager-dogfood-6`, published to [dogfood-6.md](dogfood-6.md); the original goal is not declared complete by this handoff.
+
+- **Installed and pushed:** immutable `v0.3.8`, `703a6015c0da22a741ba3adb8f836ecf15471dc0`, OpenCode2.0.26. Native production server **PID81869**, original location/session, loaded compiled UI SHA256 `8b3a285e89a129792c9bc4d88642d4f5fbaf67bd66a416c03759f809f1c8601f`. Exact serving-ancestor check passed `6b8fb64a`; explicit location-specific plugin.check is not outdated (the API uses optional `outdated?:true`, so absence means false). Git-install plus stale-cache negatives **2/2** passed `5cd74b27`. Default shared-service PID82145 was not substituted for original provenance. No release tag was moved.
+- **Same original run:** session `ses_ef2b88fafffe4V1lcmyHNrsC60`, run `12739b68c001`, unchanged lock `1ef34fbfead905f629a45cba6c7252987491c78fd291471c6cff9eb2fb784236`. Genuine native `fe6c7903-45d9-4081-b62c-971e6b883185` resumed it after the upgrade's expected recovery pause. History/contract/oracles were preserved. **The sidebar's v0.3.3 is the fixed goal title, not the plugin version; do not rename the contract or reinstall just to change that title.** No further OpenCode restart is needed to load v038.
+- **Source and deployed proof:** fresh committed **141 tests/44 named files, 837 assertions, 0 failures/skips**, XML SHA `5faecfb49cd9c1fb0f27d9ca4b1d8849a8b9294ed24a9d70ae98ea9ec292587f`, receipt `8577bed6`. Covering typecheck/compiled freshness passed. Installed v038 PTY **nine native controls** passed `94fe7996`; installed busy-owner-resume probe passed `afa8f1b4` with immediate host/snapshot update, one receipt and no competing kickoff. Fixture proof remains labeled fixture.
+- **Real-model v038 proof:** scratch root `/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-7J66r8/qa-evidence`, QA PID82145, same exact release/UI, original build/openai/gpt-6.1-sol/high preserved. Interview/native approved fresh handoff passed `5ec0eb90`; two-real-goal native manager **eight controls** passed `e0b7e072`; conversational exact-run resume passed `0b815970` with authentic QA owner message consumed once and no redundant form. Raw transcripts, native forms/answers, provenance, ledgers and tree artifacts were freshly inspected; hashes/tool names are in `.tmp/verification/v038-committed/real-model-inspection.json`. QA automated consent is not production owner consent, manual sign-off, or independent C13/C14 grading. Retain draft-YAML repair, extra after-wait model messages, scratch CLEO configuration errors and older SDK/OpenTUI/model/UI failures.
+- **Required tasks truly closed:** T076–T079 are done with implemented/testsPassed/qaPassed and AC1 binding; completion receipts `7ce132cb`, `97f8b473`, `c3dfbac4`, `ec0b497b`. T083/T084/T086–T090 also closed with their actual gates and post-completion reads. Receipts live in `.tmp/verification/v038-committed/task-receipts`; `task-inventory.json` is the fresh CLI inventory.
+- **Remaining CLEO leaves are honestly pending:** T080/T081/T082/T085/T091. T080 has all three gates and REQ-080 pass but native completion `f02e994b` still rejected the fresh scoped report, although `landed-source-comparison.json` proves every changed source file remains byte-identical. The maintainer's `01M4S060VD8JP9F3Q9F9BSS0ET` confirms a residual carry-validation bug and says hold T080 for the next coordinated release, no workaround. T081/T082 have incomplete historical typed bookkeeping; T091's further typed closure was held after that refusal. Product behavior is nevertheless covered by the fresh host and deployed tests. Do not waive gates, run a prohibited whole suite, stage the protected goal, fake a source commit, or self-update the global CLI. T085 is the explicitly superseded duplicate-popup design, replaced by owner-approved Composer-only T086; it was not secretly cancelled or its acceptance lowered.
+- **Separate inventory:** five project goal contracts, four complete (two archived); only this original contract is unfinished. No task IDs become goal parents. CLEO T002 is pending **50/55** children done; T001 **1/4** epics done; T035 **3/3**, T039 **4/4** children done but parent requirements remain pending. Historical OpenCode2.0.22/v0.2.0/council acceptance is not satisfied by new-version similarity. C14 permits explicit parent explanations; legacy parent/extra typed bookkeeping closure is not added as a new original-goal exit condition.
+
+### Finish without reopening the whole project
+
+1. Publish and commit the current canonical dogfood/handoff mirrors, retaining their historical bodies. Those final evidence-only changes do not require moving the immutable v038 tag or modifying source/oracles. All product source and QA drivers are already committed and pushed.
+2. Refresh this original session's native goal_provenance, then goal_claim with the current deployed/script/task evidence. The **installed v038 engine** must run the contract's exact scoped host checks and its independent read-only C13/C14 review. A passing standalone script, plan step or handoff is not completion.
+3. Check the actual verdict. Address any genuine unmet original criterion; do not expand it to historical parent work, conceal remaining tasks, self-grade, or claim every possible bug is fixed. No completion claim is made here before that verdict.
+
+## Retained v037 handoff — historical snapshot
 
 ## Context
 

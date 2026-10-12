@@ -5,7 +5,83 @@ status: in-progress
 ---
 # Dogfood 6: goal manager and conversational lifecycle
 
-## v0.3.7 is installed; the original resumed run is still unfinished
+## Current v0.3.8: deployed; required manager tasks closed; final goal verdict pending
+
+Snapshot 2026-10-12, before this original run's completing verification. **v0.3.8 is published and active at immutable revision `703a6015c0da22a741ba3adb8f836ecf15471dc0`. T076–T079 are actually done with all three native gates and AC1 binding.** T083/T084/T086–T090 are also done. This does not claim every possible bug is fixed, assign criterion passes, or pretend the remaining CLEO rows are done.
+
+The sidebar text **v0.3.3 is this locked goal's title**, not its installed plugin version. The live native provenance is v0.3.8; a restart is not needed to change a contract title and would recover the run paused again.
+
+### Exact serving artifact, not a version label
+
+Production OpenCode2.0.26 PID **81869**, location `/Users/keatonhoskins/projects/opencode-goal`, original session `ses_ef2b88fafffe4V1lcmyHNrsC60`, run `12739b68c001`, lock `1ef34fbfead905f629a45cba6c7252987491c78fd291471c6cff9eb2fb784236`. The native engine provenance names the exact loaded package directory and source SHA; `dist/tui.js` SHA256 **`8b3a285e89a129792c9bc4d88642d4f5fbaf67bd66a416c03759f809f1c8601f`**. The serving-ancestor/location/session release assertion passed `6b8fb64a-ce0b-4af9-945c-e5d89b8778b2`; published Git-install and stale-cache negatives passed 2/2, 22 assertions (`5cd74b27-e215-4674-8618-7a43bef761d0`). No tag was moved.
+
+`.tmp/verification/v038-committed/{live-provenance.json,location-plugin-list.json,location-plugin-check.json,installed-check.out,release-artifact.out}` retain raw proof. Explicit plugin.check was read from the **actual PID81869 listener and location**, not the default shared service. OpenCode's schema is `PluginInfo.outdated?: true`: its absence after this check means not outdated. The evidence records derived `outdated:false` alongside the raw API entry and this encoding explanation; it does not invent a literal false field in the API.
+
+Reload correctly recovered the same run paused. Genuine native owner decision `fe6c7903-45d9-4081-b62c-971e6b883185` resumed it; prior `f4a4ab27` consent was not replayed. The latest inventory before this write has this sole unfinished contract waiting, turn40, 1/17 board proof; S7/S8 plan progress is not host proof. The final claim must be handled by this installed engine and its independent verifier, not a working-tree substitute.
+
+### Scoped product and actual-control proof
+
+- Fresh committed `.tmp/verification/v038-committed/tests.{xml,json}`: **141 passed, 0 failed/skipped, 837 assertions, 44 named files**, `8577bed6-b506-4392-815a-c52ddeda859d`. Native XML SHA256 `5faecfb49cd9c1fb0f27d9ca4b1d8849a8b9294ed24a9d70ae98ea9ec292587f`; JSON is a lossless per-file case projection, not a fabricated summary. It includes every C1–C10/I1 named unit/host scenario plus busy-resume, command-ack, compiled UI, long manager layout, launch disposition, owner-source and failed-execution regressions.
+- Installed v038 **nine real PTY control checks passed**, `94fe7996-6ea4-43aa-b600-3a4add666a30`, artifacts `/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/goal-manager-gates/1791838650263-41063`. Two rendered cards; goal-less native manager; expand before explicit jump; selected Pause isolation; narrow bounds/focus; Close/sidebar; F9 reopen/focus; fresh-tab focus. Provider is a fixture, honestly separate from the real-model proof below. Native selectable controls/tree bounds—not transcript substrings—are the oracle.
+- **Installed busy-owner command passed**, `afa8f1b4-8990-4a98-b105-e2b3a18acf95`, `.tmp/verification/v038-committed/installed-busy-resume-result.json`: exact v038 SHA/UI, actual owner /goal resume during an eight-second model hold and no form, immediate running host/snapshot, one resumed receipt, same run/lock, no competing kickoff. This provider is also a fixture; the source regression's earlier red timeout is retained below.
+- Covering typecheck plus compiled freshness passed `075a1664`; native task QA ran/cached actual covering checks, including T076 `45ecc139` and T090 `c167ade2`. All named protected files, historical v031/v032 folders and archives remained unchanged from original run base `8f712a8c5c133a32c5873ff0b7dffdb88e795397`. No lint/browser audit or complete static caller coverage is claimed; nexus remains stale/incomplete.
+
+### v038 real model, approved launch, manager and conversational lifecycle
+
+Exact installed QA root **`/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-7J66r8/qa-evidence`**; QA PID **82145**, same immutable v038 SHA and compiled UI hash, build/openai/gpt-6.1-sol/high preserved. **This is an explicitly automated QA owner in scratch locations, not production owner consent or manual sign-off.** PID82145 is not substituted for production PID81869.
+
+| Objective | Actual result and inspection source |
+| --- | --- |
+| Real-model interview and native approved fresh launch | `5ec0eb90-1713-414e-b152-2631a0db8f1a` passed. `context.json`, `answers.json`, both saved native forms, `reviewed-contract.yaml`, `provenance.json`, `run.json`, `author-transcript.json`, `fresh-transcript.json`. Real model asked, drafted, validated, requested goal_prepare_launch; test owner selected **Start goal now (Recommended)** after scope checks. Author `ses_ece172dc4ffeKpzGDbsTV21xV6` remains intact; new root `ses_ece14e0a8ffebuaUL7F4nK0UXE`, run `131eb1fa6001`, writes marker then waits. |
+| Two independent real-model goal sessions and native manager | `e0b7e072-2271-49ab-8f22-981212e8d73e` passed **eight** control checks in `manager-pty/{result.json,pty-result.json,provenance.json}` and saved native trees/transcripts. Selected qa-manager-one paused while qa-manager-two remained waiting. Eight checks do not include fresh-tab focus; that ninth check is separately proven by the installed fixture PTY. |
+| Natural-language exact-run resume | `0b815970-2847-4d45-8bd8-b237a1422c6e` passed. `lifecycle-{result,provenance,ledger,transcript}.json`: paused to resumed/waiting with unchanged run `131ed326e001` and lock; real model called goal_inventory, goal_manage, goal_wait. Authentic QA owner message `msg_131f190a2001Sjh4SUDwObHaSi` consumed once, successful owner-message resolution `705713bc-32bb-4c79-b0c8-0f6c70a95742`, forms empty at capture; no redundant consent question, replacement run or completion claim. |
+
+`.tmp/verification/v038-committed/real-model-inspection.json` retains hashes and actual model tool names after fresh inspection. Scratch CLEO briefing returned E_CLEO_CONFIG; no init/global mutation followed. Draft validation caught an unquoted colon, and the real model repaired/validated before review. The fresh worker emitted extra status/progress after goal_wait rather than immediately stopping; no unauthorized operation or completion claim was recorded. These observations and the older YAML, UI-overlap, unavailable-model, SDK teardown/anchor warnings and source/typed-gate failures are retained—not erased by passing checks.
+
+### Required and supported task closure is real
+
+`.tmp/verification/v038-committed/task-receipts/` stores native before/implemented/testsPassed/qaPassed/done-plan/complete/after records, with explicit satisfies atoms and post-completion status reads. The current native inventory is `task-inventory.json`.
+
+| Task | Native current state | Completion receipt |
+| --- | --- | --- |
+| T076 | done; implemented/testsPassed/qaPassed true | 7ce132cb-4d19-40ef-ba10-074ccf47f08e |
+| T077 | done; implemented/testsPassed/qaPassed true | 97f8b473-7887-4223-b406-cd1eb1f57b72 |
+| T078 | done; implemented/testsPassed/qaPassed true | c3dfbac4-5b78-4426-bb54-ba283d2b2fdd |
+| T079 | done; implemented/testsPassed/qaPassed true | ec0b497b-abec-43c1-a804-3b5cd10d714e |
+| T083 | done; implemented/testsPassed/qaPassed true | 2e236376-e0cf-406d-b541-a3c2c93938ef |
+| T084 | done; implemented/testsPassed/qaPassed true | 124f693b-114e-4036-a60d-7e62b85c184c |
+| T086 | done; implemented/testsPassed/qaPassed true | d84dedaa-9b79-489e-9f00-4f6d7f2c7901 |
+| T087 | done; implemented/testsPassed/qaPassed true | beded9b7-87c5-48fe-be6d-ef383b60b1d0 |
+| T088 | done; implemented/testsPassed/qaPassed true | 56d8f99c-8d11-4708-a718-68d0ae6371b1 |
+| T089 | done; implemented/testsPassed/qaPassed true | 61de9d21-b428-4775-b7f9-98a0063502d2 |
+| T090 | done; implemented/testsPassed/qaPassed true | 64cbdbe0-123e-4ca0-a950-d4a0d3935f1c |
+
+**Remaining CLEO leaves: T080, T081, T082, T085, T091—all pending, not additional goal contracts.** T080 has three true gates and REQ-080 pass but completion is still refused on CLEO2026.10.11 (`f02e994b-feb5-4821-a705-a87c3c638e7d`), claiming current scoped proof cannot carry from actual landed source8c4e0a6. `landed-source-comparison.json` proves all four source-diff files are still byte-identical to the freshly tested v038 tree. The failure, test/QA receipts and every attempted source/typed correction are preserved in separate `*-rejection.out`/`typed-cache-required.out` artifacts. The maintainer was asked for a supported correction (MBX `01M4RZYZHC24KVR488FMVE7EBV`); no global self-update, full-suite substitution, waiver, false successful completion, oracle edit or staging of the protected original goal was performed.
+
+T081/T082 retain old incomplete typed bookkeeping and T091's further typed closure was held after this refusal. Their **current product behavior is covered by the fresh named host tests and deployed proof above**, but their CLEO rows are not represented as done. T085 stays pending as an explicitly superseded popup-design task: its acceptance names an early duplicate popup bridge; owner-approved Composer-only T086 intentionally replaces that surface. It was not silently cancelled or its acceptance weakened.
+
+### Goal inventory is not the task hierarchy
+
+Fresh goal_inventory: **five contracts, four complete, only this original contract unfinished**. No drafts/queued goals or relationships were invented; metadata objects contain no goal-parent links. Agent build/session present are observed; missing historical priorities remain unknown, not inferred from tasks. Old completed plan rows can remain pending while the host verdict is complete; history was not rewritten.
+
+| Contract | State at pre-claim snapshot | Session |
+| --- | --- | --- |
+| ship-v033-goal-manager-flow | sole unfinished; waiting; high priority | ses_ef2b88fafffe4V1lcmyHNrsC60 |
+| ship-v032-trust-the-card | complete, live folder | ses_ef2b88fafffe4V1lcmyHNrsC60 |
+| ship-v031-launch-experience | complete, live folder | ses_ef633b638ffe7sq52H7SR6lKFW |
+| ship-v03-feedback-loop | complete, archived | ses_ef6ed677fffezbQx6mjU88EJK9 |
+| dogfood-buildout | complete, archived | ses_f004d6e62ffeR2rs3E9wNMHmv9 |
+
+The separate CLEO hierarchy is **T001 → T002 → its leaves**, plus T001's sibling epics T024/T035/T039. T002 is pending **50/55** children done, with precisely the five pending leaves above. T001 is pending **1/4** child epics done (T024 done). T035 is pending **3/3**, T039 pending **4/4**: their parent-level historical acceptance still needs its own evidence. T002 still names isolated OpenCode2.0.22, not this2.0.26 run; T039 names immutable v0.2.0/dogfood-2 verifier proof; T035 names the council integrity model. Child rollup/new-version similarity is not parent evidence. C14 permits these parents to be **explained**, not added as legacy implementation work or new exit criteria. Pending typed bookkeeping is equally disclosed rather than waived.
+
+The owner-approved a/a/a surface is the existing Goals tab, stacked width-bounded project cards, expansion then deliberate session jump. Close/F9, native keyboard/pointer focus, selected-target actions, persistent original-author slug/session pointer and unchanged source history are now covered on the deployed artifact. **The next operation is this original run's installed-host checks and independent C13/C14 review, not manual self-grading.**
+
+## Retained history below
+
+Earlier snapshots and failures below are historical, not current installed/task/goal state.
+
+
+## Historical v0.3.7 snapshot: installed; original run unfinished
 
 Current audit snapshot: **2026-10-12 14:14 UTC**, refreshed from the renewed delegation, project goal inventory, CLI records, and all three deployed QA artifact/transcript/provenance sets. This section supersedes the current-state claims in the preserved v0.3.6 audit below. It is a documentation draft, not a host verdict, manual sign-off, or authority to perform another owner operation.
 
@@ -213,3 +289,19 @@ The parent reports read-only Axiom staff confirmed project-wide elsewhere marker
 Another Axiom lane proposed routing a refused `verify.mjs` oracle edit through a main merge. The parent warned affected lanes that native owner review is required; staff confirmed the hold. Design endorsement is not authority, and this audit neither authorizes nor changes any foreign oracle. Outside-team statements are coordination data, not consent or evidence of this project's completion.
 
 Remaining work is parent-owned installation receipt/live exact provenance for v0.3.6, final installed nine-check popup/once-only rerun, real-model v036 dogfood, corrected fresh typed gates, actual QA/task/parent closure, and authorized continuation of the original run followed by its installed-engine checks and independent review. The handoff successor is published through SSoT with prior alpha and legacy v032 bytes preserved. There is no genuine original-run Resume receipt yet under v0.3.6 and no claim that every possible bug is fixed or C14/the full goal is host-proven by this draft alone.
+
+## v0.3.8 follow-up: busy owner resume and explicit handoff identity
+
+On 2026-10-12 the owner reported that `/goal resume` left the header and sidebar paused during an inspection turn. Exact v037 engine state was also paused: this was a real command-deferral defect, not evidence of a stale display alone. An isolated busy-turn regression first failed at its 2.5-second host-status deadline (receipt `7c5a6c7d-2349-4833-9741-60bca177cff3`). T091 now allows only a direct owner resume for this session's stopped run when no native form holds it. Existing state/contract/review guards and the no-competing-kickoff check remain; unrelated forms and cross-session operations do not bypass review. The original run subsequently resumed through real native decision `f4a4ab27-5ca1-41c0-a51b-57c0869f3611`, not through a manufactured worker approval.
+
+T076 acceptance inspection also found that the original author card exposed elsewhere/from-here metadata but not an explicit slug/session pointer row. The new compiled row names the slug and compact session identifier until the fresh run ends; full identifiers remain in expanded details before an explicit jump. A new actual installed-package render test exposed overlapping progress/pointer text. Fixed row heights repaired the layout; no assertion was removed or weakened.
+
+Fresh verification after the repairs: 18 tests across nine named files, 204 assertions, receipt `55cced85-0d1b-4562-816c-32cac11e48a5`; covering typecheck plus compiled-artifact freshness passed `075a1664-23ce-4988-999b-50f912d3dd3d`. On the committed v038 tree, 141 tests across 44 named files passed with 837 assertions and no failures or skips (`8577bed6-b506-4392-815a-c52ddeda859d`). Native XML and lossless per-file JSON are `.tmp/verification/v038-committed/tests.{xml,json}`; XML SHA256 `5faecfb49cd9c1fb0f27d9ca4b1d8849a8b9294ed24a9d70ae98ea9ec292587f`. OpenTUI anchor and SDK teardown ECONNRESET warnings remain disclosed; exit zero does not erase them.
+
+Immutable `v0.3.8` was pushed at `703a6015c0da22a741ba3adb8f836ecf15471dc0` (`23691ba0-3ead-461d-bf58-fe060fff5bb9`). v037 and earlier tags are unchanged. At this entry the production engine is still v037; exact published Git-install/stale-cache checks are running. Do not call source-tree verification deployed v038 dogfood. Task closure and final installed-engine verification remain pending.
+
+T085 remains pending as explicitly superseded historical popup design: its acceptance requires the now-rejected duplicate resume popup/early-dialog bridge. Owner-approved Composer-only T086 replaces that design. We neither restore the popup nor pretend Composer-only evidence satisfies its obsolete popup acceptance. T076-T079 still require actual gates and completion; legacy parents may be explained, not assigned invented goal relationships.
+
+## Residual CLEO carry refusal confirmed, not an added goal exit condition
+
+After the current task audit, maintainer reply `01M4S060VD8JP9F3Q9F9BSS0ET` (2026-10-12 21:27 UTC) confirmed the T080 carry check appears to compare more than the task's changed files; later package.json/CHANGELOG release changes reject proof even when all four source-diff files are byte-identical. A regression-backed fix is planned with related cases in a future coordinated CLEO release. No installed receipt exists yet. The parent holds T080 and the remaining typed bookkeeping without a workaround, global self-update, fake source change or acceptance waiver. Required T076–T079 are already natively complete; C14 explicitly requires their closure and accurate outstanding task/parent status, not closure of every historical/additional CLEO row. Product correctness still depends on the original installed host checks and independent C13/C14 review, not this interpretation or plan progress.
