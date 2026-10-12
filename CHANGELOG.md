@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.8 — 2026-10-12
+
+- **Owner resume is a control, not a queued job (T091)** — a direct `/goal resume` for this session's stopped run executes during an active inspection turn when no native form holds it. The existing exact state/contract/review checks remain; no competing kickoff is admitted. Unrelated forms and cross-session holds still defer. A real busy-turn regression first reproduced the paused host/snapshot, then verified one immediate resume.
+- **Persistent fresh-run identity (T076)** — the original authoring sidebar now explicitly renders the goal slug and compact session identifier while its fresh run remains non-terminal. Full identifiers are available in expanded details. Reserve card height for that row and preserve expand-before-jump; the pointer disappears only when the run ends.
+
 ## 0.3.7 — 2026-10-12
 
 - **Composer-only owner decisions (T086)** — remove duplicate lifecycle popups and their deferred-choice timers. Native Composer ask forms are the only decision surface. Lifecycle/amendment reviews persist until answered, cancelled or their exact target changes; sealed launch approvals and legacy timed records still expire. Manager decisions reveal the Composer rather than leaving Enter on the underlying action list; identical repeated reviews retain one nonce.
