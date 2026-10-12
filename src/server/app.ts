@@ -1284,6 +1284,7 @@ export class GoalApp {
 
   private schedule(state: RunState, delayMs: number, kind: PendingKind) {
     const key = state.sessionID
+    const waiting = state.wait !== undefined
     clearTimeout(this.timers.get(key))
     // T053: the tracer counts down the cooldown before the next turn
     if (isActive(state.status) && state.status !== "waiting") {
@@ -1296,7 +1297,24 @@ export class GoalApp {
         this.timers.delete(key)
         void this.serial(async () => {
           const live = this.runs.get(key)
-          if (!live || live.runId !== state.runId || !isActive(live.status) || this.factsOf(key).busy) return
+          if (this.disposed || !live || live.runId !== state.runId || !isActive(live.status) || live.status === "verifying" || (waiting && !live.wait)) return
+          // Keep one quiet timer while execution/forms hold the session;
+          // an expired deadline must not disappear without a future wake.
+          const facts = this.factsOf(key)
+          if (facts.busy || facts.forms.size > 0) return this.schedule(live, 1000, kind)
+          // A pending claim wins over a wake/retry once execution releases
+          // ownership; never admit another worker to satisfy that claim.
+          if (live.claim) {
+            const contract = this.contractOf(live)
+            if (contract) {
+              live.pending = undefined
+              this.notes.delete(key)
+              await this.verify(live, contract, "claim")
+            }
+            return
+          }
+          if (live.status === "waiting" && live.wait && live.wait.until > Date.now())
+            return this.schedule(live, live.wait.until - Date.now(), kind)
           if (live.status === "waiting") {
             live.wait = undefined
             setStatus(live, "running")
@@ -1522,7 +1540,7 @@ export class GoalApp {
     // Only the host's actual execution.succeeded signal clears the streak.
     // This also covers successful goal_wait turns, whose status is waiting.
     if (isActive(state.status)) state.counters.failures = 0
-    if (state.status !== "running") return
+    if (state.status !== "running" && !(state.status === "waiting" && state.claim)) return
     const contract = this.contractOf(state)
     if (!contract) return
     const kind = state.pending?.kind
@@ -1659,6 +1677,9 @@ export class GoalApp {
   // ───────────────────────────── verification
 
   private async verify(state: RunState, contract: Contract, source: "claim" | "owner") {
+    clearTimeout(this.timers.get(state.sessionID))
+    this.timers.delete(state.sessionID)
+    state.wait = undefined
     setStatus(state, "verifying", source === "claim" ? "checking your claim" : "owner requested verification")
     state.activity = { kind: "verifying", since: Date.now() }
     this.store.ledger(state.slug, { type: "verify-start", source, turn: state.turn })
