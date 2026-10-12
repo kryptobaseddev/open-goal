@@ -253,6 +253,12 @@ export class GoalApp {
     // answers (deferring them behind the decision-form's own ask turn would
     // be circular); status/list/help just read state
     if (["", "status", "list", "help", "pause", "abort", "approve", "reject"].includes(sub)) return false
+    // A direct OWNER command can resume this session's stopped run while
+    // an unrelated inspection turn is still busy. ownerAct still validates
+    // the exact state/lock/reviews and never admits a competing kickoff.
+    // Do not bypass an actual native form or a cross-session hold.
+    const own = this.runs.get(sessionID)
+    if (sub === "resume" && f.forms.size === 0 && own && !ownerCan(own, "resume")) return false
     f.deferred.push(text)
     this.noticeM(sessionID, M.commandDeferred(sub, f.busy ? "turn" : "form"))
     return true
