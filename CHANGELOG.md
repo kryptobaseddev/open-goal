@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.9 — 2026-10-12
+
+- **Claims must actually verify (T092)** — a completion claim accepted while a goal is waiting now enters host verification at execution end instead of remaining at “claimed.” Verification cancels obsolete wait timers; it never manually marks criteria proven.
+- **Wait deadlines survive holds (T092)** — an expired continuation keeps one quiet timer while execution or an unrelated form holds the session, then wakes once. It observes an updated wait deadline, preserves stopped/terminal guards, and lets a pending claim win over another worker admission. Focused real-host regressions reproduce all three failures on immutable v0.3.8 and check automatic completion, busy/form holds, and no extra wake.
+- **Deployed completion dogfood** — isolated real-model QA can pin an immutable candidate without changing the original engine; its observer preserves that pin. A separate real-model completion driver records actual claim → host checks → proven terminal state, not merely acceptance of a claim.
+
 ## 0.3.8 — 2026-10-12
 
 - **Owner resume is a control, not a queued job (T091)** — a direct `/goal resume` for this session's stopped run executes during an active inspection turn when no native form holds it. The existing exact state/contract/review checks remain; no competing kickoff is admitted. Unrelated forms and cross-session holds still defer. A real busy-turn regression first reproduced the paused host/snapshot, then verified one immediate resume.
