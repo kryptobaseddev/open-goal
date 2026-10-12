@@ -1,9 +1,35 @@
 ---
-title: 'Handoff: v0.3.8 deployed; required manager tasks closed'
+title: 'Handoff: v0.3.9 deployed; original final verdict pending'
 audience: maintainer
 status: draft
 ---
-# Handoff: v0.3.8 deployed; required manager tasks closed
+# Handoff: v0.3.9 deployed; original final verdict pending
+
+## Latest v039 handoff: actual QA completion proven, original paused for final verification
+
+Current source **be06aa067a3374e3788eec1a4f018513ec835872/v0.3.9**, native original **PID81869/OpenCode2.0.26**. Exact original session/run/lock unchanged; reload correctly paused it with pending unverified claim. Serving-ancestor check **1f30d78b** and actual native location plugin.check pass. Server SHA **63518176fdc4820bc817227ce873059fc5f84ab60e0d00ce03c3e72156f3b54e**, UI **8b3a285e89a129792c9bc4d88642d4f5fbaf67bd66a416c03759f809f1c8601f**. Sidebar v033 is locked goal title, not plugin version; no further restart/reset is needed.
+
+Current canonical **goal-manager-dogfood-6**/[dogfood-6.md](dogfood-6.md) contains fresh144/45 named source checks, exact Git-install2/2, installedwaiting3/3, nativePTY9 and all **four real-model objectives**, including actual claim→host verify→complete with both criteria pass byhost (**c9282e73**). QA root **/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-B3U8A2/qa-evidence**, QA PID82145, exactsameSHA/bytes, explicit automated scratch owner. Interview6f46253f, manager8controlseeac8ab8, lifecycle92aef08c; raw model transcripts/forms/answers/provenance/ledgers freshly inspected. Actual QA completion is not this original's independent C13/C14 verdict.
+
+RequiredT076–79 and T083/T084/T086–90 genuinely done with native gates. **T080/T081/T082/T085/T091/T092 pending**; T092 requires original completing verification. Maintainer's later correction01M4S0NK45JNHRS9MYNHS7R348 supersedes whole-tree diagnosis: task commit file-set may include moved release files; hold for coordinated10.12 named diagnostics, no workaround/global self-update. T085 superseded popup design remains disclosed. T00250/56,T0011/4,T0353/3,T0394/4 children done but parents pending; historical version-specific acceptance explained, not new exit work. Exactlyfive original contracts, four complete and this oneunfinished; no invented goal parent from task IDs.
+
+Next: publish/push current mirrors; genuine native Resume of exact original target. The repaired installed039 then processes pending claim through actual scoped host checks and independent review. No manual verify/pass, self-grade, context deletion, oracle change, replacement goal or arbitrary owner operation. Do not claim original complete before actual verdict or promise every possible bug fixed. Full pre039 dogfood body is preserved exactly in canonical goal-manager-history-through-v038/[dogfood-6-history.md](dogfood-6-history.md), SHA3155b587; old handoff bodies below remain untouched history, not current state.
+
+### Retained earlier handoff snapshots below
+
+
+## Current correction: waiting claim was not verified; v039 is being tested before original upgrade
+
+The owner's 1/17 counter report exposed an actual engine defect, not merely slow final verification or stale UI. The v038 original run accepted a claim while waiting, but onTurnEnd returned before checking it; a wait deadline expiring during busy execution was also discarded. No verify-start followed the original claim. Earlier statements that the final claim had started host verification were inaccurate: it only recorded the claim. The original goal remains unfinished; do not call the plugin fully stable.
+
+T092 now covers accepted waiting claims, busy/form-held wait deadlines and competing wake cancellation. Corrected fixture input/proof was kept strict: supported write.path, actual marker readback and a re-read verifier quote; no protected oracle or deadline was weakened. Immutable deployed v038 failed all three cases (2d6c46af). The narrow source patch passed10tests/6files,78assertions (fd023d43), covering types/compiled freshness c36c2012, then committed144tests/45namedfiles,859assertions,0fail/skip (ec146080). XML87301f1cde90cb5e4c551564db165f89406fd4b85dfdbb5c869af36a84fa86c6; raw reports/failures in .tmp/verification/v039-committed.
+
+Immutable v0.3.9 was published at be06aa067a3374e3788eec1a4f018513ec835872 (f18b9050). Published Git-install/stale-cache2/2 passedf59e3f83; actual installed waiting regressions3/3 passed5b8517b1. Production original engine remains v038 until candidate PTY and real-model automatic completion are proven. Candidate pinning affects only isolated QA location using documented ordered plugin controls; it does not alter global provider settings. The new real-model completion driver requires actual claim-to-host-proven same-run completion, not acceptance of a claim or manual verification. No original restart, reset, self-approved criteria or counter edit substitutes for this.
+
+CLEO clarification: maintainer follow-up01M4S0NK45JNHRS9MYNHS7R348 corrects the earlier whole-tree diagnosis. Main already compares the task's commit-file set; a union of broad source commits can include a moved release file. PR2204 adds exact named mismatch diagnostics; hold optional typed bookkeeping for coordinated10.12 and inspect the named file rather than claiming a confirmed whole-tree bug or working around it. The earlier diagnosis/refusals are retained as history, not current authority. T076–T079 remain genuinely completed; pending leaves now additionally includeT092 and T002 is50/56, not50/55. The five goal contracts/locked original identity are unchanged.
+
+### Earlier snapshots below are not current completion or stability claims
+
 
 ## Current v0.3.8 state — final goal verification is next
 
