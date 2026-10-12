@@ -5,6 +5,27 @@ status: draft
 ---
 # Handoff: v0.3.9 deployed; original final verdict pending
 
+## Final evidence-access correction after the original host verdict
+
+The original installed039 run resumed unchanged and the host verified **16/17 conditions**: C1–C12, C14, I1–I3 passed. Only C13 failed because the independent read-only verifier's external_directory policy denied the cited temporary raw QA paths. This was not a product behavior failure or a pass based on summaries. The repair is a **byte-identical, project-local raw evidence mirror**, not a permission override or reconstructed trace.
+
+**For independent C13 reads, use `.tmp/verification/v039-committed/qa-evidence-B3U8A2/` (relative to this project).** All49regular files/888327bytes were copied without transformation or symlinks and SHA256-compared with the actual B3U8A2 originals. **mirror-manifest.json** lists every relative file, byte length/hash and original source. The original absolute paths inside these raw files remain provenance; do not follow them for reads. Open the corresponding project-relative file instead. This avoids external-directory permission requests and does not broaden any policy.
+
+- Actual interview/approval: **author-transcript.json**, **answers.json**, **form-frm_1324bbead001SrXRVsEB6VN9PV.json**, **form-frm_1324d2f22001xWqdCOenrwf1L6.json**, **reviewed-contract.yaml**.
+- Deployed identity/fresh handoff: **context.json**, **provenance.json**, **fresh-transcript.json**, **run.json**.
+- Real two-goal/native navigation: **manager-pty/first-transcript.json**, **second-transcript.json**, **provenance.json**, **result.json**, **pty-result.json**, and the actual **two-rendered-cards/goal-less-native-manager/expand-before-jump/explicit-session-jump/selected-action-isolated/narrow-focus-and-bounds/visible-close-to-sidebar/f9-reopen-selected-focus** files ending **.tree.json**, **.state.json**, **.screen.txt**; full **pty.raw** preserved.
+- Actual conversational lifecycle: **lifecycle-transcript.json**, **lifecycle-ledger.json**, **lifecycle-provenance.json**, **lifecycle-result.json**.
+- Actual automatic host completion: **completion-transcript.json**, **completion-ledger.json**, **completion-provenance.json**, **completion-result.json**.
+
+The concise read index is **.tmp/verification/v039-committed/C13-READ-PATHS.txt**. These are raw model/tool/form/PTY records, not driver code or a summarizing receipt. All still bind exact039/SHAbe06/server635181/UI8b and scratchPID82145 distinct from originalPID81869; original installed engine provenance was host-recorded before its verification.
+
+Axiom rollout follow-up **01M4S7RVD9W84E6FMW5168HCYW** independently reports its own instrument-studio location/session **ses_ed4b064a3ffe4c6mERS8jA1Wfc/PID12438/OpenCode2.0.26** loaded exact039/be06/server635181/UI8b via its own goal_provenance, with no context/pin/provider/policy changes. That specific runtime is confirmed; other released/offline lab personas are not inferred upgraded from this or global installation. Live Codex lead **01M4S79GF07A0M1YKBG8T0H3RE** explicitly could not attest other OpenCode runtimes.
+
+Coordinated CLEO **2026.10.12** installation receipt **01M4S7ZW34VB691B47FFPW2XK5** was received and locally confirmed by cleo --version; parent did not self-install or migrate projects. New CLI/claim jobs were held for its binary swap. Remaining optional typed task closure stays separate from C13 evidence access and required original goal exit conditions; no full-suite fallback/waiver. Original goal is not complete until its independent verifier actually inspects these readable raw records and returns its verdict.
+
+### Earlier pre-final snapshots below
+
+
 ## Latest v039 handoff: actual QA completion proven, original paused for final verification
 
 Current source **be06aa067a3374e3788eec1a4f018513ec835872/v0.3.9**, native original **PID81869/OpenCode2.0.26**. Exact original session/run/lock unchanged; reload correctly paused it with pending unverified claim. Serving-ancestor check **1f30d78b** and actual native location plugin.check pass. Server SHA **63518176fdc4820bc817227ce873059fc5f84ab60e0d00ce03c3e72156f3b54e**, UI **8b3a285e89a129792c9bc4d88642d4f5fbaf67bd66a416c03759f809f1c8601f**. Sidebar v033 is locked goal title, not plugin version; no further restart/reset is needed.
