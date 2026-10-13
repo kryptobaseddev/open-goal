@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.10 — 2026-10-13
+
+- **Composer chat resolves amendments (T095)** — `goal_resolve_amendment` fetches the actual latest owner message, binds it once to the exact staged review/run/current and next locks, and uses the existing atomic commit. Explicit acceptance preserves unchanged proof; rejection/revision preserves the current contract. Acceptance alone stays stopped; an explicitly requested continuation is bound to the accepted next generation. Quoted, conditional, stale, synthetic, unrelated and replayed consent cannot authorize it.
+- **A question must not swallow chat (T095)** — an explicit owner reply can unhold only the exact review's sole bound native form. Interruption itself neither accepts nor consumes consent; persisted-message validation still runs through the typed operation. Unrelated forms remain untouched. Bundled guidance keeps acceptance in the Composer, never a nonexistent sidebar button or manual amendment command.
+- **Criterion-specific reviews (T093)** — rejected-criterion options carry an exact criterion ID; multiple rejections offer separate approvals. Recovery replaces an old missing-argument review with a fresh bound nonce instead of replaying failed consent. Launch activity/outcome notices use the shared actionable builders.
+- **Return from an already-current goal (T094)** — explicit Open goal session closes its manager when that session is already current, rather than silently focusing the same covered tab. Enter and actual one-line pointer coordinates are regression-tested; unavailable navigation/action targets get inline feedback.
+
 ## 0.3.9 — 2026-10-12
 
 - **Claims must actually verify (T092)** — a completion claim accepted while a goal is waiting now enters host verification at execution end instead of remaining at “claimed.” Verification cancels obsolete wait timers; it never manually marks criteria proven.

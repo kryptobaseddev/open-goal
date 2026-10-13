@@ -26,7 +26,7 @@ import { buildPostGoalSummary } from "../summary/build"
 import { completionAudit } from "../summary/audit"
 import { M, renderMessage, type EngineMessage } from "./messages"
 import { directGoalCommand } from "./intent"
-import { ownerResumeMessage } from "../engine/owner-intent"
+import { ownerAmendmentMessage, ownerResumeMessage } from "../engine/owner-intent"
 
 /** Spawn the cleo CLI with a hard timeout; all failures resolve safely. */
 const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
@@ -541,7 +541,7 @@ export class GoalApp {
     const settled = this.launches.update(request.id, { status, result })
     this.store.ledger(request.slug, { type, decisionId: request.id, sessionID: request.sessionID, lock: request.lock, fresh: request.fresh, status, result })
     this.publishLaunch(settled)
-    this.notice(request.sessionID, result, status === "succeeded" ? "success" : "warning")
+    this.noticeM(request.sessionID, M.launchOutcome(request.slug, status, result))
     await this.transcript(request.sessionID, `◎ Launch ${request.slug} (${status}; decision ${request.id}): ${result}`)
   }
 
@@ -550,7 +550,7 @@ export class GoalApp {
     const request = this.launches.activity(decisionId, activity)
     this.store.ledger(request.slug, { type: "launch-activity", decisionId, sessionID: request.sessionID, lock: request.lock, fresh: request.fresh, ...activity })
     this.publishLaunch(request)
-    this.notice(request.sessionID, `${request.slug}: ${activity.detail}`)
+    this.noticeM(request.sessionID, M.launchActivity(request.slug, activity.detail))
   }
 
   /** Preparation is not execution or consent. The complete target/hash/mode
@@ -730,7 +730,7 @@ export class GoalApp {
         } else {
           const result = `Launch reservation refused: review is ${current.status}. Approval was not replayed.`
           this.store.ledger(request.slug, { type: "launch-reservation-refused", decisionId: request.id, status: current.status, result })
-          this.notice(request.sessionID, result, "warning")
+          this.noticeM(request.sessionID, M.launchOutcome(request.slug, current.status, result))
           await this.transcript(request.sessionID, `◎ ${result}`)
         }
         return
@@ -844,6 +844,23 @@ export class GoalApp {
     if (!request || request.sessionID !== sessionID) throw new Error("No pending engine decision in this session; inspect the selected goal's status.")
     const current = this.decisionTarget(request.slug)
     if (current.lock !== request.target.lock || current.runId !== request.target.runId || current.sessionID !== request.target.sessionID || current.status !== request.target.status) throw new Error("The reviewed target changed; old choices cannot be reused. Inspect current goal status.")
+    // Legacy rejected-criterion forms offered approval without its ID. A
+    // failed choice is not consent for a newly inferred argument: replace
+    // only the exact stopped target with a fresh criterion-bound question.
+    if (request.kind === "needs_review" && request.message.choices.some((c) => c.act === "approve" && !c.arg)) {
+      if (!["pending", "interrupted", "expired"].includes(request.status)) throw new Error("The old review has an uncertain outcome; inspect status rather than replay it.")
+      const state = [...this.runs.values()].find((s) => s.slug === request.slug)
+      const contract = state && this.contractOf(state)
+      const ids = request.extra.criteria
+      if (!state || state.status !== "needs_review" || !contract || !Array.isArray(ids) || !ids.length
+        || ids.some((id) => typeof id !== "string" || !contract.criteria.some((c) => c.id === id)))
+        throw new Error("The legacy review lacks validated criterion identities; no approval or new review was inferred.")
+      if (request.formID) await (this.ctx.session as any).form?.cancel?.({ sessionID, formID: request.formID }).catch(() => {})
+      this.pendingFormDecisions.delete(sessionID)
+      this.decide(sessionID, request.slug, "needs_review", M.needsReview(state.reason ?? "criterion review", [...new Set(ids)]), request.extra)
+      this.store.ledger(request.slug, { type: "decision-review-replaced", previousDecision: request.id, reason: "legacy approval missing criterion; new explicit owner choice required" })
+      return "Legacy unbound approval replaced with a new criterion-specific native review. The old answer was not replayed; nothing was approved or executed."
+    }
     if (request.status === "expired") {
       this.decide(sessionID, request.slug, request.kind, request.message, request.extra)
       return "Expired review replaced by a new exact native review. No operation was authorized or executed."
@@ -898,7 +915,7 @@ export class GoalApp {
       return p
     })
     await this.presentAmendment(proposal)
-    return { decisionId: proposal.id, slug: proposal.slug, runId: proposal.runId, lock: proposal.lock, nextLock: proposal.nextLock, diff: proposal.diff, status: "pending", message: "Validated amendment staged without changing goal.yaml. Native owner accept/reject/comment is required; no implicit resume." }
+    return { decisionId: proposal.id, slug: proposal.slug, runId: proposal.runId, lock: proposal.lock, nextLock: proposal.nextLock, diff: proposal.diff, status: "pending", message: "Validated amendment staged without changing goal.yaml. Show the exact diff in the Composer; resolve the owner's actual chat with goal_resolve_amendment or the native review. No sidebar Accept or manual command is required; acceptance alone does not resume." }
   }
 
   private async presentAmendment(request: AmendmentRequest) {
@@ -936,11 +953,52 @@ export class GoalApp {
     return "The same exact amendment review is restored in the Composer. No approval, application or resume was inferred."
   }
 
-  private async resolveAmendment(request: AmendmentRequest, answer: Record<string, unknown>) {
+  private async resolveAmendmentChat(sessionID: string, input: { decisionId: string; action: "accept" | "reject" | "comment"; continueGoal?: boolean }) {
+    const resolved = await this.serial(async () => {
+      const request = this.amendmentReviews.get(input.decisionId)
+      if (!request || request.sessionID !== sessionID || !["pending", "interrupted"].includes(request.status) || reviewExpired(request))
+        throw new Error("No current amendment review owned by this Composer session; nothing authorized.")
+      const state = this.runs.get(request.targetSessionID)
+      if (!state || state.runId !== request.runId || state.lock !== request.lock || isTerminal(state.status))
+        throw new Error("Reviewed target changed; no old owner reply can approve it.")
+      const alternatives = [...this.amendmentReviews.all(sessionID), ...this.launches.all(sessionID), ...this.decisions.all(sessionID)]
+        .filter((p) => p.id !== request.id && ["pending", "interrupted"].includes(p.status) && !reviewExpired(p))
+      const messages: any = await this.ctx.session.context({ sessionID } as any)
+      const source = ownerAmendmentMessage(messages?.data ?? messages, request, input.action)
+      if (!source || input.continueGoal && (input.action !== "accept" || !source.continueGoal))
+        throw new Error("The latest actual owner chat does not authorize this action/continuation. Ask a genuine Composer clarification; no command or sidebar acceptance is required.")
+      if (alternatives.length && (!source.explicitAmendment || alternatives.some((p) => this.amendmentReviews.get(p.id))))
+        throw new Error("More than one review is pending; clarify the exact review in the Composer, not a sidebar.")
+      if ([...this.decisions.all(sessionID), ...this.launches.all(sessionID)].some((p) => p.ownerMessageID === source.id))
+        throw new Error("That owner message was already consumed; no action replayed.")
+      const bound = this.amendmentReviews.bindOwnerMessage(request.id, source.id)
+      if (!bound) throw new Error("Owner message/review was already consumed or changed; no action executed.")
+      this.store.ledger(request.slug, { type: "owner-message-consumed", ownerMessageID: source.id, decisionId: request.id,
+        actorSessionID: sessionID, targetRunId: request.runId, lock: request.lock, nextLock: request.nextLock, action: input.action, continueGoal: !!input.continueGoal })
+      return { request: bound, source }
+    })
+    await this.resolveAmendment(resolved.request, {}, { action: input.action, text: resolved.source.text, messageID: resolved.source.id })
+    const after = this.amendmentReviews.get(resolved.request.id)!
+    let continuation: { ok: boolean; message: string } | undefined
+    if (input.continueGoal && after.status === "succeeded") {
+      continuation = await this.serial(async () => {
+        const selected = this.list().find((g) => g.slug === after.slug && g.runId === after.runId && g.lock === after.nextLock && g.sessionID === after.targetSessionID)
+        if (!selected) return { ok: false, message: "Accepted generation changed before continuation; no other goal used." }
+        const result = await this.ownerActLocked(sessionID, "resume", undefined, undefined, selected)
+        this.store.ledger(after.slug, { type: "amendment-chat-continuation", decisionId: after.id, ownerMessageID: resolved.source.id, lock: after.nextLock, ok: result.ok, message: result.message })
+        return result
+      })
+    }
+    if (resolved.request.formID) await (this.ctx.session as any).form?.cancel?.({ sessionID, formID: resolved.request.formID }).catch(() => {})
+    return { ok: input.action === "accept" ? after.status === "succeeded" && (!continuation || continuation.ok) : ["rejected", "commented"].includes(after.status),
+      decisionId: after.id, status: after.status, ownerMessageID: resolved.source.id, message: after.result, ...(continuation ? { continuation } : {}) }
+  }
+
+  private async resolveAmendment(request: AmendmentRequest, answer: Record<string, unknown>, ownerChat?: { action: "accept" | "reject" | "comment"; text: string; messageID: string }) {
     request = this.amendmentReviews.get(request.id) ?? request
     if (request.status !== "pending" || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
-    const value = request.fieldKey ? answer[request.fieldKey] : undefined
-    const selected = selectedReviewChoice(request, amendmentChoices, answer)
+    const value = ownerChat?.text ?? (request.fieldKey ? answer[request.fieldKey] : undefined)
+    const selected = ownerChat ? amendmentChoices.find((c) => c.value === ownerChat.action) : selectedReviewChoice(request, amendmentChoices, answer)
     if (reviewExpired(request)) {
       this.amendmentReviews.update(request.id, { status: "expired", result: "Review expired; the locked contract is unchanged." })
       this.store.ledger(request.slug, { type: "amendment-review-expired", decisionId: request.id, sessionID: request.sessionID, actionExecuted: false })
@@ -990,6 +1048,7 @@ export class GoalApp {
         this.loaded.set(state.slug, { contract: next.contract, lock: next.lock, text: request.nextText })
         this.persist(state)
         this.amendmentReviews.update(request.id, { status: "succeeded", result: `Amended ${state.slug} to ${state.lock}; the goal stays paused.` })
+        if (ownerChat) this.store.ledger(request.slug, { type: "amendment-chat-resolved", decisionId: request.id, ownerMessageID: ownerChat.messageID, lock: state.lock, ok: true })
         this.invalidateOldDecision(state)
         this.noticeM(request.sessionID, M.amended(state.amendments.filter((a) => a.status === "accepted").length, request.diff.summary))
       } catch (error) {
@@ -1436,7 +1495,7 @@ export class GoalApp {
           this.store.ledger(launch.slug, { type: "launch-interrupted", decisionId: launch.id, previousFormID: data.id })
         }
         const amendment = this.amendmentReviews.byForm(data.sessionID, data.id)
-        if (amendment?.status === "pending") {
+        if (amendment?.status === "pending" && !amendment.ownerMessageID) {
           this.amendmentReviews.interruptForm(amendment.id)
           this.store.ledger(amendment.slug, { type: "amendment-review-interrupted", decisionId: amendment.id, previousFormID: data.id })
         }
@@ -1741,7 +1800,7 @@ export class GoalApp {
     const stuck = Object.entries(state.criteria).filter(([, s]) => s.rejections >= contract.verification.max_rejections).map(([id]) => id)
     if (stuck.length) {
       setStatus(state, "needs_review", `${stuck.join(", ")} rejected ${contract.verification.max_rejections} times`)
-      this.decide(state.sessionID, state.slug, "needs_review", M.needsReview(state.reason ?? "repeated rejections"), { criteria: stuck })
+      this.decide(state.sessionID, state.slug, "needs_review", M.needsReview(state.reason ?? "repeated rejections", stuck), { criteria: stuck })
       await this.summarize(state, contract)
       return this.persist(state)
     }
@@ -2040,7 +2099,7 @@ export class GoalApp {
       if (this.amendmentReviews.all().some((p) => p.slug === state!.slug && p.status === "executing"))
         return { ok: false, message: "An accepted amendment is committing. Reload to recover its recorded acceptance before managing this goal." }
       if (["resume", "verify", "amend", "approve", "reject"].includes(action) && this.amendmentReviews.all().some((p) => p.slug === state!.slug && ["pending", "interrupted"].includes(p.status)))
-        return { ok: false, message: "This goal has an unresolved staged amendment. Use its native accept/reject/comment review before resuming or verifying." }
+        return { ok: false, message: "This goal has an unresolved staged amendment. Resolve that exact review in Composer chat with goal_resolve_amendment before resuming or verifying; there is no sidebar Accept." }
       const contract = this.contractOf(state)
       switch (action) {
         case "pause":
@@ -2072,6 +2131,10 @@ export class GoalApp {
           return { ok: true, message: `Goal aborted: ${state.title} — /goal archive (history intact) · /goal new <next>` }
         case "amend": {
           if (!contract) return { ok: false, message: "contract unavailable" }
+          if (arg === "interview") {
+            await this.goalIntent(sessionID, `amend the check for goal ${state.slug}; interview me about the change, then stage a validated diff with goal_propose_amendment. Do not edit the live contract or infer acceptance.`)
+            return { ok: true, message: "Composer amendment interview started for the selected goal; no contract change or acceptance authorized." }
+          }
           const confirmed = (arg?.split(/\s+/) ?? []).includes("confirm")
           const message = await this.amendGoal(state, confirmed)
           return { ok: message.startsWith("Amended") || message.startsWith("Proposed"), message }
@@ -2338,7 +2401,7 @@ export class GoalApp {
       "Goal entry — interpret the owner's intent, not merely the first word.",
       text ? `Owner's original words: ${JSON.stringify(text)}` : "No idea was supplied. Ask with native selectable options whether to create a goal or manage an existing goal, then ask for the idea if creating.",
       `Current session goal: ${state ? `${state.slug} (${state.status})` : "none"}. Project inventory: ${JSON.stringify(inventory)}`,
-      "For a new idea, use the write-goal interview, validate and review the exact contract, then prepare a host-bound launch decision. For an existing goal request, resolve the target explicitly and use guarded typed goal operations; ask only for a genuine decision or unresolved target. For amendments, read the selected goal's current contract and run lock, then call goal_propose_amendment with the replacement YAML and rationale. Never edit a live goal's YAML or ask the owner to hand-edit it or run /goal amend.",
+      "For a new idea, use the write-goal interview, validate and review the exact contract, then prepare a host-bound launch decision. For an existing goal request, resolve the target explicitly and use guarded typed goal operations; ask only for a genuine decision or unresolved target. For amendments, read the selected goal's current contract and run lock, then call goal_propose_amendment with the replacement YAML and rationale. Resolve actual owner chat accept/reject/revision with goal_resolve_amendment for the exact pending decisionId; the host fetches and consumes genuine consent once. Never invent a sidebar Accept, ask for manual goal commands, hand-edit a live contract, or treat review restoration as acceptance.",
       "Preserve the original words in intent.verbatim. Never execute this text as a shell command. A fresh start means a new session; the original history is not cleared.",
     ].join("\n")
     await this.ctx.session.prompt({ sessionID, text: prompt, skills: [{ id: "write-goal" }], metadata: { goal: { kind: "owner-intent" } } } as any)
@@ -2451,6 +2514,23 @@ export class GoalApp {
   }
 
   private async registerHooks() {
+    // A pending question holds generation. Let a genuine explicit chat reply
+    // reach the agent; interruption is not acceptance and spends no consent.
+    this.registrations.push(await this.ctx.session.hook("prompt", async (event: any) => {
+      if (event.metadata?.goal) return
+      const requests = this.amendmentReviews.all(event.sessionID).filter((p) => ["pending", "interrupted"].includes(p.status) && !reviewExpired(p))
+      if (requests.length !== 1) return
+      const request = requests[0]!, state = this.runs.get(request.targetSessionID)
+      const forms = this.factsOf(event.sessionID).forms
+      if (!request.formID || forms.size !== 1 || !forms.has(request.formID) || !state || isTerminal(state.status)
+        || state.runId !== request.runId || state.lock !== request.lock || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
+      const candidate = [{ id: event.messageID, type: "user", text: event.prompt.text, time: { created: Date.now() } }]
+      const intent = ownerAmendmentMessage(candidate, request, "accept") ?? ownerAmendmentMessage(candidate, request, "reject")
+      if (!intent) return
+      await this.ctx.session.interrupt({ sessionID: event.sessionID, continue: false } as any)
+      this.store.ledger(request.slug, { type: "amendment-chat-unheld", decisionId: request.id, previousFormID: request.formID,
+        sourceMessageID: event.messageID, actionExecuted: false, reason: "explicit owner chat admitted; typed persisted-message validation still required" })
+    }))
     // R5 + S3: render the contract into every request for sessions with a live goal.
     this.registrations.push(
       await this.ctx.session.hook("context", (event: any) => {
@@ -2570,6 +2650,9 @@ export class GoalApp {
       }),
       tool("inventory", "Read every goal contract in THIS project: drafts, live/stopped/complete runs and archives, with real session/agent/progress/priority and existing contract metadata. Goal contracts are not CLEO tasks; never infer a goal parent from a task ID. Unknown/missing metadata is reported honestly; this performs no lifecycle operation.", { properties: {} }, async () => ({ goals: await this.inventory() })),
       tool("review", "Re-present this session's pending engine decision in a native owner form after dismissal/commentary. Optional decisionId selects the exact review; this never approves, resumes or executes an operation. Expired reviews need a new review; changed target generations are refused.", { properties: { decisionId: { type: "string", minLength: 1, maxLength: 256 } } }, async (args, context) => this.reviewDecision(context.sessionID, args.decisionId ? String(args.decisionId) : undefined)),
+      tool("resolve_amendment", "Resolve an exact staged amendment from the actual owner's latest Composer chat. The host fetches that user message and binds it once; tool-supplied text, quoted/conditional/stale/replayed consent cannot authorize anything. No sidebar/manual command or fabricated form reply. continueGoal requires the same owner message explicitly asks continuation after accepting this reviewed next lock; it does not approve criteria.", {
+        properties: { decisionId: { type: "string", minLength: 1, maxLength: 256 }, action: { type: "string", enum: ["accept", "reject", "comment"] }, continueGoal: { type: "boolean" } }, required: ["decisionId", "action"],
+      }, async (args, context) => this.resolveAmendmentChat(context.sessionID, { decisionId: String(args.decisionId), action: args.action, continueGoal: args.continueGoal === true })),
       tool("propose_amendment", "Stage a validated replacement YAML contract as a reviewed diff for a selected live goal. Does NOT edit goal.yaml or grant consent. Exact owner accept/reject/comment is required; changed statements/checks reset proof and the goal remains stopped. Never call an owner accept operation yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" }, yaml: { type: "string", minLength: 1, maxLength: 200000 }, rationale: { type: "string", minLength: 1, maxLength: 2000 } }, required: ["slug", "expectedLock", "yaml", "rationale"] }, async (args, context) => this.proposeAmendment(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock), yaml: String(args.yaml), rationale: String(args.rationale) })),
       tool("prepare_launch", "Validate and stage an exact goal contract for native owner review and same/fresh-session launch. The host executes the owner's choice directly, including after reload or an interrupted question result. Preparation is not permission to start or approve yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, fresh: { type: "boolean" } }, required: ["slug"] }, async (args, context) => this.prepareLaunch(context.sessionID, String(args.slug), args.fresh === true)),
       tool("provenance", "Report the actual server PID, location, installed Git revision and loaded server/UI/skill artifact hashes for this goal session. Never substitute an unscoped shared-service or newest-cache lookup for this evidence.", { properties: {} }, async (_args, context) => ({ ...await this.provenance(context.sessionID) })),

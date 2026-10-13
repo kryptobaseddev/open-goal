@@ -37,6 +37,8 @@ const samples: Record<string, () => EngineMessage> = {
   amendmentChanged: () => M.amendmentChanged(),
   amendmentInterrupted: () => M.amendmentInterrupted(),
   launchChanged: () => M.launchChanged(),
+  launchOutcome: () => M.launchOutcome("demo", "failed", "reservation refused; nothing started"),
+  launchActivity: () => M.launchActivity("demo", "rehearsing checks; no run exists yet"),
   launchFailed: () => M.launchFailed("admission refused"),
   goalWait: () => M.goalWait(120, "build running"),
   commandDeferred: () => M.commandDeferred("resume", "turn"),

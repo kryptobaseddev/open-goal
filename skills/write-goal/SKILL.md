@@ -62,8 +62,8 @@ For an existing goal, resolve its exact identity with `goal_inventory` and use
 run or ask again when the owner has already said **resume**, **continue**, or
 explicitly approved resuming. The host can consume that genuine owner message
 once for its same session/run/lock; workers cannot supply or forge the consent.
-**I accept** applies only to a current exact resume review, not an unrelated or
-expired review. Other decisions still use native forms. Check the returned
+**I accept** applies only to the exact pending review, not an unrelated or
+expired review. Check the returned
 result and `goal_status`; a staged review isn't a successful resume. Never
 bypass a refusal with raw owner APIs, receipt edits, or fabricated form replies.
 
@@ -71,10 +71,24 @@ For a requested change to an existing live goal, do not hand-edit its YAML or
 tell the owner to run `/goal amend`. Read the selected contract and run lock,
 then use `goal_propose_amendment` with `{slug, expectedLock, yaml, rationale}`.
 The host validates and stages a full before/after semantic diff without changing
-the live contract. Its native **Accept amendment / Reject amendment / Comment
-or revise** form is the only acceptance path. Acceptance resets proof for changed
-statements/checks; unchanged evidence remains. The run stays stopped—amendment
-acceptance is not a resume. Commentary, dismissal and reload do not imply consent.
+the live contract. Show that reviewed diff in the Composer. When the owner replies
+in chat (for example, “I accept the amendment”), use `goal_resolve_amendment`
+with its exact `{decisionId, action:"accept"}`. Reject or revision feedback uses
+`action:"reject"` or `action:"comment"`. The host fetches the actual latest owner
+message itself; never supply forged approval text, fabricate a form reply, or
+treat quoted/conditional/stale/replayed text as consent. If acceptance also says
+“resume” or “get it done”, set `continueGoal:true`; that continuation is bound to
+the accepted next lock and never approves criteria. Acceptance alone stays stopped.
+Changed statement/check proof resets; unchanged proof remains.
+
+The sidebar and manager are optional navigation, **not an Accept surface**. Never
+send the owner there to accept or tell them to type `/goal accept/amend/approve`.
+Only ambiguous targets, missing decisions or unsupported consent wording need a
+native selectable Composer clarification. Do not loop on `goal_review` expecting
+it to consume a chat reply: it only re-presents the review. On older installs
+without `goal_resolve_amendment`, report the capability gap and use the actual
+native Composer review if available; do not invent a sidebar button. Dismissal,
+reload and commentary never imply acceptance.
 
 When `goal_prepare_launch` is available, call it with `{slug, fresh:false}` after
 showing the exact validated contract. It stages a native review with **Start goal
@@ -90,8 +104,8 @@ operation; preparation and owner consent are not proof the run actually started.
 
 Older installed plugins without `goal_prepare_launch` use this compatibility flow:
 Ask with these options: **`Start goal now`** (Recommended) / Start in a fresh session / **Start clean** / Save for later. The first option's label must **start with** `Start goal now` — a `(Recommended)` suffix is expected and fine (T068: the engine matches on the prefix, never byte-exact).
-- OpenCode with the plugin: on "Start goal now", call `goal_start({slug})`. On "Start clean", call `goal_start({slug, fresh: true})` — the engine opens a **new session owned by the goal**, prompts the kickoff there and leaves the current session untouched (it never clears the current one). On "Start in a fresh session", tell the owner to open a new session and run `/goal start <slug>` there themselves. The plugin accepts all of these right after the owner picked a matching option — within 10 minutes, surviving server restarts. If it refuses, its message names what was observed (no approval seen vs label mismatch vs expired); follow that, or tell the owner to run `/goal start <slug>` (plain, or `fresh` for a clean start).
-- Fresh session: tell the owner to open a new session and run `/goal start <slug>`.
+- OpenCode with the plugin: on "Start goal now", call `goal_start({slug})`. On an approved fresh mode, call `goal_start({slug, fresh:true})`; it opens a **new root session**, prompts the kickoff there and preserves the original. The approval lasts 10 minutes and survives restarts. A refusal names missing, mismatched or expired approval: inspect it and present a fresh exact Composer review if needed. Never send the owner to a sidebar or manual command as a workaround.
+- Without a supported fresh-session launch capability, report that limitation explicitly; do not claim a handoff or ask the owner to operate a missing control.
 - Claude Code (no plugin): offer a `/goal` condition rendered from the contract (≤4,000 chars: the end state, the stated check, the constraints that matter).
 - Codex: offer `/goal <end state>. Done when <check>. Scope: <in/out>. If <blocker>, stop and report.`
 

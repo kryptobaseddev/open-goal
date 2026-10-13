@@ -1,6 +1,6 @@
 {
   "name": "opencode-goal",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "Persistent, host-verified goal mode for OpenCode 2 with a structured goal contract and a live TUI.",
   "type": "module",
   "license": "MIT",

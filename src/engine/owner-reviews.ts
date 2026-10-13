@@ -81,6 +81,19 @@ export class OwnerReviewStore<T extends ReviewRequest> {
     return Object.values(this.read().requests).filter((p) => !sessionID || p.sessionID === sessionID)
   }
   get(id: string): T | undefined { return this.read().requests[id] }
+  /** Host-only source binding, never tool-supplied approval text. Failed
+   * attempts spend the source too; cross-process duplicates cannot rebind. */
+  bindOwnerMessage(id: string, ownerMessageID: string): T | undefined {
+    return this.mutate((data) => {
+      const p = data.requests[id]
+      if (!p || !["pending", "interrupted"].includes(p.status) || p.ownerMessageID || reviewExpired(p)
+        || p.issuerPID !== process.pid && processAlive(p.issuerPID)
+        || Object.values(data.requests).some((r) => r.ownerMessageID === ownerMessageID)) return undefined
+      p.ownerMessageID = ownerMessageID
+      p.status = "pending"
+      return p
+    })
+  }
   create(input: Omit<T, "id" | "status">): T {
     return this.mutate((data) => {
       for (const p of Object.values(data.requests))

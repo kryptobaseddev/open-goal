@@ -54,6 +54,10 @@ export const M = {
   amendmentInterrupted: () => msg("goal.amend.interrupted", "error", "The amendment commit was interrupted after recorded acceptance; no further work is safe until recovery finishes.", [{ label: "Recover the accepted generation", run: "open a reloaded location to recover the host write-ahead receipt" }]),
   launchExpired: () => msg("goal.launch.expired", "warning", "The launch review expired; nothing started. A fresh review is needed before consent can be used.", [{ label: "Review again", run: "start a new native launch review" }]),
   launchChanged: () => msg("goal.launch.changed", "warning", "The contract changed after review; nothing started. The previous choice cannot approve different bytes.", [{ label: "Review the new contract", run: "read the revised contract and start a new native review" }]),
+  launchOutcome: (slug: string, outcome: string, result: string) =>
+    msg("goal.launch.outcome", outcome === "succeeded" ? "success" : "warning", `Launch ${slug} (${outcome}): ${result}`, [status, { label: "Inspect the exact review", run: "goal_review; no old approval is replayed" }]),
+  launchActivity: (slug: string, detail: string) =>
+    msg("goal.launch.activity", "info", `${slug}: ${detail}`, [status]),
   launchFailed: (reason: string) => msg("goal.launch.failed", "error", `Launch failed; the decision has an explicit recoverable result: ${reason}`, [{ label: "Inspect and review again", run: "read the failed launch result and start a new native review" }]),
   goalStarted: (title: string) =>
     msg("goal.started", "success", `Goal started: ${title}. The contract is locked and rendered into every request.`, [status, resume]),
@@ -95,7 +99,7 @@ export const M = {
     ]),
   budgetStopped: (title: string) =>
     msg("goal.budget.stopped", "warning", `Goal stopped at its budget: ${title}. Raise the budget to continue, or wrap up.`, [
-      { label: "Raise budget (amend)", run: "edit budget in goal.yaml, then /goal amend confirm" },
+      { label: "Raise budget (amend)", run: "reply in the Composer with the budget change; the agent stages a reviewed amendment" },
       abort,
       archive,
     ], "question"),
@@ -122,13 +126,14 @@ export const M = {
   needsSignOff: (ids: string[]) =>
     msg("goal.needs-review.signoff", "warning", `Goal needs your sign-off on ${ids.join(", ")} — a human criterion only you can prove. Approve runs verification of everything else immediately (your approval is final and never re-checked).`, [
       { label: `Approve ${ids[0] ?? "<id>"} (triggers verify)`, run: `/goal approve ${ids[0] ?? "<id>"}`, act: "approve", arg: ids[0] },
-      { label: "Reject with a reason", run: `/goal reject ${ids[0] ?? "<id>"} <why>`, act: "reject" },
+      { label: "Reject with a reason", run: `/goal reject ${ids[0] ?? "<id>"} <why>`, act: "reject", arg: ids[0] },
       status,
     ], "question"),
-  needsReview: (reason: string) =>
+  needsReview: (reason: string, ids: string[] = []) =>
     msg("goal.needs-review.rejected", "warning", `Goal needs review: ${reason}. A criterion failed verification repeatedly — decide it, change the work, or change the check. Approving runs verification of everything else immediately (final, never re-checked).`, [
-      { label: "Approve as-is (final, triggers verify)", run: "/goal approve <C#>", act: "approve" },
-      { label: "Amend the check", run: "/goal amend confirm after editing goal.yaml" },
+      ...ids.map((id) => ({ label: `Approve ${id} (final, triggers verify)`, run: `/goal approve ${id}`, act: "approve", arg: id })),
+      ...(ids.length ? [] : [{ label: "Inspect the failed criteria", run: "/goal status" }]),
+      { label: "Amend the check", run: "start a Composer interview for the check change; no contract changes before reviewed acceptance", act: "amend", arg: "interview" },
       abort,
     ], "question"),
   claimRejected: (firstLine: string) =>
@@ -159,7 +164,7 @@ export const M = {
   amendProposed: (summary: string) =>
     msg("goal.amend.proposed", "warning", `Amendment proposed: ${summary}. Review the diff; confirming re-locks the contract with a new generation.`, [
       { label: "Confirm re-lock", run: "/goal amend confirm", act: "amend", arg: "confirm" },
-      { label: "Keep editing goal.yaml", run: "edit goal.yaml further; the proposal waits" },
+      { label: "Revise the proposal", run: "reply in the Composer with your changes; the agent stages a revised diff" },
     ], "question"),
   supersedeAck: (slug: string, predecessor: string, status: string) =>
     msg("goal.supersede.ack", "warning", `Refused to start "${slug}": predecessor "${predecessor}" is still ${status}. Superseding a live predecessor forks the audit trail.`, [
@@ -169,7 +174,7 @@ export const M = {
   pausedAfterVerdict: (firstLine: string) =>
     msg("goal.paused.verdict", "warning", `Verification did not pass while the goal is stopped — ${firstLine} Decide with the verdict in hand.`, [
       resume,
-      { label: "Amend the check", run: "edit goal.yaml, then /goal amend confirm", act: "amend", arg: "confirm" },
+      { label: "Amend the check", run: "start a Composer interview for the check change; no contract changes before reviewed acceptance", act: "amend", arg: "interview" },
       abort,
     ], "question"),
   completeDecision: (title: string, cleoPresent: boolean, unproven: number) =>

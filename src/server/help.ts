@@ -43,6 +43,6 @@ export function goalHelp({ version }: HelpFacts): string {
     "- Questions are deferred during a run: make the reversible choice, note it in goal_progress, or call goal_block.",
     "- Command checks live on ONE line and are rehearsed at start; a check that cannot run refuses the lock.",
     "- Supersession replaces a goal: `supersedes: <slug>@<lock>` in the new contract; live predecessors need your explicit acknowledgment.",
-    "- Amendment re-locks the same goal through `/goal amend confirm` — generation-bound, audit-trailed.",
+    "- Describe changes in the Composer; goal_propose_amendment stages an exact diff, then goal_resolve_amendment binds genuine owner chat once. No sidebar Accept or manual command is required.",
   ].join("\n")
 }
