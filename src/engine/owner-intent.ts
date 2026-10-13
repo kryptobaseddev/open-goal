@@ -33,7 +33,7 @@ export function ownerAmendmentMessage(messages: readonly any[], review: { create
   if (!message || typeof message.id !== "string" || typeof message.text !== "string" || typeof message.time?.created !== "number"
     || message.time.created < review.createdAt || review.expiryPolicy !== "target" && message.time.created > review.expiresAt) return undefined
   const value = message.text.trim()
-  if (!value || /["“”`]|\b(?:if|when|unless|until|do not|don't|never|not yet)\b/i.test(value)) return undefined
+  if (!value || action !== "comment" && /["“”`]|\b(?:if|when|unless|until|do not|don't|never|not yet)\b/i.test(value)) return undefined
   const subject = "(?:\\s+(?:(?:this|that|the)\\s+)?(?:amendment|ammendment|proposal|review|change|it))?"
   const continuation = "(?:[,.]?\\s+(?:(?:and|then)\\s+)?(?:please\\s+)?(?:resume(?:\\s+(?:the\\s+)?goal)?|continue(?:\\s+(?:the\\s+)?goal)?|get\\s+it\\s+done|finish\\s+(?:it|the\\s+goal)))?"
   const accepting = new RegExp(`^(?:(?:yes|okay|ok)[,.]?\\s+)?(?:please\\s+)?(?:I\\s+)?(?:accept|approve)${subject}(?:\\s+now)?${continuation}[.!]?$`, "i").test(value)

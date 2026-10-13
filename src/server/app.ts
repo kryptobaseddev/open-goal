@@ -1420,6 +1420,7 @@ export class GoalApp {
         const amendment = this.amendmentReviews.bind(data.form)
         if (amendment) {
           this.store.ledger(amendment.slug, { type: "amendment-form-bound", decisionId: amendment.id, formID: amendment.formID })
+          await this.unholdAmendmentChat(amendment)
           return
         }
         const decision = this.decisions.bind(data.form)
@@ -2513,6 +2514,20 @@ export class GoalApp {
     })
   }
 
+  private async unholdAmendmentChat(request: AmendmentRequest) {
+    const current = this.amendmentReviews.get(request.id), state = this.runs.get(request.targetSessionID)
+    const forms = this.factsOf(request.sessionID).forms
+    if (!current?.chatAdmissionMessageID || !current.formID || forms.size !== 1 || !forms.has(current.formID)
+      || !state || isTerminal(state.status) || state.runId !== current.runId || state.lock !== current.lock) return
+    const messageID = current.chatAdmissionMessageID
+    if (!this.amendmentReviews.takeChatAdmission(current.id, messageID)) return
+    // The owner's admitted message may already be queued behind this form.
+    // Stopping dispatch as well would strand that same authentic reply.
+    await this.ctx.session.interrupt({ sessionID: current.sessionID, resume: true } as any)
+    this.store.ledger(current.slug, { type: "amendment-chat-unheld", decisionId: current.id, previousFormID: current.formID,
+      sourceMessageID: messageID, actionExecuted: false, reason: "explicit owner chat admitted; typed persisted-message validation still required" })
+  }
+
   private async registerHooks() {
     // A pending question holds generation. Let a genuine explicit chat reply
     // reach the agent; interruption is not acceptance and spends no consent.
@@ -2521,15 +2536,15 @@ export class GoalApp {
       const requests = this.amendmentReviews.all(event.sessionID).filter((p) => ["pending", "interrupted"].includes(p.status) && !reviewExpired(p))
       if (requests.length !== 1) return
       const request = requests[0]!, state = this.runs.get(request.targetSessionID)
-      const forms = this.factsOf(event.sessionID).forms
-      if (!request.formID || forms.size !== 1 || !forms.has(request.formID) || !state || isTerminal(state.status)
+      if (!state || isTerminal(state.status)
         || state.runId !== request.runId || state.lock !== request.lock || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
       const candidate = [{ id: event.messageID, type: "user", text: event.prompt.text, time: { created: Date.now() } }]
       const intent = ownerAmendmentMessage(candidate, request, "accept") ?? ownerAmendmentMessage(candidate, request, "reject")
-      if (!intent) return
-      await this.ctx.session.interrupt({ sessionID: event.sessionID, continue: false } as any)
-      this.store.ledger(request.slug, { type: "amendment-chat-unheld", decisionId: request.id, previousFormID: request.formID,
-        sourceMessageID: event.messageID, actionExecuted: false, reason: "explicit owner chat admitted; typed persisted-message validation still required" })
+        ?? (/^(?:please\s+)?(?:change|amend|revise|instead)\b/i.test(event.prompt.text.trim()) ? ownerAmendmentMessage(candidate, request, "comment") : undefined)
+      const noted = this.amendmentReviews.noteChatAdmission(request.id, intent ? event.messageID : undefined)
+      if (!intent || !noted) return
+      this.store.ledger(request.slug, { type: "amendment-chat-admission", decisionId: request.id, sourceMessageID: event.messageID, actionExecuted: false })
+      await this.unholdAmendmentChat(noted)
     }))
     // R5 + S3: render the contract into every request for sessions with a live goal.
     this.registrations.push(

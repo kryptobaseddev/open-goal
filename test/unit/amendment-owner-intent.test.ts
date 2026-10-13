@@ -29,6 +29,7 @@ test("target-bound reply survives elapsed time; reject/comment cannot masquerade
   expect(ownerAmendmentMessage([user("accept", 250)], { ...review, expiryPolicy: "target" }, "accept")?.id).toBe("msg-owner")
   expect(ownerAmendmentMessage([user("reject the amendment")], review, "reject")?.id).toBe("msg-owner")
   expect(ownerAmendmentMessage([user("change the scope")], review, "comment")?.text).toBe("change the scope")
+  expect(ownerAmendmentMessage([user('change C1 to "marker is ready" if needed')], review, "comment")?.id).toBe("msg-owner")
   expect(ownerAmendmentMessage([user("accept")], review, "comment")).toBeUndefined()
   expect(ownerAmendmentMessage([user("reject")], review, "accept")).toBeUndefined()
 })

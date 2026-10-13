@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.11 — 2026-10-13
+
+- **Chat before form creation (T096)** — retain a non-consenting, exact-review admission pointer when explicit acceptance, rejection or revision arrives before its native question binds. A later matching sole form is unheld once; unrelated forms and later contradictions remain protected. Application still requires the typed resolver to fetch and consume the actual persisted owner message; the pointer cannot approve or re-lock anything.
+- **Use the verified V2 interruption field (T096)** — native `SessionInterruptInput` uses `resume`, not `continue`. Unholding with `resume:true` lets the already-admitted owner chat dispatch after question cancellation instead of stranding it in the inbox. The deployed v0.3.10 real-model timeout and delayed-form fixture failure exposed this timing path; the immutable older tag remains unchanged.
+
 ## 0.3.10 — 2026-10-13
 
 - **Composer chat resolves amendments (T095)** — `goal_resolve_amendment` fetches the actual latest owner message, binds it once to the exact staged review/run/current and next locks, and uses the existing atomic commit. Explicit acceptance preserves unchanged proof; rejection/revision preserves the current contract. Acceptance alone stays stopped; an explicitly requested continuation is bound to the accepted next generation. Quoted, conditional, stale, synthetic, unrelated and replayed consent cannot authorize it.
