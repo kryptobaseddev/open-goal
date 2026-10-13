@@ -240,8 +240,17 @@ export default {
     const manageSelected = async (row: ManagerAction) => {
       const goal = selectedGoal(), sessionID = currentSession()
       if (row.action === "back") { setSelectedGoalKey(undefined); setSelectedDetails(undefined); setManagerNotice(undefined); return }
-      if (!goal || !sessionID) return
-      if (row.action === "jump") { if (goal.sessionID && goal.sessionState === "present") openGoalSession(context.ui, goal.sessionID); return }
+      if (!goal || !sessionID) { setManagerNotice({ message: "The selected goal or active session is unavailable. Reopen the manager with F9.", tone: "warning" }); return }
+      if (row.action === "jump") {
+        if (!goal.sessionID || goal.sessionState !== "present") { setManagerNotice({ message: "This goal's session is not available for navigation.", tone: "warning" }); return }
+        try {
+          // Focusing the already-current tab leaves its fullscreen manager
+          // covering the conversation. Explicit activation must return to it.
+          if (goal.sessionID === sessionID) { const panel = currentMountedPanel(); if (panel) panel.close(); else context.ui.panel.close() }
+          else openGoalSession(context.ui, goal.sessionID)
+        } catch (error) { setManagerNotice({ message: `Navigation unavailable: ${String(error)}`, tone: "warning" }) }
+        return
+      }
       const location = locationOf(sessionID)
       try {
         const result = await rpc.manage({ sessionID, action: row.action, target: targetOf(goal) }, location ? { location } : undefined)

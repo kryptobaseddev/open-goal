@@ -31,7 +31,7 @@ const goals: GoalSummary[] = ["alpha", "beta"].map((slug, i) => ({
 async function mount(locationMode: "session" | "context" | "default" = "session") {
   const slots = new Map<string, any>(), handlers = new Map<string, any>()
   const calls: Array<{ method: string; input: any; options: any }> = []
-  const jumps: string[] = [], panels: string[] = []
+  const jumps: string[] = [], panels: string[] = [], closes: string[] = []
   const location = { directory: `/project/${locationMode}` }
   let deliver!: (value: unknown) => void
   let serverGoals = goals
@@ -62,7 +62,7 @@ async function mount(locationMode: "session" | "context" | "default" = "session"
       slot: (claim: any) => { slots.set(claim.append, claim); return () => slots.delete(claim.append) },
       router: { current: () => ({ type: "session", sessionID: primary }), navigate: () => { throw new Error("tabs should be used") } },
       tabs: { enabled: () => true, open: (id: string) => jumps.push(`open:${id}`), focus: (id: string) => jumps.push(`focus:${id}`) },
-      panel: { open: (name: string) => panels.push(name), current: () => undefined, close: () => {} },
+      panel: { open: (name: string) => panels.push(name), current: () => undefined, close: () => closes.push("close") },
       toast: { show: () => {} }, dialog: {},
     },
   } as any)
@@ -73,7 +73,7 @@ async function mount(locationMode: "session" | "context" | "default" = "session"
   const render = async () => { await Bun.sleep(25); await terminal.renderOnce() }
   const control = (id: string) => terminal.renderer.root.findDescendantById(id) as any
   return {
-    terminal, render, control, deliver, calls, jumps, panels, location,
+    terminal, render, control, deliver, calls, jumps, panels, closes, location,
     refresh: (next: GoalSummary[]) => { serverGoals = next; handlers.get("updated")({ data: { sessionID: "ses_alpha", view: null } }) },
     stop: () => { stop(); terminal.renderer.destroy() },
   }
@@ -133,6 +133,30 @@ test("installed native cards and manager react AFTER the initial empty mount, ex
       method: "manage", input: { sessionID: primary, action: "pause", target: { key: goals[1]!.key, lock: goals[1]!.lock, runId: goals[1]!.runId, sessionID: "ses_beta" } },
       options: { location: ui.location },
     })
+  } finally { ui.stop() }
+})
+
+for (const pointer of [false, true]) test(`explicit ${pointer ? "pointer" : "Enter"} Open goal session returns from the manager when that session is already current`, async () => {
+  const ui = await mount()
+  try {
+    const here = { ...goals[0]!, sessionID: primary }
+    ui.deliver({ goals: [here, goals[1]!], directory: ui.location.directory })
+    ui.refresh([here, goals[1]!]); await ui.render()
+    const card = ui.control(`goal-card:${here.key}`)
+    await ui.terminal.mockMouse.click(card.x + 1, card.y + 1); await ui.render()
+    const actions = ui.control("goal-manager-actions")
+    expect(actions.getSelectedOption().name).toBe("Open goal session")
+    // Actions are one-line rows: y + 1 is Pause, not Open.
+    if (pointer) await ui.terminal.mockMouse.click(actions.x + 1, actions.y)
+    else { actions.focus(); ui.terminal.mockInput.pressEnter() }
+    await ui.render()
+    expect(ui.closes).toEqual(["close"])
+    expect(ui.calls.filter((c) => c.method === "manage")).toHaveLength(0)
+    if (pointer) {
+      await ui.terminal.mockMouse.click(actions.x + 1, actions.y + 1)
+      await ui.render()
+      expect(ui.calls.filter((c) => c.method === "manage")).toMatchObject([{ input: { sessionID: primary, action: "pause", target: { sessionID: primary, key: here.key } } }])
+    }
   } finally { ui.stop() }
 })
 

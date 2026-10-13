@@ -369,7 +369,7 @@ function decisionRows(view) {
       rows.push({ label: "Resolved \u2014 resume", description: view.blocker?.reason ?? "the blocker is fixed", act: "resume" });
       rows.push({ label: "Abort the goal", description: "stop for good; history stays", act: "abort" });
     } else if (view.status === "budget_limited") {
-      rows.push({ label: "Raise budget and amend", description: "edit goal.yaml, then confirm" });
+      rows.push({ label: "Raise budget and amend", description: "Describe the budget change in the Composer; review the agent's staged diff" });
       rows.push({ label: "Abort the goal", description: "stop at the budget", act: "abort" });
     }
   }
@@ -880,11 +880,36 @@ var tui_default = {
         setManagerNotice(undefined);
         return;
       }
-      if (!goal || !sessionID)
+      if (!goal || !sessionID) {
+        setManagerNotice({
+          message: "The selected goal or active session is unavailable. Reopen the manager with F9.",
+          tone: "warning"
+        });
         return;
+      }
       if (row.action === "jump") {
-        if (goal.sessionID && goal.sessionState === "present")
-          openGoalSession(context.ui, goal.sessionID);
+        if (!goal.sessionID || goal.sessionState !== "present") {
+          setManagerNotice({
+            message: "This goal's session is not available for navigation.",
+            tone: "warning"
+          });
+          return;
+        }
+        try {
+          if (goal.sessionID === sessionID) {
+            const panel = currentMountedPanel();
+            if (panel)
+              panel.close();
+            else
+              context.ui.panel.close();
+          } else
+            openGoalSession(context.ui, goal.sessionID);
+        } catch (error) {
+          setManagerNotice({
+            message: `Navigation unavailable: ${String(error)}`,
+            tone: "warning"
+          });
+        }
         return;
       }
       const location = locationOf(sessionID);

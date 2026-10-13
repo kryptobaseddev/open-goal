@@ -209,7 +209,7 @@ export function decisionRows(view: GoalView): ActionRow[] {
       rows.push({ label: "Resolved — resume", description: view.blocker?.reason ?? "the blocker is fixed", act: "resume" })
       rows.push({ label: "Abort the goal", description: "stop for good; history stays", act: "abort" })
     } else if (view.status === "budget_limited") {
-      rows.push({ label: "Raise budget and amend", description: "edit goal.yaml, then confirm" })
+      rows.push({ label: "Raise budget and amend", description: "Describe the budget change in the Composer; review the agent's staged diff" })
       rows.push({ label: "Abort the goal", description: "stop at the budget", act: "abort" })
     }
   }
