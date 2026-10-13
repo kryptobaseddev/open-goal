@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.14 — 2026-10-13
+
+- **Missing identity is not changed identity (T104)** — incomplete live-goal targets name the missing `runId` or `sessionID` and request the complete fresh-inventory tuple. Full identity comparisons and actual-owner confirmation remain mandatory; no implicit target normalization or fallback goal is introduced.
+- **Already resolved is not new authority (T104)** — an owned settled amendment reports its recorded status/result with `alreadyResolved:true`, `actionExecuted:false`, and `ok:false`. It never consumes another owner message or repeats acceptance/continuation. Executing, expired, unknown, and foreign reviews remain separately refused.
+- **Report the receipt before changed status (T104)** — a settled lifecycle decision names its actual disposition rather than blaming the target's expected post-operation transition. Pending target/generation guards remain intact; failed or uncertain outcomes never become success.
+- **Keep parallel-launch evidence honest (T103)** — passive isolated boundary traces correlate each slug and call result, including three already-live parallel requests and sequential controls. The historical OpenCode 2.0.27/provider report is not reproduced on immutable v0.3.12 with OpenCode 2.0.28 and is not claimed fixed. Launch expiry and cross-session recovery policy are unchanged.
+
 ## 0.3.13 — 2026-10-13
 
 - **A failed attempt is not a failed run (T098)** — Composer and manager launch text correlates actual session/slug/lock/run presence and leads with the existing non-terminal goal's status. A late failed duplicate review stays a failed audit receipt; it does not replace the live run, invent successful admission or tell the owner to abort a working goal. Changed-lock and unrelated failures retain their own recovery details.
