@@ -22,7 +22,7 @@ protect: [oracle.txt]
 const changed = yaml.replace("marker exists\n", "marker exists with revised meaning\n")
 const lock = parseContract(yaml).lock
 
-async function setup(action: "accept" | "reject" | "comment" = "accept", continueGoal = false, withForm = false, delayedForm = false) {
+async function setup(action: "accept" | "reject" | "comment" = "accept", continueGoal: boolean | null = false, withForm = false, delayedForm = false) {
   let decisionId = ""
   let runId = "", actorID = ""
   let repeat = false
@@ -42,7 +42,7 @@ async function setup(action: "accept" | "reject" | "comment" = "accept", continu
     }
     if (turn.trigger === "Request a resume review") return { text: "Review staged, not resumed." }
     if (decisionId && !turn.trigger.includes("Owner commentary") && (turn.results === 0 || repeat && turn.results === 1))
-      return { toolCalls: [{ name: "goal_resolve_amendment", args: { decisionId, action, continueGoal } }] }
+      return { toolCalls: [{ name: "goal_resolve_amendment", args: { decisionId, action, ...(continueGoal === null ? {} : { continueGoal }) } }] }
     return { text: "No fabricated acceptance or additional action." }
   }), { ".opencode/goals/chat-amend/goal.yaml": yaml }, { plugin: process.env.OCGOAL_GIT_SPEC,
     ...(delayedForm ? { extraPlugins: [join(import.meta.dir, "../fixtures/delayed-amendment-form")] } : {}) })
@@ -186,6 +186,19 @@ test("acceptance plus explicit continuation resumes only the accepted next gener
     const events = await ledger(host, "chat-amend")
     expect(events.filter((e) => e.type === "amended")).toHaveLength(1)
     expect(events.filter((e) => e.type === "amendment-chat-continuation")).toMatchObject([{ decisionId: request.id, lock: request.nextLock, ok: true }])
+    expect(events.filter((e) => e.type === "resumed")).toHaveLength(1)
+    expect((await run(host, "chat-amend")).lock).toBe(request.nextLock)
+  } finally { await host.stop() }
+}, 60000)
+
+for (const hint of [false, null]) test(`actual owner continuation is authoritative with ${hint === false ? "a false" : "an omitted"} agent hint`, async () => {
+  const { host, sessionID, request } = await setup("accept", hint)
+  try {
+    await host.client.session.prompt({ sessionID, text: "I accept the amendment get it done" } as any)
+    await until(async () => (await ledger(host, "chat-amend")).some((e) => e.type === "amendment-chat-continuation"), 15000)
+    const events = await ledger(host, "chat-amend")
+    expect(events.filter((e) => e.type === "amendment-chat-continuation")).toMatchObject([{ decisionId: request.id, lock: request.nextLock, ok: true }])
+    expect(events.filter((e) => e.type === "owner-message-consumed")).toMatchObject([{ action: "accept", continueGoal: true }])
     expect(events.filter((e) => e.type === "resumed")).toHaveLength(1)
     expect((await run(host, "chat-amend")).lock).toBe(request.nextLock)
   } finally { await host.stop() }

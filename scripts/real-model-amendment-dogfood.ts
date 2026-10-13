@@ -78,13 +78,18 @@ try {
   await writeFile(join(evidence, "before-accept-forms.json"), JSON.stringify(await (client.session.form as any).list({ sessionID }), null, 2))
   // No native form reply or raw owner-action API substitutes for this chat.
   await client.session.prompt({ sessionID, text: acceptance } as any)
-  after = await until(async () => { const state = await current(); return state.lock === proposal.nextLock && state.status === "waiting" ? state : undefined })
+  after = await until(async () => { const state = await current(); return state.lock === proposal.nextLock && ["waiting", "complete"].includes(state.status) ? state : undefined })
   const transcript: any[] = await client.session.context({ sessionID } as any)
   const events = (await readFile(join(root, ".opencode/goals/qa-chat-amend/ledger.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line))
   const owner = transcript.find((m) => m.type === "user" && m.text === acceptance)
   const resolved = events.filter((e) => e.type === "amendment-chat-resolved" && e.ownerMessageID === owner?.id && e.decisionId === proposal.id)
   const continued = events.filter((e) => e.type === "amendment-chat-continuation" && e.ownerMessageID === owner?.id && e.lock === proposal.nextLock && e.ok)
+  // Actual host-proven completion is stronger than a held inspection run;
+  // a mere claimed/running/paused state is never an alternate success.
+  const completed = after.status === "complete" && Object.values(after.criteria).every((c: any) => c.status === "pass" && c.by === "host")
+    && events.some((e) => e.type === "verdict" && e.passed === true && e.t >= continued[0]?.t)
   const pass = after.runId === before.runId && after.sessionID === before.sessionID && resolved.length === 1 && continued.length === 1
+    && (after.status === "waiting" || completed)
   await writeFile(join(evidence, "transcript.json"), JSON.stringify(transcript, null, 2))
   await writeFile(join(evidence, "ledger.json"), JSON.stringify(events, null, 2))
   await writeFile(join(evidence, "result.json"), JSON.stringify({ pass, before, after, ownerMessageID: owner?.id, resolved, continued, automatedQATestOwner: true, providerIsFixture: false }, null, 2))

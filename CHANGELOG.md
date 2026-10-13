@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.12 — 2026-10-13
+
+- **Owner continuation is not a model hint (T097)** — after accepting the exact amendment, the host honors an authenticated “resume”, “continue” or “get it done” instruction even if the agent omits the optional hint or supplies false. A true hint without that actual owner directive still refuses; plain acceptance remains stopped. The operation stays once-only and bound to the accepted next generation, never an approval of criteria.
+- **Keep partial dogfood outcomes honest** — v0.3.11 delivered the queued real chat and atomically accepted the reviewed diff, but its real model supplied `continueGoal:false` and left the run paused. That evidence remains a failed end-to-end continuation check, not a retroactively relabeled pass. The observer also distinguishes a held waiting run from stronger host-proven completion; a claim or running/paused state cannot substitute.
+
 ## 0.3.11 — 2026-10-13
 
 - **Chat before form creation (T096)** — retain a non-consenting, exact-review admission pointer when explicit acceptance, rejection or revision arrives before its native question binds. A later matching sole form is unheld once; unrelated forms and later contradictions remain protected. Application still requires the typed resolver to fetch and consume the actual persisted owner message; the pointer cannot approve or re-lock anything.
