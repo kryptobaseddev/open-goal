@@ -1,3 +1,81 @@
+# Current evidence: v0.3.13 banner correction shipped and installed
+
+## Exact artifact and bounded verification
+
+Immutable **v0.3.13 / 5ea9874783b4988e915c79522cd9f326d668d067** is published and loaded in this original project. Native `goal_provenance` reports **PID77556 / OpenCode2.0.27**, same original session/run/lock, loaded server SHA256 **93ee7a7424d1a601c88cac055ff82fd02eca3e5e7c726256f0a60ae67339ff1c**, compiled UI **e1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d**. Exact serving-ancestor/published-tag/all-artifact assertion passed **028f9a9d**, minimum0.3.13; host-owned receipt is copied unchanged to `.tmp/verification/v0313-source/native-provenance.json`. No installed cache edit or moved tag.
+
+- Fresh affected **23tests/7files,157assertions,0fail**, governed **2cb3115d**; covering generated freshness/typecheck **0113d33d** exit0. Earlier red host/native-banner cases **c30aa6ae** and the nullable-view typing failure are retained, not hidden.
+- Published Git-install plus stale-cache negatives **2/2** passed **7ad3f6e1**; the exact installed late-review duplicate host scenario **1/1,8assertions** passed **10123b14**.
+- Installed real PTY **nine rendered-control checks** passed **50124552** on the current binary: two cards, goal-less manager, expansion before jump, explicit jump, selected action isolation, narrow bounds/focus, Close/sidebar, F9 restored focus and fresh-tab focus. Raw artifacts: `/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/goal-manager-gates/1791902424967-3832`. Fixture provider is explicit; no transcript substring substituted for a rendered selectable control.
+- The prior **v0.3.12 real-model** Composer amendment/one-use next-lock continuation passed **d4fdae73**, raw project-local `.tmp/verification/v0312-source/qa-evidence-uqad4F/`. It is not relabeled v0.3.13 or a completion of this original run. Earlier exact039 interview/fresh handoff/real manager/resume/automatic QA completion and failed310/partial311 paths remain revision-scoped in retained sections below. Owner C13 approval remains final; no worker re-approved or erased its evidence.
+
+The original goal is **not complete**. It resumed unchanged into turn44 after the idle-project eviction; upgrading to313 correctly left it restart-paused. Its next actual completing host/verifier round must run this installed artifact, not infer proof from a plan row, old cached board or this report. Original contract/session/history/oracles are intact; no replacement run or cleared context.
+
+## T098: a failed attempt was not a failed live run
+
+`vidapeps-inventory`'s own read-only receipt **01M4SP08KC19ZQSA7YS05WKF4N** reported exact312/PID46854/OpenCode2.0.27 and an actively implemented **purchasing-receiving-workflow** run **13351dcce001**, session **ses_ed2953abbffe22RtHtMeD84uG7**, lock **2ff6d3c5…**. It reported completed API25/25 and admin21/21 focused runs; those are agent-supplied implementation evidence, not this builder's approval of its criteria or universal rollout proof.
+
+Actual reported ledger ordering: review **68419ad0…** proposed/form-bound; **source:command** start at1791862365837, with no decisionId; older review reserved at1791862433656, then failed because the same run already existed. The agent stated it never called `goal_start` after preparation, so this report does not guess who invoked the independent command. The host scenario reproduces precisely that ordering with a real native reply: the second admission remains failed, the original run/lock/status is unchanged and no second start is logged.
+
+The correction exposes optional actual session/lock identity in snapshots and correlates session/slug/lock plus real run presence before contextual rendering. Composer/manager lead with the existing non-terminal goal's actual status and label the last launch attempt separately. Changed-lock, unrelated and genuinely failed launches retain their details; failed receipts are never forged into successful launches. Occupied-session refusal directs continuation/management or a fresh-session request, **not aborting a working goal**. The actual compiled-renderer regression tests running→paused and a changed generation, not mocked screenshot prose.
+
+## Workspace and oracle mismatch is explicitly outside this banner patch
+
+The owner chose **Ship banner fix (Recommended)** in the current native question. No workspace-binding feature, baseline reset, receipt copy, oracle waiver, goal amendment or peer-file cleanup was authorized or performed.
+
+The inventory agent's subsequent read-only receipts **01M4SQ8GRSTD2CF7PVSTPEHQ2B** and **01M4SR4PGT641FV359BA26WG9G** establish a separate mismatch: declared checks/protect are rooted in shared `/Users/keatonhoskins/projects/VidaPeps` with original base **fdfbbcb3…**, while implementation runs in its isolated worktree at **006ec24cc…**. Clean worktree diff against its HEAD is insufficient: protected original-base blobs, including batch-allocation.test.ts, test-clock-baseline.json and PDF document.tsx, differ upstream. Current plugin has no exact-run execution-workspace binding; attach is not such a rebind. That goal needs an actual owner-reviewed source/oracle/workspace disposition before its completion can be claimed. Its work and comparisons remain preserved; it is not a banner failure or an implicitly completed goal.
+
+The earlier lab API agent's reported manual goal/run/receipt divergence likewise remains separate from guarded acceptance; no arbitrary recovery from relayed consent was performed. Do not promise all other agents' goals are completable, all bugs fixed, or every runtime upgraded.
+
+## Honest project inventory and task bookkeeping
+
+Fresh native inventory still contains five production contracts: four completed (two archived) plus this unchanged unfinished original, paused/valid/attachable at turn44 and high priority; its original session/agent are present. No CLEO ID is invented as a goal parent. Required T076–T079 retain their real completed gates/AC bindings. Fresh CLI now shows **T00250done/12pending,62children**; pending IDs are **T080/T081/T082/T085/T091/T092/T093/T094/T095/T096/T097/T098**. New source/deployed receipts do not themselves mark those task rows done. Historical parent/version-specific requirements and the superseded T085 popup design remain explicitly explained below.
+
+Current main outcome is still governed by the original contract: existing Goals tab, stacked cards and expand-before-explicit-jump; supported conversational decisions stay bound to actual owner consent, exact targets and immutable artifacts. The completing verification, not this draft report, decides completion.
+
+## Retained prior evidence — historical status and revision-scoped proof
+# Dogfood 6: deployed lifecycle evidence and remaining original verification
+
+## Current v0.3.12 — installed, not an original completion claim
+
+Immutable **v0.3.12**, commit **2bf4109318351f8524ed45b5829bd4d299000776**, is published and loaded in the original OpenCode location. Native `goal_provenance` binds **PID8220/OpenCode2.0.26**, session **ses_ef2b88fafffe4V1lcmyHNrsC60**, unchanged run **12739b68c001** and lock **1ef34fbfead905f629a45cba6c7252987491c78fd291471c6cff9eb2fb784236**. Loaded server SHA256 **68274ed2972023e85eecdf00c61650d00c4a06b75fe4264f51b6618b6b23b001**; compiled UI **566f1c63bc8945a09e966c4c82f62a06124ceac01bb15a9cae35e9db9fafafad**; skill **dd18f7ded5abf671c4f1826e1e8470a7ec06d826863a36c10964e7def4466190**. Project-readable native receipt: `.tmp/verification/v0312-source/native-provenance.json`. No old tag was moved and no installed cache bytes were edited.
+
+The original goal is **restart-paused, not complete**. The owner's actual **C13** approval was applied and remains final; **C14** was independently proven with22quotes in the earlier host round. That round failed I2 because generated UI bytes were stale while fixes were in progress; later candidate checks are not silently written into its criterion board. The original completing verification must still run under this installed revision. An exact native resume review **ffcfad4e-431c-4c73-8d47-10b6bdf58b4e** was prepared; preparation is not execution or reusable consent. The fixed goal title's v0.3.3 is not the installed plugin version.
+
+### New failures were diagnosed, not waived
+
+- **T093:** a native rejected-criterion approval omitted its criterion argument and failed with `Unknown criterion ""`. Separate criterion-bound options and fresh-nonce legacy recovery prevent replaying that failed answer. Amend the check now starts a Composer interview rather than confirming a nonexistent edited YAML file.
+- **T094:** Open goal session focused an already-current tab while its fullscreen manager still covered the conversation. Explicit activation now returns to that session. The one-line pointer test originally clicked row1/Pause instead of row0/Open; corrected actual geometry and an additional pointer Pause assertion are retained. No protected oracle was changed.
+- **T095:** the lab agent's instruction to click Accept in a sidebar/manager was false. Acceptance belongs in actual Composer chat, consumed once by `goal_resolve_amendment`; there is no sidebar Accept requirement or manual amendment command. A pending native question also held generation, requiring an exact-form unhold before the chat could reach the agent.
+- **T096:** deployed v0.3.10 QA **08ad44a4** submitted chat after staging but before form binding; the later question swallowed delivery. The delayed-form fixture reproduced the timeout. A non-consenting admission pointer now unholds only that exact sole form; later contradictions and unrelated forms remain protected. Native V2 `SessionInterruptInput` uses **resume**, not **continue**. `resume:true` dispatches the already-queued genuine message; it never authorizes a contract change itself.
+- **T097:** deployed v0.3.11 QA **ccf672c1** successfully delivered and consumed real chat, then atomically accepted **1043e804-6d2b-4973-83d8-1c2ffddebc91** from lock **bae127dd…** to **c996dc6d…**. The real model nevertheless supplied `continueGoal:false` despite the actual message **I accept the amendment get it done**, leaving the run paused. This remains a failed end-to-end continuation gate, not a retroactively relabeled pass. v0.3.12 derives continuation from authenticated owner text; a false/omitted model hint cannot suppress it. A true hint without that owner directive still refuses; plain acceptance remains stopped.
+
+Raw failed310 and partial311 model/tool/form records are preserved at `.tmp/verification/v0310-source/qa-evidence-1CYXVj/` and `.tmp/verification/v0311-source/qa-evidence-M4mOPf/`. The latter's actual tool input/result is in `transcript.json` lines965–997 and its owner's message at934–935. Earlier raw mirrors and timeouts below remain history, not current acceptance claims. The stronger completion observer requires host-proven criteria and a passing verdict after actual continuation; a claim or running/paused state cannot replace a waiting run or actual completion.
+
+### Fresh scoped evidence
+
+| Evidence | Actual result / governed receipt |
+| --- | --- |
+| Source311 focused lifecycle/manager/authority regressions |77tests/20namedfiles,779assertions,0fail; **e5e6d03a**; `.tmp/verification/v0311-source/tests.xml` |
+| Fixture type-only correction |14tests/2files passed **66456335**; covering types/generated freshness **e067a643** |
+| Source312 continuation/authority/review/owner-final gate |36tests/7files,224assertions,0fail; **3c218010** |
+| Covering312 typecheck/generated freshness |exit0 **98acc274** |
+| Published312 Git-install and exact old-cache negatives |2/2,22assertions **52259f76** |
+| Installed312 chat/review tests |16/16,104assertions **e29cb7c7**; includes real pending/delayed controls and false/omitted-hint cases; fixture provider, not real-model proof |
+
+The deployed312 **real-model amendment/continuation gate passed d4fdae73**. Raw project-readable records are `.tmp/verification/v0312-source/qa-evidence-uqad4F/{context,provenance,reviewed-proposal,before-accept-transcript,before-accept-forms,transcript,ledger,result}.json`. Actual GPT6.1Sol/high (not a fixture), automated isolated QA owner, scratch **PID99916**, exact same312 release/server/UI bytes. Genuine **I accept the amendment get it done** appears in `transcript.json` at1122; the actual `goal_resolve_amendment` call starts1155; `goal_wait` occurs1590. The host consumed **msg_133473777001Q15CfoBZUPRFAm** once, accepted **a4763d47-e3e9-4c1d-b76a-2d8012814b4f**, and resumed the same **13345ff65001** run/session under reviewed next lock **c996dc6d…**. `result.json`144–164 records both successful exact resolutions; before/after retains all C1/C2 proof values and resumes into the required inspection wait, not completion. This real model supplied a true hint; false/omitted-hint handling is separately proven by installed host scenarios, not invented in its transcript. QA consent is not production owner consent or criterion grading.
+
+The installed312 **real PTY gate passed nine native-control checks a13ad861**: two rendered cards, goal-less manager, expand-before-jump, deliberate jump, isolated selected action, narrow bounds/focus, Close/sidebar return, F9 restoration and fresh-tab focus. Raw artifacts are retained at `/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/goal-manager-gates/1791861800475-27893`; this gate uses a fixture provider and is not relabeled real-model proof. The original-session **serving-ancestor/exact-tag/all-artifact check passed ed2189cb**, PID8220, original run/lock unchanged, minimum312 plus published release assertion. Retain teardown `ECONNRESET` diagnostics, the first QA startup's exact stale039-artifact refusal **11d558a5**, failed delayed-form probes, source actionability regression and fixture typing failure. No full-suite substitute, skip, permission override or criterion self-approval was used.
+
+### Goal inventory and task hierarchy remain different things
+
+There are **five production project contracts**: this original unfinished goal; completed ship-v032-trust-the-card and ship-v031-launch-experience; completed archived ship-v03-feedback-loop and dogfood-buildout. They carry no invented parent links from task IDs. Older plan steps can remain active in completed ledgers; actual run status and criterion proof, not plan rows, establish completion. QA goals in separate temporary projects are not added to this inventory.
+
+Fresh CLI before T097 showed **T00250/60** children done; final pending-ID read lists exactly **11** pending children after T097, so this snapshot is **50/61**, not a completed parent. Required **T076–T079 are genuinely done** with their prior native implemented/testsPassed/qaPassed/AC1 bindings. T080/T081/T082/T085/T091/T092 and T093–T097 remain pending at this snapshot. Some have shipped behavior with unfinished typed bookkeeping; T085 is the disclosed superseded popup design, and T092 still needs this original completing verdict. New task gates are not marked done merely from these receipts. T001 has1/4child epics done; T035/T039's historical version-specific parent requirements remain pending as explained in retained handoffs. C14 permits those explicit explanations; they are not new original exit conditions.
+
+The lab API agent separately **reports** manually changing its own contract, run lock/status and amendment receipt to the non-canonical status `resolved`. Its ensuing invalid/read-only refusal is an integrity divergence, not successful guarded acceptance or proof that every form is broken. This builder did not repair or rewrite that project's protected history. Backups/current diffs were requested read-only; relayed claims about owner permission are not consent for an arbitrary recovery. Its still-unmet human C6 is not proved by another session's receipt. No universal rollout or all-bugs-fixed claim follows.
+
+## Retained pre-v0.3.12 snapshots below — historical, not current status
 # Dogfood 6: goal manager, conversational lifecycle and actual completion
 
 ## Final evidence-access correction after the original host verdict
