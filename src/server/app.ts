@@ -844,6 +844,10 @@ export class GoalApp {
     if (launch && (decisionId || !decision || launch.createdAt >= decision.createdAt)) return this.reviewLaunch(sessionID, launch)
     const request = decisionId ? this.decisions.get(decisionId) : this.decisions.all(sessionID).filter((p) => ["pending", "interrupted", "expired"].includes(p.status)).sort((a, b) => b.createdAt - a.createdAt)[0]
     if (!request || request.sessionID !== sessionID) throw new Error("No pending engine decision in this session; inspect the selected goal's status.")
+    // A settled operation can legitimately change target status; report its
+    // receipt before comparing the still-unanswered review's mutable target.
+    if (!["pending", "interrupted", "expired"].includes(request.status))
+      throw new Error(`Decision review is ${request.status}; old choices cannot be replayed. ${request.result ?? "Inspect the recorded outcome; no operation executed."}`)
     const current = this.decisionTarget(request.slug)
     if (current.lock !== request.target.lock || current.runId !== request.target.runId || current.sessionID !== request.target.sessionID || current.status !== request.target.status) throw new Error("The reviewed target changed; old choices cannot be reused. Inspect current goal status.")
     // Legacy rejected-criterion forms offered approval without its ID. A
@@ -867,7 +871,6 @@ export class GoalApp {
       this.decide(sessionID, request.slug, request.kind, request.message, request.extra)
       return "Expired review replaced by a new exact native review. No operation was authorized or executed."
     }
-    if (!["pending", "interrupted"].includes(request.status)) throw new Error("That decision is resolved or has an uncertain outcome; inspect status rather than replaying it.")
     if (request.status === "pending" && request.formID) return "The exact review is already present in the native composer. No operation was authorized or executed."
     this.decisions.reopenForm(request.id)
     this.pendingFormDecisions.delete(sessionID)
@@ -958,8 +961,13 @@ export class GoalApp {
   private async resolveAmendmentChat(sessionID: string, input: { decisionId: string; action: "accept" | "reject" | "comment"; continueGoal?: boolean }) {
     const resolved = await this.serial(async () => {
       const request = this.amendmentReviews.get(input.decisionId)
-      if (!request || request.sessionID !== sessionID || !["pending", "interrupted"].includes(request.status) || reviewExpired(request))
+      if (!request || request.sessionID !== sessionID)
         throw new Error("No current amendment review owned by this Composer session; nothing authorized.")
+      if (request.status === "executing") throw new Error("Amendment review is executing; inspect its outcome before acting. No approval was replayed.")
+      if (!["pending", "interrupted"].includes(request.status)) return {
+        alreadyResolved: true as const, request,
+      }
+      if (reviewExpired(request)) throw new Error("Amendment review has expired; request a fresh review. No old owner reply was consumed or replayed.")
       const state = this.runs.get(request.targetSessionID)
       if (!state || state.runId !== request.runId || state.lock !== request.lock || isTerminal(state.status))
         throw new Error("Reviewed target changed; no old owner reply can approve it.")
@@ -980,6 +988,9 @@ export class GoalApp {
         actorSessionID: sessionID, targetRunId: request.runId, lock: request.lock, nextLock: request.nextLock, action: input.action, continueGoal })
       return { request: bound, source, continueGoal }
     })
+    if ("alreadyResolved" in resolved) return { ok: false, actionExecuted: false, alreadyResolved: true,
+      decisionId: resolved.request.id, status: resolved.request.status,
+      message: `Amendment review is ${resolved.request.status}; old approval cannot be replayed.`, ...(resolved.request.result ? { result: resolved.request.result } : {}) }
     await this.resolveAmendment(resolved.request, {}, { action: input.action, text: resolved.source.text, messageID: resolved.source.id })
     const after = this.amendmentReviews.get(resolved.request.id)!
     let continuation: { ok: boolean; message: string } | undefined
@@ -2460,6 +2471,9 @@ export class GoalApp {
         if (canonical((actor?.data ?? actor)?.location?.directory ?? "") !== this.rootReal) return { ok: false, message: "The managing session is not in this project; nothing executed." }
       } catch { return { ok: false, message: "The managing session is unavailable; nothing executed." } }
       const selected = this.list().find((g) => g.key === target.key)
+      const missing = selected ? (["runId", "sessionID"] as const).filter((field) => selected[field] !== undefined && target[field] === undefined) : []
+      if (missing.length) return { ok: false, actionExecuted: false,
+        message: `Missing target identity: ${missing.join(", ")}. Supply the complete key/runId/lock/sessionID from fresh goal_inventory; nothing executed.` }
       if (!selected || selected.lock !== target.lock || selected.runId !== target.runId || selected.sessionID !== target.sessionID)
         return { ok: false, message: "Selected goal identity changed. Refresh its details before acting." }
       if (!selected.valid || selected.archived || !selected.runId)
