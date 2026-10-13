@@ -25,8 +25,10 @@ export function fitColumns(text: string, width: number): string {
 export const targetOf = (goal: GoalSummary): GoalTarget => ({ key: goalKey(goal), lock: goal.lock ?? "", ...(goal.runId ? { runId: goal.runId } : {}), ...(goal.sessionID ? { sessionID: goal.sessionID } : {}) })
 
 /** Admission is visible progress, not a fabricated running/proven state. */
-export function launchStatusText(launch?: LaunchView): string | undefined {
+export function launchStatusText(launch?: LaunchView, current?: Pick<GoalSummary, "slug" | "sessionID" | "lock" | "runId" | "status"> | null): string | undefined {
   if (!launch || launch.status === "succeeded") return undefined
+  if (current?.runId && current.sessionID === launch.sessionID && current.slug === launch.slug && current.lock === launch.lock && !terminal.has(current.status))
+    return `Goal ${current.slug} · ${current.status} · last launch attempt ${launch.status}; existing run unchanged`
   if (launch.status === "executing") return `Starting ${launch.slug} · ${launch.activity?.detail ?? "owner-approved admission"} · no run yet`
   if (launch.status === "pending" || launch.status === "interrupted") return `Launch review ${launch.slug} · pending in Composer · nothing started`
   return `Launch ${launch.slug} · ${launch.status} · ${launch.result ?? "nothing started; inspect the review"}`

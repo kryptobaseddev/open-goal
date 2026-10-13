@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.13 — 2026-10-13
+
+- **A failed attempt is not a failed run (T098)** — Composer and manager launch text correlates actual session/slug/lock/run presence and leads with the existing non-terminal goal's status. A late failed duplicate review stays a failed audit receipt; it does not replace the live run, invent successful admission or tell the owner to abort a working goal. Changed-lock and unrelated failures retain their own recovery details.
+- **Safe duplicate-start guidance (T098)** — an occupied session refuses new admission while preserving its run. Same-goal requests explicitly say continue/manage the existing run, not “Abort it first”; different-goal requests point to a fresh-session launch instead of discarding current work. Snapshots expose optional actual session/lock identity for correlation, without treating launch progress or reported plan steps as criterion proof.
+
 ## 0.3.12 — 2026-10-13
 
 - **Owner continuation is not a model hint (T097)** — after accepting the exact amendment, the host honors an authenticated “resume”, “continue” or “get it done” instruction even if the agent omits the optional hint or supplies false. A true hint without that actual owner directive still refuses; plain acceptance remains stopped. The operation stays once-only and bound to the accepted next generation, never an approval of criteria.

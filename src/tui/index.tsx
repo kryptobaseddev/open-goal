@@ -345,7 +345,7 @@ export default {
           }
           return (
             <box flexDirection="column" paddingLeft={1} paddingRight={1}>
-              <Show when={launchStatusText(currentLaunch(input.sessionID))}>
+              <Show when={launchStatusText(currentLaunch(input.sessionID), views[input.sessionID])}>
                 {(line) => <text id="goal-launch-admission" fg={color(currentLaunch(input.sessionID)?.status === "executing" ? "muted" : "warning")} wrapMode="none" truncate>{line()}</text>}
               </Show>
               <For each={tracer()}>
@@ -470,7 +470,7 @@ export default {
                       <text fg={color("muted")} wrapMode="word">{`Goal: ${goal().slug}`}</text>
                       <text fg={color("base")} wrapMode="word">{goal().outcome ?? goal().title}</text>
                       <text fg={color("muted")} wrapMode="word">{`Session ID: ${goal().sessionID ?? "unassigned"}`}</text>
-                      <Show when={launchStatusText(goal().launch)}>{(line) => <text fg={color("warning")} wrapMode="word">{line()}</text>}</Show>
+                      <Show when={launchStatusText(goal().launch, goal())}>{(line) => <text fg={color("warning")} wrapMode="word">{line()}</text>}</Show>
                       <Show when={goal().details?.criteria?.length}><text fg={color("base")}><b>Evidence</b></text></Show>
                       <For each={goal().details?.criteria ?? []}>{(criterion) => (
                         <text fg={color(criterion.status === "fail" ? "error" : "muted")} wrapMode="word">{`${criterion.id} [${criterion.status}] ${criterion.statement}${criterion.by ? ` (${criterion.by})` : ""}`}</text>

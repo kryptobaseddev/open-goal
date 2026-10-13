@@ -507,9 +507,11 @@ function fitColumns(text, width) {
   return out + suffix;
 }
 var targetOf = (goal) => ({ key: goalKey(goal), lock: goal.lock ?? "", ...goal.runId ? { runId: goal.runId } : {}, ...goal.sessionID ? { sessionID: goal.sessionID } : {} });
-function launchStatusText(launch) {
+function launchStatusText(launch, current) {
   if (!launch || launch.status === "succeeded")
     return;
+  if (current?.runId && current.sessionID === launch.sessionID && current.slug === launch.slug && current.lock === launch.lock && !terminal.has(current.status))
+    return `Goal ${current.slug} \xB7 ${current.status} \xB7 last launch attempt ${launch.status}; existing run unchanged`;
   if (launch.status === "executing")
     return `Starting ${launch.slug} \xB7 ${launch.activity?.detail ?? "owner-approved admission"} \xB7 no run yet`;
   if (launch.status === "pending" || launch.status === "interrupted")
@@ -1103,7 +1105,7 @@ var tui_default = {
           _$setProp(_el$1, "paddingRight", 1);
           _$insert(_el$1, _$createComponent(Show, {
             get when() {
-              return launchStatusText(currentLaunch(input.sessionID));
+              return launchStatusText(currentLaunch(input.sessionID), views[input.sessionID]);
             },
             children: (line) => (() => {
               var _el$10 = _$createElement("text");
@@ -1466,7 +1468,7 @@ var tui_default = {
                   _$insert(_el$38, () => `Session ID: ${goal().sessionID ?? "unassigned"}`);
                   _$insert(_el$32, _$createComponent(Show, {
                     get when() {
-                      return launchStatusText(goal().launch);
+                      return launchStatusText(goal().launch, goal());
                     },
                     children: (line) => (() => {
                       var _el$47 = _$createElement("text");

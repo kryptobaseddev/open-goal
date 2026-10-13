@@ -344,6 +344,8 @@ export class GoalApp {
       status: state.status,
       ...(state.reason ? { reason: state.reason } : {}),
       runId: state.runId,
+      sessionID: state.sessionID,
+      lock: state.lock,
       turn: state.turn,
       timeline: this.timelineOf(state),
       activeMs: state.activeMs,
@@ -1153,7 +1155,9 @@ export class GoalApp {
   private async startGoalLocked(sessionID: string, slug: string, source: "command" | "tool", options: StartOptions = {}): Promise<string> {
     {
       const current = this.runs.get(sessionID)
-      if (current && !isTerminal(current.status)) return `This session already has goal "${current.slug}" (${current.status}). Abort it first with /goal abort.`
+      if (current && !isTerminal(current.status)) return current.slug === slug
+        ? `Launch refused: the existing run ${current.runId} for "${current.slug}" is ${current.status}; no new run was started and the existing run is unchanged. Continue or manage that goal in the Composer; do not abort it just to retry launch.`
+        : `Launch refused: this session owns "${current.slug}" (${current.status}); that run is unchanged. Manage it or request a fresh-session launch for "${slug}" rather than aborting a working goal.`
       for (const other of this.runs.values())
         if (other.slug === slug && !isTerminal(other.status) && other.sessionID !== sessionID) return `Goal "${slug}" is already ${other.status} in another session (${other.sessionID}).`
       const loaded = this.load(slug, true)

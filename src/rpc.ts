@@ -114,6 +114,9 @@ export type GoalView = {
   status: string
   reason?: string
   runId: string
+  /** Actual run identity for correlating admission attempts, not version labels. */
+  sessionID?: string
+  lock?: string
   turn: number
   timeline: TimelineEntry[]
   activeMs: number
