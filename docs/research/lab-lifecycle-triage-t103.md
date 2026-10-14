@@ -5,7 +5,15 @@ status: draft
 ---
 # Lab lifecycle triage: preserve identity and spent consent
 
-## Current follow-up: T104 is executing; no autonomous goal started
+## Released and loaded: immutable v0.3.14
+
+The owner-approved ordinary work was published at immutable **v0.3.14 / 0ce8e69764981d53397a6a4f1a5d65d14967e9a2**. Main and this exact tag were pushed without moving any old tag. The standard plugin CLI removed only the previous0.3.13 pin and added0.3.14; provider and permission configuration were not changed. Session-native goal_provenance after reload reports actual **PID46974 / OpenCode2.0.28 / this project / installed0.3.14** with server SHA256 **4f59a1b25f5f1d27f36ab1c8a7ebcf86f55222f09a593469d84d12cb74306915**, UI **e1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d**, skill **dd18f7ded5abf671c4f1826e1e8470a7ec06d826863a36c10964e7def4466190**. Explicit actual packageRoot is `.cache/opencode/npm/git-opencode-goal-23c07584729e/1791935814517/node_modules/opencode-goal` under the owner's home, not a newest-cache guess. All50 release artifact paths match the published tag; evidence `.tmp/verification/t104-installed/exact-tag-artifacts.json`.
+
+Installed immutable-tag strict reporting + Git installation proof: **5pass/0fail/64assertions**, request **77e14b95-bd34-4028-a5f1-3862268a8848**. Each isolated test's actual package/source/PID/hash is in `.tmp/verification/t104-installed/{parallel-all-live,parallel-launch,applied-amendment,identity-and-review}.json`. Source27/5-file authority proof and covering typecheck above remain distinct from installed tests. Source6/2-file report has6pass/171assertions, requestadbcdc2b-c84a-46e8-bf6c-0f96ba45cb39; XML426548eced94ac006aa7c45fd5c52bdb7f66021e1b1ef3bceba4380df9d55f6e. CLEO refused binding that pre-commit report as stale00f0a258-5e65-4947-9a58-24895c163a09 after the branch fast-forward updated timestamps; no waiver or report relabeling was applied. Fresh post-commit proof is still required for task closure.
+
+This is a released reporting patch, **not a completed autonomous goal**. Goal status still says no goal is running. The draft remains425092bb016da36bb0b2a4d5d074898d272f5fbc3a7a595832bc8d73a8c273c7; three expired launch receipts remain intact. The actual-goal serving-ancestor check cannot pass without an actual started run; no synthetic run/consent or self-grading replaces it. Old completed ship-v033 remains unchanged. Launch chat support, historical parallel-provider aliasing, dead-author review recovery, and workspace/oracle migration are not fixed by this release.
+
+## Retained pre-release follow-up: T104 was executing; no autonomous goal started
 
 The owner explicitly approved executing this plan after three launch reviews expired. No expired consent was replayed or receipt edited. v0.3.13 cannot consume direct chat launch approval; ordinary approved work is tracked separately as T104. The draft contract and completed original are unchanged. Earlier T103 product-unchanged statements below describe its retained baseline, not current implementation.
 
