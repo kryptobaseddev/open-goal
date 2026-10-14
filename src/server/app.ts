@@ -26,7 +26,7 @@ import { buildPostGoalSummary } from "../summary/build"
 import { completionAudit } from "../summary/audit"
 import { M, renderMessage, type EngineMessage } from "./messages"
 import { directGoalCommand } from "./intent"
-import { ownerAmendmentMessage, ownerResumeMessage } from "../engine/owner-intent"
+import { ownerAmendmentMessage, ownerLaunchMessage, ownerResumeMessage } from "../engine/owner-intent"
 
 /** Spawn the cleo CLI with a hard timeout; all failures resolve safely. */
 const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
@@ -695,12 +695,54 @@ export class GoalApp {
     return "The same exact launch review has been re-presented natively. No approval was inferred and nothing started."
   }
 
-  private async resolveLaunch(request: LaunchRequest, answer: Record<string, unknown>) {
+  private async launchFromOwnerChat(sessionID: string, slug: string, fresh: boolean): Promise<string | undefined> {
+    const admission = await this.serial(async () => {
+      const loaded = this.load(slug, true)
+      if ("error" in loaded) throw new Error(loaded.error)
+      const actor = await this.ctx.session.get({ sessionID })
+      if (canonical(actor.location.directory) !== this.rootReal) throw new Error("The launch author is not in this project; nothing started.")
+      if (actor.parentID) throw new Error("Goal launch requires a root authoring session; no child goal was created.")
+      const reviews = this.launches.all(sessionID)
+      const displayed = reviews.flatMap((p) => {
+        const bound = this.store.recent(p.slug, 1000).findLast((event) => event.type === "launch-form-bound" && event.decisionId === p.id && event.lock === p.lock)
+        return bound ? [{ id: p.id, slug: p.slug, lock: p.lock, fresh: p.fresh, at: Number(bound.t) }] : []
+      })
+      const source = ownerLaunchMessage(await this.ctx.session.context({ sessionID }), displayed, { slug, lock: loaded.lock, fresh })
+      if (!source) return undefined
+      const reviewed = this.launches.get(source.reviewId)!
+      if (!["pending", "interrupted", "expired"].includes(reviewed.status)) throw new Error(`The displayed launch review is ${reviewed.status}; no old instruction was replayed.`)
+      if (reviewed.issuerPID !== process.pid && processAlive(reviewed.issuerPID)) throw new Error("Another live server owns the displayed launch review; nothing started.")
+      if ([...this.launches.all(), ...this.decisions.all(), ...this.amendmentReviews.all()].some((p) => p.ownerMessageID === source.id))
+        throw new Error("That actual owner message was already consumed; no launch replayed.")
+      if ([...this.runs.values()].some((state) => state.slug === slug && !isTerminal(state.status))) throw new Error("That goal is already live; no new run or approval was created.")
+      const here = this.runs.get(sessionID)
+      if (here && !isTerminal(here.status)) throw new Error("This session owns a live goal; manage it or choose an exact native fresh-session review. No chat launch or replacement was inferred.")
+      if (this.factsOf(sessionID).forms.size) throw new Error("An owner form is still pending; its dismissal is not launch consent.")
+      const now = Date.now()
+      // A distinct fresh owner message creates a new authorization receipt.
+      // The expired timed review and its unconsumed form answer stay spent.
+      const request = this.launches.create({ sessionID, slug, lock: loaded.lock, fresh, title: loaded.contract.title,
+        question: reviewed.question, createdAt: now, expiresAt: now + this.options.launchApprovalMs, issuerPID: process.pid })
+      const bound = this.launches.bindOwnerMessage(request.id, source.id)
+      if (!bound) {
+        this.launches.update(request.id, { status: "failed", result: "Owner launch instruction could not be reserved; nothing started." })
+        throw new Error("Owner launch instruction could not be reserved; nothing started.")
+      }
+      this.store.ledger(slug, { type: "owner-message-consumed", ownerMessageID: source.id, decisionId: bound.id,
+        reviewedDecisionId: reviewed.id, actorSessionID: sessionID, lock: bound.lock, fresh, action: "launch" })
+      return bound
+    })
+    if (!admission) return undefined
+    await this.resolveLaunch(admission, {}, true)
+    return this.launches.get(admission.id)?.result ?? "Inspect the launch receipt; no success was inferred."
+  }
+
+  private async resolveLaunch(request: LaunchRequest, answer: Record<string, unknown>, ownerChat = false) {
     request = this.launches.get(request.id) ?? request
     if (request.status !== "pending") return // replay, including during execution
     if (request.issuerPID !== process.pid && processAlive(request.issuerPID)) return // another live session server owns it
     const value = request.fieldKey ? answer[request.fieldKey] : undefined
-    const selected = selectedReviewChoice(request, launchChoices, answer)
+    const selected = ownerChat && request.ownerMessageID ? launchChoices[0] : selectedReviewChoice(request, launchChoices, answer)
     if (request.expiresAt < Date.now()) {
       await this.launchDisposition(request, "expired", "Launch review expired. Prepare a fresh review; nothing started.", "launch-expired")
       return
@@ -888,7 +930,9 @@ export class GoalApp {
       if (this.amendmentReviews.all().some((p) => p.slug === state.slug && p.status === "executing")) throw new Error("An owner-accepted amendment is committing; recover it before another proposal")
       if (state.lock !== input.expectedLock) throw new Error("Amendment targets a stale lock; re-read the selected goal")
       if (state.status === "verifying") throw new Error("The selected goal is verifying; wait for its verdict before proposing a generation")
-      if (state.sessionID !== sessionID && this.factsOf(state.sessionID).busy) throw new Error("The selected goal is executing elsewhere; pause it before proposing an amendment")
+      // An unanswered review holds a paused author's turn too; offering a
+      // fresh diff there is not execution or transfer of the old consent.
+      if (state.sessionID !== sessionID && this.factsOf(state.sessionID).busy && state.status !== "paused") throw new Error("The selected goal is executing elsewhere; pause it before proposing an amendment")
       const disk = this.store.readContract(state.slug)
       if (!disk?.contract || disk.lock !== state.lock) throw new Error("Disk contract differs from the locked goal; resolve the existing edit before staging")
       const next = parseContract(input.yaml, { slug: state.slug })
@@ -1062,6 +1106,7 @@ export class GoalApp {
         this.loaded.set(state.slug, { contract: next.contract, lock: next.lock, text: request.nextText })
         this.persist(state)
         this.amendmentReviews.update(request.id, { status: "succeeded", result: `Amended ${state.slug} to ${state.lock}; the goal stays paused.` })
+        this.retireAmendmentReviews(approved)
         if (ownerChat) this.store.ledger(request.slug, { type: "amendment-chat-resolved", decisionId: request.id, ownerMessageID: ownerChat.messageID, lock: state.lock, ok: true })
         this.invalidateOldDecision(state)
         this.noticeM(request.sessionID, M.amended(state.amendments.filter((a) => a.status === "accepted").length, request.diff.summary))
@@ -1076,12 +1121,36 @@ export class GoalApp {
 
   private recoverAmendmentCommits() {
     for (const p of this.amendmentReviews.all()) {
+      if (p.status === "succeeded" && p.commit) { this.retireAmendmentReviews(p); continue }
       if (p.status !== "executing" || p.issuerPID !== process.pid && processAlive(p.issuerPID)) continue
       if (!p.commit) { this.amendmentReviews.update(p.id, { status: "failed", result: "Host interrupted before acceptance was journalled; review again." }); continue }
       // Conflicting third-generation bytes fail setup rather than admitting
       // a worker with an inconsistent approved contract/state pair.
       this.store.commitAmendment(p)
       this.amendmentReviews.update(p.id, { status: "succeeded", result: "Recovered owner-accepted amendment; goal remains paused." })
+      this.retireAmendmentReviews(p)
+    }
+  }
+
+  /** Only an applied, journalled generation retires conflicting unanswered
+   * proposals. Staging in a live session alone spends no other author's review. */
+  private retireAmendmentReviews(accepted: AmendmentRequest) {
+    const state = this.store.readRun(accepted.slug)
+    if (!accepted.commit || this.amendmentReviews.get(accepted.id)?.status !== "succeeded"
+      || state?.runId !== accepted.runId || state.lock !== accepted.nextLock) return
+    for (const other of this.amendmentReviews.all()) {
+      if (other.id === accepted.id || other.slug !== accepted.slug || other.runId !== accepted.runId || other.lock !== accepted.lock
+        || !["pending", "interrupted"].includes(other.status)) continue
+      this.amendmentReviews.update(other.id, { status: "cancelled", result: `Generation accepted by ${accepted.id}; this unanswered proposal was superseded, not replayed.` })
+      this.store.ledger(accepted.slug, { type: "amendment-review-superseded", decisionId: other.id, acceptedDecisionId: accepted.id,
+        lock: accepted.lock, nextLock: accepted.nextLock, actionExecuted: false })
+      const forms = this.factsOf(other.sessionID).forms
+      // Plugin contexts can lack Core's form.cancel capability. Release
+      // only a sole nonce-bound obsolete review, never an unrelated form.
+      if (other.formID && forms.size === 1 && forms.has(other.formID))
+        void this.ctx.session.interrupt({ sessionID: other.sessionID, resume: true }).catch((error) => {
+          this.store.ledger(accepted.slug, { type: "amendment-review-release-failed", decisionId: other.id, error: String(error) })
+        })
     }
   }
 
@@ -1431,6 +1500,7 @@ export class GoalApp {
         const launch = this.launches.bind(data.form)
         if (launch) {
           this.store.ledger(launch.slug, { type: "launch-form-bound", decisionId: launch.id, formID: launch.formID, sessionID: sid, lock: launch.lock, fresh: launch.fresh })
+          await this.unholdLaunchChat(launch)
           return
         }
         const amendment = this.amendmentReviews.bind(data.form)
@@ -2113,6 +2183,12 @@ export class GoalApp {
       }
       const why = ownerCan(state, action)
       if (why) return { ok: false, message: why }
+      if (action === "amend" && arg?.startsWith("review:")) {
+        const review = this.amendmentReviews.get(arg.slice("review:".length))
+        if (!review || review.sessionID !== sessionID || review.slug !== state.slug || review.runId !== state.runId || review.lock !== state.lock)
+          return { ok: false, message: "The prerequisite review changed or belongs to another author; nothing applied." }
+        return { ok: true, message: await this.reviewAmendment(sessionID, review) }
+      }
       if (this.amendmentReviews.all().some((p) => p.slug === state!.slug && p.status === "executing"))
         return { ok: false, message: "An accepted amendment is committing. Reload to recover its recorded acceptance before managing this goal." }
       if (["resume", "verify", "amend", "approve", "reject"].includes(action) && this.amendmentReviews.all().some((p) => p.slug === state!.slug && ["pending", "interrupted"].includes(p.status)))
@@ -2483,6 +2559,23 @@ export class GoalApp {
       const unavailable = action === "attach" ? !selected.attachable ? "Only a stopped live goal can attach." : undefined : ownerCan(state, action)
       if (unavailable) return { ok: false, message: unavailable }
       if (action === "verify" && state.status === "verifying") return { ok: false, message: "The selected goal is already verifying." }
+      if (action === "resume" || action === "verify") {
+        const amendment = this.amendmentReviews.all().find((p) => p.slug === state.slug && ["pending", "interrupted", "executing"].includes(p.status))
+        if (amendment) {
+          // An owned review never actually presented can offer restoration,
+          // not the impossible resume. Foreign/held reviews get no question.
+          if (forceReview && amendment.sessionID === sessionID && !amendment.formID && ["pending", "interrupted"].includes(amendment.status)
+            && !this.decisions.all(sessionID).some((p) => ["pending", "interrupted"].includes(p.status) && p.extra.amendmentId === amendment.id))
+            this.decide(sessionID, state.slug, "owner-operation", { id: "goal.amendment.prerequisite", level: "warning",
+              text: "An amendment is awaiting review; resume is not available until its disposition. Restore the exact review without accepting or resuming it.",
+              choices: [{ label: "Review pending amendment", act: "amend", arg: `review:${amendment.id}`, run: "show the exact staged diff; no approval or resume" },
+                { label: "Keep stopped", run: "leave the run and staged contract unchanged" }] }, { targetKey: selected.key, amendmentId: amendment.id })
+          return { ok: false, actionExecuted: false, requiredReview: { id: amendment.id, sessionID: amendment.sessionID, kind: "amendment" },
+            message: amendment.status === "executing"
+            ? "An accepted amendment is committing; inspect its recovery receipt. No impossible resume review was offered."
+            : `Resolve amendment ${amendment.id} in its authoring session ${amendment.sessionID} before ${action}. If that session is unavailable, stage the validated diff in a live session for a NEW owner review; no old approval transfers. No ${action} question was offered.` }
+        }
+      }
       if (forceReview && action === "resume" && state.sessionID === sessionID) {
         const generationAt = Math.max(state.createdAt, ...state.amendments.filter((a) => a.status === "accepted").map((a) => a.at),
           ...this.store.recent(state.slug, 1000).filter((e) => e.type === "paused").map((e) => Number(e.t) || 0))
@@ -2547,11 +2640,34 @@ export class GoalApp {
       sourceMessageID: messageID, actionExecuted: false, reason: "explicit owner chat admitted; typed persisted-message validation still required" })
   }
 
+  private async unholdLaunchChat(request: LaunchRequest) {
+    const current = this.launches.get(request.id), forms = this.factsOf(request.sessionID).forms
+    if (!current?.chatAdmissionMessageID || !current.formID || forms.size !== 1 || !forms.has(current.formID)) return
+    const loaded = this.load(current.slug, true)
+    if ("error" in loaded || loaded.lock !== current.lock) return
+    const messageID = current.chatAdmissionMessageID
+    if (!this.launches.takeChatAdmission(current.id, messageID)) return
+    await this.ctx.session.interrupt({ sessionID: current.sessionID, resume: true })
+    this.store.ledger(current.slug, { type: "launch-chat-unheld", decisionId: current.id, sourceMessageID: messageID,
+      previousFormID: current.formID, actionExecuted: false, reason: "explicit chat admitted; actual persisted owner validation still required" })
+  }
+
   private async registerHooks() {
     // A pending question holds generation. Let a genuine explicit chat reply
     // reach the agent; interruption is not acceptance and spends no consent.
     this.registrations.push(await this.ctx.session.hook("prompt", async (event: any) => {
       if (event.metadata?.goal) return
+      const launch = this.launches.all(event.sessionID).filter((p) => ["pending", "interrupted", "expired"].includes(p.status))
+        .sort((a, b) => b.createdAt - a.createdAt)[0]
+      if (launch) {
+        const loaded = this.load(launch.slug, true)
+        const shown = this.store.recent(launch.slug, 1000).findLast((e) => e.type === "launch-form-bound" && e.decisionId === launch.id)
+        const candidate = [{ id: event.messageID, type: "user", text: event.prompt.text, time: { created: Date.now() } }]
+        const intent = shown && !("error" in loaded) && loaded.lock === launch.lock
+          ? ownerLaunchMessage(candidate, [{ id: launch.id, slug: launch.slug, lock: launch.lock, fresh: launch.fresh, at: Number(shown.t) }], launch) : undefined
+        const noted = this.launches.noteChatAdmission(launch.id, intent ? event.messageID : undefined)
+        if (intent && noted) await this.unholdLaunchChat(noted)
+      }
       const requests = this.amendmentReviews.all(event.sessionID).filter((p) => ["pending", "interrupted"].includes(p.status) && !reviewExpired(p))
       if (requests.length !== 1) return
       const request = requests[0]!, state = this.runs.get(request.targetSessionID)
@@ -2838,9 +2954,12 @@ export class GoalApp {
       ),
       tool(
         "start",
-        `Start a validated goal in this session. Only after the owner approved launching it by choosing an option labelled "${LAUNCH_LABEL}" (a "(Recommended)" suffix is fine) in a question, or ran /goal start themselves. With fresh: true the engine opens a NEW session owned by the goal and prompts the kickoff there instead ("Start clean").`,
+        `Start a validated goal only after genuine owner approval: a bound native choice, an explicit actual owner chat instruction for the exact previously displayed contract/session/mode, or the owner's /goal start. The host fetches and consumes chat itself once; expired form answers, worker text and changed targets cannot authorize it. With fresh: true the reviewed mode must create a NEW goal session, preserving this one.`,
         { properties: { slug: { type: "string", maxLength: 64 }, fresh: { type: "boolean", description: "Start clean: open a new session owned by the goal, prompt the kickoff there, leave this session untouched" } }, required: ["slug"] },
         async (args, context) => {
+          this.factsOf(context.sessionID).busy = true
+          const chat = await this.launchFromOwnerChat(context.sessionID, String(args.slug), args.fresh === true)
+          if (chat !== undefined) return chat
           const approval = this.launchApproval(context.sessionID)
           if (!approval) {
             // T068: a refusal names what was observed so the agent can
@@ -2857,7 +2976,7 @@ export class GoalApp {
                 ? "no launch approval was seen in this session"
                 : `the owner's last answer was ${JSON.stringify(seen.labels[0] ?? "")}, which does not start with "${LAUNCH_LABEL}"`
             throw new Error(
-              `Launching a goal needs the owner's approval: ${detail}. Ask with the question tool with an option whose label starts with "${LAUNCH_LABEL}", or have them run /goal start ${args.slug}.`,
+              `Launching a goal needs the owner's approval: ${detail}. Use a fresh exact native review, or an explicit actual owner start instruction for the already displayed unchanged draft. No expired choice was replayed; restarting does not authorize it.`,
             )
           }
           this.factsOf(context.sessionID).launchApprovedAt = undefined

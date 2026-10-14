@@ -2,7 +2,7 @@ import { OwnerReviewStore, processAlive, type ReviewRequest } from "./owner-revi
 export { processAlive } from "./owner-reviews"
 
 export type LaunchActivity = { phase: "starting" | "rehearsal" | "check"; since: number; detail: string; completed: number; total: number; checkId?: string }
-export type LaunchRequest = ReviewRequest & { fresh: boolean; activity?: LaunchActivity; updatedAt?: number }
+export type LaunchRequest = ReviewRequest & { fresh: boolean; activity?: LaunchActivity; updatedAt?: number; chatAdmissionMessageID?: string }
 /** Admission is not a run: expose the host receipt without inventing running state. */
 export type LaunchView = Pick<LaunchRequest, "slug" | "sessionID" | "lock" | "fresh" | "status" | "result" | "activity" | "updatedAt" | "expiresAt"> & { decisionId: string }
 export function launchView(p: LaunchRequest): LaunchView {
@@ -17,6 +17,28 @@ export const launchChoices = [
 
 export class LaunchStore extends OwnerReviewStore<LaunchRequest> {
   constructor(file: string) { super(file, launchChoices) }
+
+  /** Non-consenting admission pointer; actual persisted chat is checked later. */
+  noteChatAdmission(id: string, messageID?: string): LaunchRequest | undefined {
+    return this.mutate((data) => {
+      const request = data.requests[id]
+      if (!request || !["pending", "interrupted", "expired"].includes(request.status) || request.ownerMessageID
+        || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return undefined
+      if (messageID) request.chatAdmissionMessageID = messageID
+      else delete request.chatAdmissionMessageID
+      return request
+    })
+  }
+
+  takeChatAdmission(id: string, messageID: string): boolean {
+    return this.mutate((data) => {
+      const request = data.requests[id]
+      if (!request || !["pending", "interrupted", "expired"].includes(request.status) || request.chatAdmissionMessageID !== messageID || request.ownerMessageID
+        || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return false
+      delete request.chatAdmissionMessageID
+      return true
+    })
+  }
 
   override update(id: string, change: Partial<Pick<ReviewRequest, "status" | "result" | "comment">>): LaunchRequest {
     return this.mutate((data) => {

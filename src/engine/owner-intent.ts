@@ -5,6 +5,7 @@ export function explicitResume(text: string): boolean {
   const value = text.trim()
   if (/\b(?:do not|don't|not|never)\s+(?:resume|continue)\b|\b(?:if|when|unless|until)\b/i.test(value)) return false
   return /^(?:please\s+)?(?:resume|continue)[.!]?$/i.test(value)
+    || /^(?:please\s+)?(?:resume|continue)\s+(?:(?:the|my|your)\s+)?goal[.!]?$/i.test(value)
     || /^I (?:approve|authorize) you to resume[.!](?:\s|$)/i.test(value)
 }
 
@@ -42,4 +43,29 @@ export function ownerAmendmentMessage(messages: readonly any[], review: { create
   return { id: message.id, text: message.text, createdAt: message.time.created,
     explicitAmendment: /\b(?:amendment|ammendment)\b/i.test(value),
     continueGoal: accepting && /\b(?:resume|continue|finish|get\s+it\s+done)\b/i.test(value) }
+}
+
+/** A new explicit chat directive authorizes the last actually displayed
+ * contract, not an expired form answer or a worker-supplied consent string. */
+export function ownerLaunchMessage(messages: readonly unknown[], displayed: readonly { id: string; slug: string; lock: string; fresh: boolean; at: number }[], target: { slug: string; lock: string; fresh: boolean }) {
+  const latest = [...displayed].sort((a, b) => b.at - a.at)[0]
+  if (!latest || latest.slug !== target.slug || latest.lock !== target.lock || latest.fresh !== target.fresh) return undefined
+  for (const value of [...messages].reverse()) {
+    if (!value || typeof value !== "object") continue
+    const message = value as { type?: unknown; id?: unknown; text?: unknown; time?: { created?: unknown }; metadata?: { goal?: unknown } }
+    if (message.type !== "user" || message.metadata?.goal) continue
+    if (typeof message.id !== "string" || typeof message.text !== "string" || typeof message.time?.created !== "number") return undefined
+    const text = message.text.trim()
+    if (/^(?:cancel|stop|pause|abort|reject)\b|\b(?:do not|don't|never)\s+(?:start|launch|resume|continue)\b|\b(?:withdraw|revoke)\b.*\b(?:approval|consent)\b/i.test(text)) return undefined
+    if (/\b(?:start|launch|resume|continue)\b.*\b(?:if|when|unless|until)\b/i.test(text)) return undefined
+    if (/["“”`]|\b(?:if|when|unless|until|not yet)\b/i.test(text)) continue
+    const explicit = /^(?:please\s+)?(?:start|launch)\s+(?:(?:the|this|my|your)\s+)?(?:goal|plan)(?:\s+now)?[.!]?$/i.test(text)
+      || /^(?:please\s+)?continue\s+(?:(?:the|my|your)\s+)?goal[.!]?$/i.test(text)
+      || /^Just go ahead and start the plan[.!]\s*I approve[.!]?$/i.test(text)
+    if (!explicit) continue
+    const at = message.time.created
+    const review = displayed.filter((p) => p.at <= at).sort((a, b) => b.at - a.at)[0]
+    if (!review || review.slug !== target.slug || review.lock !== target.lock || review.fresh !== target.fresh) return undefined
+    return { id: message.id, text: message.text, createdAt: message.time.created, reviewId: review.id }
+  }
 }

@@ -104,6 +104,28 @@ the interview; no draft launches merely because its wording begins with a
 command keyword. Check `goal_status`/the manager before retrying an uncertain
 operation; preparation and owner consent are not proof the run actually started.
 
+On installs whose `goal_start` description supports actual owner chat, an explicit
+**start the goal**, **start the goal now**, or **continue your goal** instruction
+for the already displayed, unchanged draft uses `goal_start` with that exact slug
+and reviewed mode. Don't re-ask the interview or keep replacing expired forms.
+The host reads the actual owner history, matches the last displayed contract/hash/
+session/mode, and consumes a new authorization once; the agent supplies no consent
+text. A fresh chat instruction is not replay of an expired form answer. Generic,
+quoted, conditional, ambiguous or spent replies cannot launch. A pending unrelated
+form remains a blocker; dismissing a form alone isn't approval. On older installs,
+report the capability gap rather than replaying a timed choice or fabricating an
+owner API call. Always check `goal_status`: an expired receipt isn't a running goal.
+
+If `goal_manage` returns `requiredReview` for an unresolved amendment, don't request
+another resume choice: the prerequisite prevents it from executing. The author can
+restore that exact review with `goal_review`; a live session may instead stage a
+validated diff against the same current run/lock for a **new** exact owner review.
+Staging doesn't transfer or cancel another author's consent. Only an applied,
+journalled generation retires conflicting unanswered proposals. If the original
+Core session is actually unavailable, use the supported owner-confirmed `attach`
+operation for the stopped run before resuming; mailbox release alone doesn't prove
+Core-session death. No lock/status/receipt edits or forced cross-session acceptance.
+
 Older installed plugins without `goal_prepare_launch` use this compatibility flow:
 Ask with these options: **`Start goal now`** (Recommended) / Start in a fresh session / **Start clean** / Save for later. The first option's label must **start with** `Start goal now` — a `(Recommended)` suffix is expected and fine (T068: the engine matches on the prefix, never byte-exact).
 - OpenCode with the plugin: on "Start goal now", call `goal_start({slug})`. On an approved fresh mode, call `goal_start({slug, fresh:true})`; it opens a **new root session**, prompts the kickoff there and preserves the original. The approval lasts 10 minutes and survives restarts. A refusal names missing, mismatched or expired approval: inspect it and present a fresh exact Composer review if needed. Never send the owner to a sidebar or manual command as a workaround.
