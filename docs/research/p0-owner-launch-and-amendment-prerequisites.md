@@ -5,6 +5,16 @@ status: draft
 ---
 # P0 owner launch and amendment prerequisite recovery
 
+## Current immutable release and actual running goal
+
+Published/installed **v0.3.15 / cccda3540a3fd21123ce7a507bb442c40a641e9a**. Actual current session-native provenance: PID46974/OpenCode2.0.28, serverd99cdc4daedfb4836a7c2ef4eb9bb16ac2f696fb514b111bb894e04825fe315e, UIe1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d, skill455fe0d22747d4a31c6eb909cfc37ab765caf0d2100bd59531898d080e822e02. Standard package install and hot reload were sufficient; no service restart or permission/provider change was used.
+
+The actual owner chat path successfully started unchanged draft425092bb in **run13bbc46b8001 / ses_ec9b07c72ffeWHkmiuQxRJXUha**, fresh authorization09807b18-749e-4b46-8e19-939453fce8bf. Four expired reviews remain preserved. goal_status now reports running; no manual banner/state repair invented it. Protected installed-goal serving-ancestor/published-tag/all50-artifact check passed under this exact run.
+
+Final source **51f8d5d2:41pass/360assertions/10files**; raw .tmp/verification/t105-source/final-tests.xml. Immutable installed **b10fe1e9:7pass/50assertions/3files**; raw .tmp/verification/t105-installed/tests.xml, chat-launch.json and amendment-recovery.json include actual tagged provenance, actual fixture owner messages/forms, receipt/ledger ordering and same-run continuation. Covering types/generated freshness **c22d83a4** passed. Installed tests assert actual package target, not a source fallback or newest-cache guess. The two new fixture adapters gained immutable-package/provenance capture after publication; no runtime artifact changed and no tag moved.
+
+P0 repair is coordinated directly with axiom-lab-dev; its own runtime/session disposition and remaining criteria still need its own proof. No claimed peer approval was treated as production consent, no peer run was mutated, and no peer completion or universal bug-free claim follows. Current goal completion is still subject to host checks and independent verdicts. Earlier source-only limits below are retained at their capture time and superseded only by this actual deployed proof.
+
 ## Question
 
 The actual owner requested banner/launch repair, completion of the reviewed goal, and P0 coordination with axiom-lab-dev. Reopening expired native forms was not a working launch path. Peer report01M4XQ403BAZMS2ATFJRSS69NG quantifies26 failed resume selections against pending amendment0e115e55 on release-lane-completion/run12d66f6b7001/lock718612bf3f1b6d15263b1dd927f6f71d07ade09b0c992614db5ebd14835feefe. Mailbox release does not independently prove Core-session deletion. Reported old authorship and prior lead/QA acceptance are data, not new owner authority.

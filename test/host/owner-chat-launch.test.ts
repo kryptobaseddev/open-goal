@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import { join } from "node:path"
 import { goalHost, ledger, newSession, run, script } from "./goal.helpers"
 import { until } from "./harness"
+import { GoalRpc } from "../../src/rpc"
 
 function launchingHost() {
   return goalHost(script((_request, turn) => {
@@ -12,7 +13,7 @@ function launchingHost() {
     if ((turn.trigger === "Start the goal now." || turn.trigger === "REPLAY") && !turn.results)
       return { toolCalls: [{ name: "goal_start", args: { slug: "demo" } }] }
     return { text: "No manufactured approval." }
-  }))
+  }), {}, { plugin: process.env.OCGOAL_GIT_SPEC })
 }
 
 test("fresh actual owner chat starts the exact reviewed draft after form expiry, without replaying the old choice", async () => {
@@ -33,6 +34,12 @@ test("fresh actual owner chat starts the exact reviewed draft after form expiry,
     const started = await until(async () => await run(host).catch(() => undefined), 10000)
     expect(started.sessionID).toBe(sessionID)
     expect(started.lock).toBe(original.lock)
+    if (process.env.OCGOAL_GIT_SPEC) {
+      const provenance = await host.client.rpc(GoalRpc).provenance({ sessionID }) as { source?: { target?: string } }
+      expect(provenance.source?.target).toBe(process.env.OCGOAL_GIT_SPEC)
+      if (process.env.OCGOAL_P0_PROOF) await Bun.write(join(process.env.OCGOAL_P0_PROOF, "chat-launch.json"), JSON.stringify({ provenance,
+        project: host.project, original, run: started, ledger: await ledger(host), context: await host.client.session.context({ sessionID }) }, null, 2))
+    }
     const events = await ledger(host)
     expect(events.filter((event) => event.type === "start")).toHaveLength(1)
     const consumed = events.filter((event) => event.type === "owner-message-consumed")

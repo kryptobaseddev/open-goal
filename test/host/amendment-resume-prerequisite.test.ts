@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import { join } from "node:path"
 import { DEMO_GOAL, goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
 import { until } from "./harness"
+import { GoalRpc } from "../../src/rpc"
 
 test("an unresolved amendment blocks resume before another impossible owner question is offered", async () => {
   let target: Record<string, string> = {}, lock = ""
@@ -20,7 +21,7 @@ test("an unresolved amendment blocks resume before another impossible owner ques
     if (turn.trigger === "STAGE" || turn.trigger === "RESUME_THIS") return { text: "No permission was inferred." }
     if (!turn.results) return { toolCalls: [{ name: "goal_wait", args: { seconds: 300, reason: "inspect amendment prerequisite" } }] }
     return { text: "Holding." }
-  }), {}, { extraPlugins: [join(import.meta.dir, "../fixtures/lab-tool-boundary")] })
+  }), {}, { plugin: process.env.OCGOAL_GIT_SPEC, extraPlugins: [join(import.meta.dir, "../fixtures/lab-tool-boundary")] })
   try {
     const owner = await newSession(host), actor = await newSession(host)
     await host.client.session.command({ sessionID: owner, name: "goal", text: "start demo" } as never)
@@ -72,6 +73,13 @@ test("an unresolved amendment blocks resume before another impossible owner ques
     const events = await ledger(host), resumed = events.find((event) => event.type === "resumed")!
     expect(events.some((event) => event.type === "admit" && event.t >= resumed.t)).toBe(true)
     expect((await run(host)).runId).toBe(initial.runId)
+    if (process.env.OCGOAL_GIT_SPEC) {
+      const provenance = await host.client.rpc(GoalRpc).provenance({ sessionID: owner }) as { source?: { target?: string } }
+      expect(provenance.source?.target).toBe(process.env.OCGOAL_GIT_SPEC)
+      if (process.env.OCGOAL_P0_PROOF) await Bun.write(join(process.env.OCGOAL_P0_PROOF, "amendment-recovery.json"), JSON.stringify({ provenance,
+        project: host.project, initial, original, replacement, run: await run(host), ledger: events, reviews: await Bun.file(path).json(),
+        ownerContext: await host.client.session.context({ sessionID: owner }), actorContext: await host.client.session.context({ sessionID: actor }) }, null, 2))
+    }
   } catch (error) {
     await Bun.write(join(import.meta.dir, "../../.tmp/verification/t105-prerequisite-failure.json"), JSON.stringify({
       error: String(error), run: await run(host), ledger: await ledger(host),
@@ -94,7 +102,7 @@ test("an owned dismissed prerequisite can restore its exact diff, but restoratio
     if (turn.trigger === "STAGE" || turn.trigger === "RESUME_THIS") return { text: "No implicit acceptance." }
     if (!turn.results) return { toolCalls: [{ name: "goal_wait", args: { seconds: 300, reason: "inspect prerequisite restoration" } }] }
     return { text: "Holding." }
-  }))
+  }), {}, { plugin: process.env.OCGOAL_GIT_SPEC })
   try {
     const owner = await newSession(host)
     await host.client.session.command({ sessionID: owner, name: "goal", text: "start demo" } as never)
