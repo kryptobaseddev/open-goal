@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.15 — 2026-10-14
+
+- **Actual owner chat can start a reviewed draft (T105, P0)** — an explicit start/continue-goal instruction is fetched from the authoring session, bound to the latest actually displayed unchanged contract and mode, and consumed once in a distinct admission receipt. Expired form answers stay expired; quoted, conditional, foreign, changed, ambiguous, child-session and spent authority cannot launch. A sole matching pending launch question can be unheld without accepting it. Existing live goals still use guarded management, not inferred chat replacement.
+- **Resolve the prerequisite, not another impossible resume (T105, P0)** — an unresolved amendment is reported before a resume/verify confirmation is offered. An owned unpresented prerequisite can restore its exact diff without accepting or resuming. A live session can stage a fresh validated review for a paused target; only actual new owner acceptance and an applied journalled generation retire conflicting unanswered proposals. Old consent and authorship are never transferred.
+- **Release only an obsolete owned question (T105)** — server plugins may lack Core's `form.cancel` capability. Successful amendment disposition uses neutral interruption only for a sole nonce-bound obsolete form; unrelated holds stay protected. Restart recovery retires journal-proven obsolete proposals, never guesses acceptance from mailbox liveness.
+- **Banner truth follows a real run** — no expired receipt is relabeled as running. The supported owner instruction creates a real admission/run, then the existing reactive banner follows that identity. Hot plugin reload is sufficient to load this patch; restarting alone never authorizes a launch.
+
 ## 0.3.14 — 2026-10-13
 
 - **Missing identity is not changed identity (T104)** — incomplete live-goal targets name the missing `runId` or `sessionID` and request the complete fresh-inventory tuple. Full identity comparisons and actual-owner confirmation remain mandatory; no implicit target normalization or fallback goal is introduced.
