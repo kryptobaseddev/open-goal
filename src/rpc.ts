@@ -117,6 +117,9 @@ export type GoalView = {
   /** Actual run identity for correlating admission attempts, not version labels. */
   sessionID?: string
   lock?: string
+  /** T106: the tuple goal_manage accepts, so a caller never loses a round to
+   * discovery after a generation change — key, runId, sessionID and lock. */
+  target?: GoalTarget
   turn: number
   timeline: TimelineEntry[]
   activeMs: number

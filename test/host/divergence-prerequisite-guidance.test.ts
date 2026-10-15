@@ -18,12 +18,18 @@ async function toolResults(host: Awaited<ReturnType<typeof goalHost>>) {
   return (host.fixture.requests as Array<{ messages?: Message[] }>).flatMap((request) =>
     (request.messages ?? [])
       .filter((m) => m.role === "tool")
-      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? ""))),
+      // Tool results are nested JSON, so inner quotes arrive escaped.
+      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "")).replace(/\\"/g, '"')),
   )
 }
 
 function worker(state: { lock: string; decisionId: string; runId: string; sessionID: string }) {
   return script((_request, turn) => {
+    // Answer only the divergence recovery review (the amendment review is the
+    // owner's own surface and is exercised through form.list/form.reply).
+    const form = turn.trigger.split("\n").find((line) => line.startsWith("GOAL_FORM_JSON:"))
+    if (form && /Adopt disk version|Restore locked version/.test(form) && !turn.results)
+      return { toolCalls: [{ name: "question", args: JSON.parse(form.slice(form.indexOf(":") + 1)) }] }
     if (turn.trigger === "STAGE" && !turn.results)
       return { toolCalls: [{ name: "goal_propose_amendment", args: { slug: "demo", expectedLock: state.lock, yaml: DISK, rationale: "raise the title" } }] }
     if (turn.trigger === "STAGE2" && !turn.results)
@@ -89,30 +95,33 @@ test("once the divergence is resolved, a new review is offered normally", async 
   const state = { lock: "", decisionId: "", runId: "", sessionID: "" }
   const { host, owner, request } = await divergent(state)
   try {
-    // The owner adopts the disk bytes through the supported recovery review.
-    await host.client.session.prompt({ sessionID: owner, text: "RECOVER" } as never)
-    const form = await until(async () => (await host.client.session.form as any).list({ sessionID: owner }).then((forms: any[]) => forms.find((f) => JSON.stringify(f).includes("Adopt disk version"))), 15000)
+    // Recovery is offered from another live session of the project, exactly as
+    // axiom staged it; the authoring session keeps its unanswered review.
+    const rescuer = await newSession(host)
+    state.sessionID = owner
+    await host.client.session.prompt({ sessionID: rescuer, text: "RECOVER" } as never)
+    const form = await until(async () => (await host.client.session.form as any).list({ sessionID: rescuer }).then((forms: any[]) => forms.find((f) => JSON.stringify(f).includes("Adopt disk version"))), 15000)
     const field = form.fields[0]!
     if (field.type !== "string") throw new Error("Expected recovery choice")
-    await host.client.session.form.reply({ sessionID: owner, formID: form.id, answer: { [field.key]: field.options!.find((o: any) => o.label === "Adopt disk version")!.value } })
+    await host.client.session.form.reply({ sessionID: rescuer, formID: form.id, answer: { [field.key]: field.options!.find((o: any) => o.label === "Adopt disk version")!.value } })
     const adopted = await until(async () => { const r = await run(host); return r.lock === sha(DISK) ? r : undefined }, 15000)
     expect(adopted.lock).toBe(sha(DISK))
     const old = JSON.parse(await host.readProject(".opencode/goals/.owner-amendments.json")).requests[request.id]
     expect(old.status).toBe("cancelled")
 
-    // Reviews work again on the resolved generation.
+    // Reviews work again on the resolved generation: the same call that was
+    // refused while divergent now restores/presents a review normally.
     state.lock = adopted.lock
     await host.client.session.prompt({ sessionID: owner, text: "STAGE2" } as never)
-    const store = JSON.parse(await host.readProject(".opencode/goals/.owner-amendments.json"))
+    const store = await until(async () => {
+      const parsed = JSON.parse(await host.readProject(".opencode/goals/.owner-amendments.json"))
+      return Object.values(parsed.requests).some((r: any) => r.status === "pending" && r.id !== request.id) ? parsed : undefined
+    }, 15000)
     const next = Object.values(store.requests).find((r: any) => r.status === "pending" && r.id !== request.id) as any
-    expect(next).toBeDefined()
     state.decisionId = next.id
     await host.client.session.prompt({ sessionID: owner, text: "REVIEW" } as never)
-    const forms: any[] = await until(async () => {
-      const list: any[] = await (host.client.session.form as any).list({ sessionID: owner })
-      return list.some((f) => JSON.stringify(f).includes("Accept amendment")) ? list : undefined
-    }, 15000)
-    expect(forms.some((f) => JSON.stringify(f).includes("Accept amendment"))).toBe(true)
+    const reviewed = await until(async () => (await toolResults(host)).find((text) => text.includes("native Composer") || text.includes("amendment review")), 15000)
+    expect(reviewed).not.toContain("goal_recover_divergence")
     expect((await ledger(host)).filter((e) => e.type === "amended")).toHaveLength(1)
   } finally { await host.stop() }
 }, 90000)

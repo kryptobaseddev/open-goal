@@ -19,12 +19,18 @@ async function toolResults(host: Awaited<ReturnType<typeof goalHost>>) {
   return (host.fixture.requests as Array<{ messages?: Message[] }>).flatMap((request) =>
     (request.messages ?? [])
       .filter((m) => m.role === "tool")
-      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? ""))),
+      // Tool results are nested JSON, so inner quotes arrive escaped.
+      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "")).replace(/\\"/g, '"')),
   )
 }
 
-function worker(state: { lock: string; decisionId: string; runId: string; sessionID: string; target?: unknown }) {
+function worker(state: { lock: string; decisionId: string; runId: string; sessionID: string; target?: unknown; stale?: unknown }) {
   return script((_request, turn) => {
+    // Answer only the divergence recovery review (the amendment review is the
+    // owner's own surface and is exercised through form.list/form.reply).
+    const form = turn.trigger.split("\n").find((line) => line.startsWith("GOAL_FORM_JSON:"))
+    if (form && /Adopt disk version|Restore locked version/.test(form) && !turn.results)
+      return { toolCalls: [{ name: "question", args: JSON.parse(form.slice(form.indexOf(":") + 1)) }] }
     if (turn.trigger === "STAGE" && !turn.results)
       return { toolCalls: [{ name: "goal_propose_amendment", args: { slug: "demo", expectedLock: state.lock, yaml: DISK, rationale: "raise the title" } }] }
     if (turn.trigger === "RECOVER" && !turn.results)
@@ -33,14 +39,16 @@ function worker(state: { lock: string; decisionId: string; runId: string; sessio
       return { toolCalls: [{ name: "goal_status", args: {} }] }
     if (turn.trigger === "RESUME" && !turn.results && state.target)
       return { toolCalls: [{ name: "goal_manage", args: { action: "resume", target: state.target } }] }
-    if (["STAGE", "RECOVER", "STATUS", "RESUME"].includes(turn.trigger)) return { text: "Recorded." }
+    if (turn.trigger === "STALE" && !turn.results && state.stale)
+      return { toolCalls: [{ name: "goal_manage", args: { action: "resume", target: state.stale } }] }
+    if (["STAGE", "RECOVER", "STATUS", "RESUME", "STALE"].includes(turn.trigger)) return { text: "Recorded." }
     if (!turn.results) return { toolCalls: [{ name: "goal_wait", args: { seconds: 300, reason: "hold for target key" } }] }
     return { text: "Holding." }
   })
 }
 
 test("an adopt returns the refreshed target tuple, goal_status carries it, and goal_manage accepts it", async () => {
-  const state = { lock: "", decisionId: "", runId: "", sessionID: "", target: undefined as unknown }
+  const state = { lock: "", decisionId: "", runId: "", sessionID: "", target: undefined as unknown, stale: undefined as unknown }
   const host = await goalHost(worker(state), {}, { plugin: process.env.OCGOAL_GIT_SPEC })
   try {
     const owner = await newSession(host)
@@ -55,18 +63,22 @@ test("an adopt returns the refreshed target tuple, goal_status carries it, and g
     state.decisionId = request.id
     await Bun.write(join(host.project, ".opencode/goals/demo/goal.yaml"), DISK)
 
-    await host.client.session.prompt({ sessionID: owner, text: "RECOVER" } as never)
+    const rescuer = await newSession(host)
+    await host.client.session.prompt({ sessionID: rescuer, text: "RECOVER" } as never)
     const recovery = await until(async () => (await toolResults(host)).find((text) => text.includes('"target"')), 15000)
-    const parsed = JSON.parse(recovery.slice(recovery.indexOf("{"))) as any
-    expect(parsed.target).toMatchObject({ key: `live:demo:${initial.runId}`, runId: initial.runId, sessionID: owner, lock: state.lock })
-    expect(parsed.target.lock).not.toBe(initial.lock)
-    expect(parsed.target.lock).toBe(sha(DISK))
+    // Nothing is decided yet: the result carries the tuple to use NOW plus the
+    // prospective disk generation under review.
+    const flat = recovery.replace(/\s+/g, "")
+    expect(flat).toContain(`"key":"live:demo:${initial.runId}"`)
+    expect(flat).toContain(`"sessionID":"${owner}"`)
+    expect(flat).toContain(`"lock":"${initial.lock}"`)
+    expect(flat).toContain(`"diskLock":"${sha(DISK)}"`)
 
     // goal_status carries the same tuple after adoption.
-    const form = await until(async () => (await host.client.session.form as any).list({ sessionID: owner }).then((forms: any[]) => forms.find((f) => JSON.stringify(f).includes("Adopt disk version"))), 15000)
+    const form = await until(async () => (await host.client.session.form as any).list({ sessionID: rescuer }).then((forms: any[]) => forms.find((f) => JSON.stringify(f).includes("Adopt disk version"))), 15000)
     const field = form.fields[0]!
     if (field.type !== "string") throw new Error("Expected recovery choice")
-    await host.client.session.form.reply({ sessionID: owner, formID: form.id, answer: { [field.key]: field.options!.find((o: any) => o.label === "Adopt disk version")!.value } })
+    await host.client.session.form.reply({ sessionID: rescuer, formID: form.id, answer: { [field.key]: field.options!.find((o: any) => o.label === "Adopt disk version")!.value } })
     const adopted = await until(async () => { const r = await run(host); return r.lock === sha(DISK) ? r : undefined }, 15000)
 
     await host.client.session.prompt({ sessionID: owner, text: "STATUS" } as never)
@@ -75,6 +87,14 @@ test("an adopt returns the refreshed target tuple, goal_status carries it, and g
     expect(status).toContain(adopted.lock)
 
     // The exact tuple resumes without an identity-changed refusal.
+    // axiom's exact mistake: the stale pre-adoption tuple must not silently
+    // confuse the caller — it names the refreshed tuple instead.
+    state.stale = { key: `live:demo:${initial.runId}`, runId: initial.runId, sessionID: owner, lock: initial.lock }
+    await host.client.session.prompt({ sessionID: owner, text: "STALE" } as never)
+    const stale = await until(async () => (await toolResults(host)).find((text) => text.includes("Selected goal identity changed")), 15000)
+    expect(stale).toContain(`live:demo:${initial.runId}`)
+    expect(stale).toContain(adopted.lock)
+
     state.target = { key: `live:demo:${initial.runId}`, runId: initial.runId, sessionID: owner, lock: adopted.lock }
     await host.client.session.prompt({ sessionID: owner, text: "RESUME" } as never)
     const resume = await until(async () => (await toolResults(host)).find((text) => text.includes("resume") || text.includes("Resume")), 15000)
@@ -84,7 +104,7 @@ test("an adopt returns the refreshed target tuple, goal_status carries it, and g
 }, 90000)
 
 test("a restore returns the same locked target tuple and keeps goal_manage working", async () => {
-  const state = { lock: "", decisionId: "", runId: "", sessionID: "", target: undefined as unknown }
+  const state = { lock: "", decisionId: "", runId: "", sessionID: "", target: undefined as unknown, stale: undefined as unknown }
   const host = await goalHost(worker(state), {}, { plugin: process.env.OCGOAL_GIT_SPEC })
   try {
     const owner = await newSession(host)
@@ -98,16 +118,24 @@ test("a restore returns the same locked target tuple and keeps goal_manage worki
     }, 15000)
     await Bun.write(join(host.project, ".opencode/goals/demo/goal.yaml"), DISK)
 
-    await host.client.session.prompt({ sessionID: owner, text: "RECOVER" } as never)
+    const rescuer = await newSession(host)
+    await host.client.session.prompt({ sessionID: rescuer, text: "RECOVER" } as never)
     const recovery = await until(async () => (await toolResults(host)).find((text) => text.includes('"target"')), 15000)
-    const parsed = JSON.parse(recovery.slice(recovery.indexOf("{"))) as any
-    expect(parsed.target).toMatchObject({ key: `live:demo:${initial.runId}`, runId: initial.runId, sessionID: owner, lock: initial.lock })
+    const flat = recovery.replace(/\s+/g, "")
+    expect(flat).toContain(`"key":"live:demo:${initial.runId}"`)
+    expect(flat).toContain(`"lock":"${initial.lock}"`)
+    expect(flat).toContain(`"diskLock":"${sha(DISK)}"`)
 
-    const form = await until(async () => (await host.client.session.form as any).list({ sessionID: owner }).then((forms: any[]) => forms.find((f) => JSON.stringify(f).includes("Restore locked version"))), 15000)
+    const form = await until(async () => (await host.client.session.form as any).list({ sessionID: rescuer }).then((forms: any[]) => forms.find((f) => JSON.stringify(f).includes("Restore locked version"))), 15000)
     const field = form.fields[0]!
     if (field.type !== "string") throw new Error("Expected recovery choice")
-    await host.client.session.form.reply({ sessionID: owner, formID: form.id, answer: { [field.key]: field.options!.find((o: any) => o.label === "Restore locked version")!.value } })
+    await host.client.session.form.reply({ sessionID: rescuer, formID: form.id, answer: { [field.key]: field.options!.find((o: any) => o.label === "Restore locked version")!.value } })
     await until(async () => sha(await host.readProject(".opencode/goals/demo/goal.yaml")) === initial.lock, 15000)
+
+    // goal_status reports the restored generation's tuple.
+    await host.client.session.prompt({ sessionID: owner, text: "STATUS" } as never)
+    const status = await until(async () => (await toolResults(host)).find((text) => text.includes(`live:demo:${initial.runId}`)), 15000)
+    expect(status).toContain(initial.lock)
 
     state.target = { key: `live:demo:${initial.runId}`, runId: initial.runId, sessionID: owner, lock: initial.lock }
     await host.client.session.prompt({ sessionID: owner, text: "RESUME" } as never)

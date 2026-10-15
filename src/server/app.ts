@@ -231,6 +231,36 @@ export class GoalApp {
     return undefined
   }
 
+  /** The exact supported recovery call for a divergent generation. */
+  private recoveryCall(slug: string, lock: string): string {
+    return `goal_recover_divergence {"slug":"${slug}","expectedLock":"${lock}"}`
+  }
+
+  /** The run's live target in the shape goal_manage accepts. */
+  private targetOf(state: RunState): GoalTarget {
+    return { key: `live:${state.slug}:${state.runId}`, lock: state.lock, runId: state.runId, sessionID: state.sessionID }
+  }
+
+  /** T106: the disk contract differing from its locked generation is a
+   * distinct, detectable cause. Read the locked snapshot versus the disk bytes
+   * — never infer it from the presence of a pending proposal. */
+  private divergenceOf(state: RunState): { diskLock: string; diskText: string } | undefined {
+    const disk = this.store.readContract(state.slug)
+    if (!disk?.contract || disk.lock === state.lock) return undefined
+    return { diskLock: disk.lock, diskText: disk.text }
+  }
+
+  /** T106: name the real cause, both hashes and the exact recovery call so no
+   * unauthorizing answer is retried and no round is lost to discovery. */
+  private divergenceRefusal(state: RunState, disk: { diskLock: string }): string {
+    return [
+      `The disk goal.yaml of "${state.slug}" differs from its locked generation, so no amendment answer can be applied.`,
+      `Locked SHA256 ${state.lock}; disk SHA256 ${disk.diskLock}.`,
+      `Run ${this.recoveryCall(state.slug, state.lock)} and choose Adopt disk version or Restore locked version (Leave unchanged changes nothing).`,
+      "No earlier proposal, byte match or owner message is counted as acceptance.",
+    ].join(" ")
+  }
+
   private persist(state: RunState) {
     account(state)
     if (!isActive(state.status)) state.activity = undefined // T053: no stale tracer on stopped/terminal states
@@ -353,6 +383,7 @@ export class GoalApp {
       runId: state.runId,
       sessionID: state.sessionID,
       lock: state.lock,
+      target: this.targetOf(state),
       turn: state.turn,
       timeline: this.timelineOf(state),
       activeMs: state.activeMs,
@@ -1087,7 +1118,8 @@ export class GoalApp {
     if (outcome.applied) return outcome.applied
     const p = outcome.staged!
     await this.presentAmendment(p)
-    return { decisionId: p.id, slug: p.slug, runId: p.runId, lock: p.lock, diskLock: p.nextLock, diff: p.diff, provenance: p.recovery!.provenance, status: "pending",
+    const live = [...this.runs.values()].find((s) => s.slug === p.slug && s.runId === p.runId)
+    return { decisionId: p.id, slug: p.slug, runId: p.runId, lock: p.lock, diskLock: p.nextLock, ...(live ? { target: this.targetOf(live) } : {}), diff: p.diff, provenance: p.recovery!.provenance, status: "pending",
       ...(outcome.outsidePolicy?.length ? { outsidePolicy: outcome.outsidePolicy } : {}),
       message: "Divergence recovery review offered natively (Adopt disk version / Restore locked version / Leave unchanged). Show it to the owner; no earlier proposal or approval is counted, and the goal stays stopped." }
   }
@@ -1162,7 +1194,7 @@ export class GoalApp {
       && p.status === "succeeded" && p.commit && p.nextLock === state.lock).sort((a, b) => b.createdAt - a.createdAt)[0]
     if (!last) return { ok: false, message: "No agent-applied change is the current generation of this goal; nothing to revert." }
     const disk = this.store.readContract(state.slug), current = this.contractOf(state)
-    if (!disk || disk.lock !== state.lock || !current) return { ok: false, message: "The disk contract differs from the locked generation; recover the divergence first." }
+    if (!disk || disk.lock !== state.lock || !current) return { ok: false, message: disk && disk.lock !== state.lock ? this.divergenceRefusal(state, { diskLock: disk.lock }) : "The disk contract is unavailable; nothing reverted." }
     const priorText = this.store.lockedText(state.slug, state.runId, last.lock)
     const prior = parseContract(priorText, { slug: state.slug })
     if (!prior.contract || prior.lock !== last.lock) return { ok: false, message: "The prior generation snapshot is unavailable; nothing reverted." }
@@ -1202,6 +1234,15 @@ export class GoalApp {
     if (request.issuerPID !== process.pid && processAlive(request.issuerPID)) throw new Error("Another live server owns this amendment review; inspect it there.")
     if (!["pending", "interrupted", "expired"].includes(request.status)) throw new Error(`Amendment review is ${request.status}; old approval cannot be replayed.`)
     const state = this.runs.get(request.targetSessionID), disk = this.store.readContract(request.slug)
+    // T106/C2: when the disk differs from the lock the acceptance review
+    // cannot apply, so re-presenting it only burns rounds. This cause is named
+    // BEFORE the generic target-changed refusal, and only for this exact
+    // run/lock generation.
+    const divergent = state && state.runId === request.runId && state.lock === request.lock ? this.divergenceOf(state) : undefined
+    if (state && divergent) {
+      this.store.ledger(request.slug, { type: "amendment-review-divergent", decisionId: request.id, lock: request.lock, diskLock: divergent.diskLock, actionExecuted: false })
+      throw new Error(this.divergenceRefusal(state, divergent))
+    }
     if (!state || isTerminal(state.status) || state.runId !== request.runId || state.lock !== request.lock || !disk?.contract || disk.lock !== (request.recovery ? request.nextLock : request.lock))
       throw new Error("The reviewed amendment target changed; old choices cannot be reused.")
     if (request.status === "expired" || reviewExpired(request)) {
@@ -1237,6 +1278,8 @@ export class GoalApp {
         throw new Error("Reviewed target changed; no old owner reply can approve it.")
       const alternatives = [...this.amendmentReviews.all(sessionID), ...this.launches.all(sessionID), ...this.decisions.all(sessionID)]
         .filter((p) => p.id !== request.id && ["pending", "interrupted"].includes(p.status) && !reviewExpired(p))
+      const divergent = this.divergenceOf(state)
+      if (divergent) throw new Error(this.divergenceRefusal(state, divergent))
       const messages: any = await this.ctx.session.context({ sessionID } as any)
       const source = ownerAmendmentMessage(messages?.data ?? messages, request, input.action)
       if (!source || input.continueGoal && (input.action !== "accept" || !source.continueGoal))
@@ -2817,15 +2860,30 @@ export class GoalApp {
       if (missing.length) return { ok: false, actionExecuted: false,
         message: `Missing target identity: ${missing.join(", ")}. Supply the complete key/runId/lock/sessionID from fresh goal_inventory; nothing executed.` }
       if (!selected || selected.lock !== target.lock || selected.runId !== target.runId || selected.sessionID !== target.sessionID)
-        return { ok: false, message: "Selected goal identity changed. Refresh its details before acting." }
-      if (!selected.valid || selected.archived || !selected.runId)
+        return { ok: false, actionExecuted: false, ...(selected ? { target: { key: selected.key, runId: selected.runId, sessionID: selected.sessionID, lock: selected.lock } } : {}),
+          message: `Selected goal identity changed; the goal is a NEW generation since the tuple you passed${selected?.runId === target.runId ? ` (lock ${target.lock.slice(0, 12)} → ${String(selected?.lock).slice(0, 12)})` : ""}. The goal KEY is live:<slug>:<runId>, not the bare slug. Retry goal_manage with the refreshed target above, or read it from goal_status.` }
+      if (!selected.valid || selected.archived || !selected.runId) {
+        // T106: a goal whose only fault is that the disk differs from its lock
+        // is not "read-only"; the divergence has exactly one supported fix and
+        // it must be named here instead of a generic refusal.
+        const liveGoal = [...this.runs.values()].find((s) => s.slug === selected.slug && !isTerminal(s.status))
+        const divergent = liveGoal && this.divergenceOf(liveGoal)
+        if (liveGoal && divergent)
+          return { ok: false, actionExecuted: false, target: this.targetOf(liveGoal), message: `${this.divergenceRefusal(liveGoal, divergent)} No ${action} was executed.` }
         return { ok: false, message: "This selected goal is read-only (draft, archived or invalid); review/launch a valid draft instead." }
+      }
       const state = [...this.runs.values()].find((s) => s.slug === selected.slug && s.runId === selected.runId) ?? this.store.readRun(selected.slug)
       if (!state) return { ok: false, message: "The selected run is unavailable; no other goal was used as a fallback." }
       const unavailable = action === "attach" ? !selected.attachable ? "Only a stopped live goal can attach." : undefined : ownerCan(state, action)
       if (unavailable) return { ok: false, message: unavailable }
       if (action === "verify" && state.status === "verifying") return { ok: false, message: "The selected goal is already verifying." }
       if (action === "resume" || action === "verify") {
+        // T106/C2: a divergence is its own cause with its own fix; offering
+        // the impossible amendment review (or a resume choice) first wastes
+        // the round. The staged review stays pending and revives after recovery.
+        const divergent = this.divergenceOf(state)
+        if (divergent) return { ok: false, actionExecuted: false, target: this.targetOf(state),
+          message: `${this.divergenceRefusal(state, divergent)} No ${action} question or amendment review was offered.` }
         const amendment = this.amendmentReviews.all().find((p) => p.slug === state.slug && ["pending", "interrupted", "executing"].includes(p.status))
         if (amendment) {
           // An owned review never actually presented can offer restoration,

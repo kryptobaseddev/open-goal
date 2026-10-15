@@ -20,12 +20,18 @@ async function toolResults(host: Awaited<ReturnType<typeof goalHost>>) {
   return (host.fixture.requests as Array<{ messages?: Message[] }>).flatMap((request) =>
     (request.messages ?? [])
       .filter((m) => m.role === "tool")
-      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? ""))),
+      // Tool results are nested JSON, so inner quotes arrive escaped.
+      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "")).replace(/\\"/g, '"')),
   )
 }
 
 function worker(state: { lock: string; decisionId: string }) {
   return script((_request, turn) => {
+    // Answer only the divergence recovery review (the amendment review is the
+    // owner's own surface and is exercised through form.list/form.reply).
+    const form = turn.trigger.split("\n").find((line) => line.startsWith("GOAL_FORM_JSON:"))
+    if (form && /Adopt disk version|Restore locked version/.test(form) && !turn.results)
+      return { toolCalls: [{ name: "question", args: JSON.parse(form.slice(form.indexOf(":") + 1)) }] }
     if (turn.trigger === "STAGE" && !turn.results)
       return { toolCalls: [{ name: "goal_propose_amendment", args: { slug: "demo", expectedLock: state.lock, yaml: DISK, rationale: "raise the title" } }] }
     if (turn.trigger === "RESOLVE" && turn.results === 0 && state.decisionId)
