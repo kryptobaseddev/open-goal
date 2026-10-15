@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.3 — 2026-10-15
+
+- **Every write path into a live goal folder is refused (T108)** — the guard covered edit/write/patch only, so an agent hand-merged `run.json` with a shell command (the reported file had duplicate `updatedAt`, `tokens`, `tools` and `lastUsageEmit` keys). Shell commands and scripts are now checked too — redirection, `tee`, `sed -i`, `mv`/`cp`/`rm`/`truncate`, and interpreters that write the path — and every refusal names the supported tool: `goal_progress`, `goal_wait`, `goal_block`, `goal_flag`, `goal_claim`, `goal_manage`, `goal_recover_divergence`. Reads still work, and another project's or an archived folder is unaffected.
+- **A corrupt run.json is proven, not guessed (T108)** — duplicate JSON keys are found by scanning the raw bytes, because `JSON.parse` silently keeps the last value. The run is then rebuilt from its own ledger `start` event and its locked contract snapshot (raw bytes kept beside the run as `run.json.corrupt-<ts>.json`, with `run-state-corruption` and `run-state-repaired` events); when those cannot prove the identity, the goal is refused and left to the owner instead of guessing.
+- **Stalling stops punishing real work (T108)** — host-visible activity is recorded per turn, a `goal_progress` note counts as progress, and the stall reason says whether the run was active or idle. An owner-set `autonomy.on_stall: continue` keeps a stalled-but-active run going with a recorded `stall-report` instead of pausing; the default stays `pause`, and an idle run still stops. `run.json` keeps being written by the engine alone.
+
 ## 0.4.2 — 2026-10-15
 
 - **A completed sibling no longer shadows the live goal (T106)** — a session can own several goals over time (finish one, start the next). On reload the engine mirrors every goal on disk into runs keyed by session, so the alphabetically-last folder won and a COMPLETE goal shadowed the running one: `goal_status`, the injected contract and the collected provenance all reported the finished goal. Found on the real v0.4.1 hot reload against this project. The mirror now keeps a live run and only skips a terminal sibling, recording `recovery-shadow-avoided` in the ledger.
