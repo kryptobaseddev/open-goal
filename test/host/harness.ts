@@ -104,10 +104,6 @@ export async function startHost(options: HostOptions) {
     run("commit", "-q", "-m", "init")
   }
 
-  const reserve = Bun.serve({ port: 0, fetch: () => new Response() })
-  const port = reserve.port
-  reserve.stop(true)
-
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
     HOME: join(root, "home"),
@@ -122,47 +118,94 @@ export async function startHost(options: HostOptions) {
     OPENCODE_DISABLE_AUTOUPDATE: "1",
   }
   delete env.BUN_BE_BUN
-  const child = Bun.spawn([OPENCODE_BINARY, "serve", "--hostname", "127.0.0.1", "--port", String(port), "--print-logs", "--log-level", process.env.OPENCODE_LOG_LEVEL ?? "warn"], {
-    cwd: project,
-    env,
-    stdout: "pipe",
-    stderr: "pipe",
-  })
+
+  // T107: never reserve a port by opening and closing a listener — the number
+  // is free in that window, so a parallel test host (or anything else) can take
+  // it before this child binds it, and the readiness poll would then answer
+  // from ANOTHER server. Ask for port 0 and learn the real port from the
+  // child's own listening line, then confirm the server we talk to is the
+  // child we spawned. OCGOAL_HOST_PORT forces the FIRST attempt (test hook for
+  // the collision path); a taken port is retried on a fresh ephemeral one.
+  const announced = (text: string) => Number(/server listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(text)?.[1] ?? NaN)
+  const forcedPort = Number(process.env.OCGOAL_HOST_PORT ?? "") || undefined
+  const attempts = 4
+  let lastError = ""
   let log = ""
-  const drain = async (stream: ReadableStream<Uint8Array>) => {
-    const decoder = new TextDecoder()
-    for await (const chunk of stream) log += decoder.decode(chunk)
+  let child: Bun.Subprocess<"ignore", "pipe", "pipe"> | undefined
+  let client: ReturnType<typeof OpenCode.make> | undefined
+  let port = 0
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const wanted = attempt === 1 ? forcedPort : undefined
+    child = Bun.spawn([OPENCODE_BINARY, "serve", "--hostname", "127.0.0.1", "--port", String(wanted ?? 0), "--print-logs", "--log-level", process.env.OPENCODE_LOG_LEVEL ?? "warn"], {
+      cwd: project,
+      env,
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+    const drain = async (stream: ReadableStream<Uint8Array>) => {
+      const decoder = new TextDecoder()
+      for await (const chunk of stream) log += decoder.decode(chunk)
+    }
+    void drain(child.stdout)
+    void drain(child.stderr)
+
+    // Port 0 means the OS chose; wait for the child to announce it.
+    let resolved = wanted ?? 0
+    for (let i = 0; !resolved && i < 200; i++) {
+      if (child.exitCode !== null) break
+      resolved = announced(log)
+      if (!resolved) await Bun.sleep(50)
+    }
+    if (!resolved) {
+      lastError = `no listening port was announced${child.exitCode !== null ? ` (child exited ${child.exitCode})` : ""}`
+      child.kill()
+      await Promise.race([child.exited, Bun.sleep(3000)])
+      continue
+    }
+
+    const candidate = OpenCode.make({
+      baseUrl: `http://127.0.0.1:${resolved}`,
+      headers: { "x-opencode-directory": project, authorization: "Basic " + Buffer.from(`opencode:${PASSWORD}`).toString("base64") },
+    })
+    let ready = false, served: any
+    for (let i = 0; i < 200; i++) {
+      try {
+        served = await candidate.server.info()
+        ready = true
+        break
+      } catch {}
+      if (child.exitCode !== null) break
+      await Bun.sleep(100)
+    }
+    if (!ready || served?.pid !== child.pid) {
+      lastError = !ready
+        ? `no server answered on ${resolved}`
+        : `port ${resolved} is served by pid ${served?.pid}, not the child ${child.pid}`
+      child.kill()
+      await Promise.race([child.exited, Bun.sleep(3000)])
+      continue
+    }
+    port = resolved
+    client = candidate
+    break
   }
-  void drain(child.stdout)
-  void drain(child.stderr)
+
+  if (!client || !child || !port) {
+    child?.kill()
+    fixture.stop()
+    throw new Error(`opencode serve did not start after ${attempts} attempt(s): ${lastError}\n${log}`)
+  }
 
   const location = { directory: project }
-  const client = OpenCode.make({
-    baseUrl: `http://127.0.0.1:${port}`,
-    headers: { "x-opencode-directory": project, authorization: "Basic " + Buffer.from(`opencode:${PASSWORD}`).toString("base64") },
-  })
-
-  let ready = false
-  for (let i = 0; i < 200; i++) {
-    try {
-      await client.server.info()
-      ready = true
-      break
-    } catch {}
-    if (child.exitCode !== null) break
-    await Bun.sleep(100)
-  }
-  if (!ready) {
-    child.kill()
-    fixture.stop()
-    throw new Error(`opencode serve did not start:\n${log}`)
-  }
 
   return {
     root,
     project,
     location,
     client,
+    port,
+    childPid: child.pid,
     url: `http://127.0.0.1:${port}`,
     env,
     password: PASSWORD,
