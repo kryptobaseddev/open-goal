@@ -50,7 +50,11 @@ if (!Number.isInteger(runs) || runs < 1) throw new Error("--runs must be a posit
 if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 16) throw new Error("--concurrency must be 1..16 (bun --parallel worker processes)")
 
 const root = process.cwd()
-const outDir = join(root, ".tmp", "verification", "flake")
+const flakeDir = join(root, ".tmp", "verification", "flake")
+// Every run gets its own stamp directory: a later stress run must never
+// overwrite the artifacts that document an earlier failure.
+const stamp = new Date().toISOString().replace(/[:.]/g, "-")
+const outDir = join(flakeDir, stamp)
 mkdirSync(outDir, { recursive: true })
 
 type Round = {
@@ -142,6 +146,7 @@ for (let run = 1; run <= runs; run++) {
 const summary = {
   schema: "opencode-goal/stress-suite/v1",
   at: new Date().toISOString(),
+  stamp,
   suite: PROTECTED_SUITE,
   runs, concurrency,
   runner: "cleo run --wait --class test -- bun test <protected suite> --parallel=<concurrency>",
@@ -153,6 +158,9 @@ const summary = {
 }
 const summaryPath = join(outDir, "results.json")
 writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`)
+// A convenience copy of the NEWEST run only; the stamp directory above keeps
+// every run's own artifacts intact.
+writeFileSync(join(flakeDir, "results.json"), `${JSON.stringify({ ...summary, stampedResults: summaryPath }, null, 2)}\n`)
 if (report) writeFileSync(report, `${JSON.stringify(summary, null, 2)}\n`)
 
 let missing: string[] = []
