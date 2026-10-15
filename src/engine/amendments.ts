@@ -14,6 +14,13 @@ export type AmendmentRequest = ReviewRequest & {
   diff: ReturnType<typeof amendmentDiff>
   /** Host write-ahead record: populated ONLY after authenticated acceptance. */
   commit?: { state: RunState; acceptedAt: number }
+  /** Who authorised application: the owner (default), the owner-set autonomy
+   * policy for an in-policy agent change, or the owner's revert. */
+  appliedBy?: "owner" | "agent-policy" | "owner-revert"
+  policyClasses?: string[]
+  /** Divergence recovery: the disk contract is ahead of the lock. lock is the
+   * locked generation, nextLock/nextText the disk bytes under review. */
+  recovery?: { provenance: string[]; diskMtime?: number }
 }
 
 export const amendmentChoices = [
@@ -22,8 +29,16 @@ export const amendmentChoices = [
   { value: "comment", label: "Comment or revise", description: "Return feedback to the agent for a revised proposal. No contract change or resume is authorized." },
 ] as const
 
+export const recoveryChoices = [
+  { value: "adopt", label: "Adopt disk version", description: "Make the disk bytes a new journalled generation. Changed criteria reset; unchanged proof remains. The goal stays stopped." },
+  { value: "restore", label: "Restore locked version", description: "Write the locked contract back to goal.yaml and keep the disk bytes as evidence. The goal stays stopped." },
+  { value: "leave", label: "Leave unchanged", description: "Change nothing. The goal stays stopped until the divergence is resolved." },
+] as const
+
 export class AmendmentStore extends OwnerReviewStore<AmendmentRequest> {
   constructor(file: string) { super(file, amendmentChoices) }
+  protected override reviewChoices(request: AmendmentRequest) { return request.recovery ? recoveryChoices : amendmentChoices }
+  choicesFor(request: AmendmentRequest) { return this.reviewChoices(request) }
 
   noteChatAdmission(id: string, messageID?: string): AmendmentRequest | undefined {
     return this.mutate((data) => {

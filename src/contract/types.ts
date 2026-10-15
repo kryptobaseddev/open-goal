@@ -62,10 +62,16 @@ export type Budget = {
   cost_usd?: number
 }
 
+/** Change classes the OWNER lets the agent apply to its own contract. */
+export type AmendClass = "timeout" | "budget" | "plan" | "recover"
+export const AMEND_CLASSES: readonly AmendClass[] = ["timeout", "budget", "plan", "recover"]
+
 export type Autonomy = {
   questions: "defer" | "allow"
   on_user_message: "steer" | "pause"
   on_interrupt: "pause" | "resume-on-message"
+  /** Owner-set policy: classes the agent may apply itself (default none). */
+  amend: AmendClass[]
 }
 
 export type VerificationMode = "host" | "host+verifier" | "strict"
@@ -92,7 +98,7 @@ export type Contract = {
   budget: Budget
   stop: { when?: string; escalate_when: string[] }
   autonomy: Autonomy
-  verification: { mode: VerificationMode; max_rejections: number }
+  verification: { mode: VerificationMode; max_rejections: number; read: string[] }
   execution: { agent?: string }
   meta: Record<string, unknown>
 }

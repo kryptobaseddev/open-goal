@@ -15,7 +15,8 @@ import { Store } from "../engine/store"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
 import { LaunchStore, launchChoices, launchView, processAlive, type LaunchActivity, type LaunchRequest } from "../engine/launches"
 import { amendmentDiff, amendedState } from "../engine/amendment"
-import { AmendmentStore, amendmentChoices, type AmendmentRequest } from "../engine/amendments"
+import { AmendmentStore, recoveryChoices, type AmendmentRequest } from "../engine/amendments"
+import { classifyChange, policyAllows } from "../engine/policy"
 import { selectedReviewChoice, reviewExpired } from "../engine/owner-reviews"
 import { DecisionStore, decisionChoices, type DecisionKind, type DecisionRequest, type DecisionTarget } from "../engine/decisions"
 import { projectInventory } from "../engine/inventory"
@@ -803,7 +804,7 @@ export class GoalApp {
   private ownedAmendmentQuestion(sessionID: string, input: any): boolean {
     const q = input?.questions
     if (!Array.isArray(q) || q.length !== 1 || !Array.isArray(q[0]?.options)) return false
-    return this.amendmentReviews.all(sessionID).some((p) => p.status === "pending" && !reviewExpired(p) && p.question === q[0].question && q[0].options.length === amendmentChoices.length && amendmentChoices.every((c) => q[0].options.some((o: any) => o.label === c.label)))
+    return this.amendmentReviews.all(sessionID).some((p) => { const choices = this.amendmentReviews.choicesFor(p); return p.status === "pending" && !reviewExpired(p) && p.question === q[0].question && q[0].options.length === choices.length && choices.every((c) => q[0].options.some((o: any) => o.label === c.label)) })
   }
 
   private ownedDecisionQuestion(sessionID: string, input: any): boolean {
@@ -922,7 +923,7 @@ export class GoalApp {
   }
 
   private async proposeAmendment(sessionID: string, input: { slug: string; expectedLock: string; yaml: string; rationale: string }) {
-    const proposal = await this.serial(() => {
+    const outcome = await this.serial(() => {
       const state = [...this.runs.values()].find((s) => s.slug === input.slug)
       if (!state) throw new Error("No live run for the selected goal")
       const unavailable = ownerCan(state, "amend")
@@ -939,6 +940,14 @@ export class GoalApp {
       if (!next.contract) throw new Error(`Invalid amendment; current contract unchanged:\n${formatIssues(next.issues)}`)
       if (next.lock === state.lock) throw new Error("Nothing changed; no amendment staged")
       const diff = amendmentDiff(disk.contract, next.contract)
+      // Owner-set autonomy: inside the launched policy the agent applies the
+      // change itself (journalled, owner-revertible). Anything outside it,
+      // including the policy itself, is routed to the owner below.
+      const policy = disk.contract.autonomy.amend
+      const change = classifyChange(disk.contract, next.contract)
+      const allowed = policyAllows(policy, change)
+      if (allowed.ok) return { applied: this.applyByPolicy(sessionID, state, disk.contract, next.contract, next.lock, input.yaml, input.rationale, change.classes, false) }
+      const outsidePolicy = policy.length ? allowed.reasons : []
       // A proposal is not permission to mutate the oracle. Stop the target
       // under its OLD contract while the exact diff is being reviewed.
       const now = Date.now()
@@ -960,20 +969,224 @@ export class GoalApp {
       state.amendments.push({ change: diff.summary, rationale: `staged proposal ${p.id}`, at: now, status: "proposed" })
       this.persist(state)
       this.invalidateOldDecision(state, "superseded by a staged amendment review; old contract remains locked")
-      this.store.ledger(state.slug, { type: "amendment-staged", decisionId: p.id, sessionID, runId: p.runId, lock: p.lock, nextLock: p.nextLock, summary: diff.summary })
-      return p
+      this.store.ledger(state.slug, { type: "amendment-staged", decisionId: p.id, sessionID, runId: p.runId, lock: p.lock, nextLock: p.nextLock, summary: diff.summary, ...(outsidePolicy.length ? { outsidePolicy } : {}) })
+      return { staged: p, outsidePolicy }
     })
+    if (!outcome) throw new Error("Amendment staging produced no outcome; nothing changed")
+    if (outcome.applied) return outcome.applied
+    const proposal = outcome.staged!
     await this.presentAmendment(proposal)
-    return { decisionId: proposal.id, slug: proposal.slug, runId: proposal.runId, lock: proposal.lock, nextLock: proposal.nextLock, diff: proposal.diff, status: "pending", message: "Validated amendment staged without changing goal.yaml. Show the exact diff in the Composer; resolve the owner's actual chat with goal_resolve_amendment or the native review. No sidebar Accept or manual command is required; acceptance alone does not resume." }
+    return { decisionId: proposal.id, slug: proposal.slug, runId: proposal.runId, lock: proposal.lock, nextLock: proposal.nextLock, diff: proposal.diff, status: "pending",
+      ...(outcome.outsidePolicy?.length ? { outsidePolicy: outcome.outsidePolicy } : {}),
+      message: `${outcome.outsidePolicy?.length ? `This change is outside the owner-set autonomy policy (${outcome.outsidePolicy.join("; ")}), so it was routed to the owner. ` : ""}Validated amendment staged without changing goal.yaml. Show the exact diff in the Composer; resolve the owner's actual chat with goal_resolve_amendment or the native review. No sidebar Accept or manual command is required; acceptance alone does not resume.` }
+  }
+
+  /** Apply an in-policy change for the agent: the same write-ahead journal
+   * and commit as an owner acceptance, recorded as appliedBy agent-policy.
+   * Runs inside serial(). The owner can undo it with /goal revert. */
+  private applyByPolicy(sessionID: string, state: RunState, prior: Contract, next: Contract, nextLock: string, nextText: string, rationale: string, classes: string[], recovery: boolean) {
+    const now = Date.now(), oldLock = state.lock
+    const diff = amendmentDiff(prior, next)
+    const kind = recovery ? "divergence recovery" : "amendment"
+    const p = this.amendmentReviews.create({
+      sessionID, targetSessionID: state.sessionID, slug: state.slug, runId: state.runId, lock: oldLock, nextLock, nextText, rationale,
+      diff, title: next.title, createdAt: now, expiresAt: 0, expiryPolicy: "target", issuerPID: process.pid,
+      question: `Agent-applied ${kind} of ${state.slug} under the owner-set autonomy policy (${classes.join(", ")}).`,
+      appliedBy: "agent-policy", policyClasses: classes,
+    }, { keepOthers: true })
+    if (!this.amendmentReviews.reserve(p.id)) throw new Error("Could not reserve the policy amendment; nothing applied")
+    const result = amendedState(state, prior, next, nextLock, `agent policy (${classes.join(", ")}): ${recovery ? "adopted out-of-band disk contract" : rationale} [${p.id}]`, now)
+    const approved = this.amendmentReviews.writeAhead(p.id, { state: result, acceptedAt: now })
+    try {
+      const applied = this.store.commitAmendment(approved)
+      Object.assign(state, applied)
+      delete state.claim
+      delete state.verdict
+      if (!next.priority) delete state.priority
+      this.loaded.set(state.slug, { contract: next, lock: nextLock, text: nextText })
+      this.persist(state)
+    } catch (error) {
+      this.store.ledger(state.slug, { type: "amendment-commit-interrupted", decisionId: p.id, error: String(error) })
+      throw new Error(`Policy amendment commit interrupted; its journal is kept for recovery on reload: ${String(error)}`)
+    }
+    this.amendmentReviews.update(p.id, { status: "succeeded", result: `Applied by the agent under the owner-set policy (${classes.join(", ")}); the owner may undo it with /goal revert ${state.slug}.` })
+    this.retireAmendmentReviews(approved)
+    this.invalidateOldDecision(state)
+    if (recovery) this.store.ledger(state.slug, { type: "divergence-adopted", by: "agent-policy", decisionId: p.id, oldLock, newLock: nextLock, policyClasses: classes })
+    this.notice(state.sessionID, `Agent applied an in-policy ${kind} (${classes.join(", ")}): ${diff.summary}. Undo with /goal revert ${state.slug}.`, "warning")
+    this.emitUpdate(state)
+    return { ok: true, applied: true, appliedBy: "agent-policy", decisionId: p.id, slug: state.slug, runId: state.runId, lock: oldLock, nextLock, policyClasses: classes, diff,
+      message: `Applied under the owner-set autonomy policy (${classes.join(", ")}); journalled as ${p.id} and revertible by the owner. Re-read the contract before continuing.` }
+  }
+
+  private async divergenceProvenance(state: RunState, diskLock: string): Promise<string[]> {
+    const lines: string[] = []
+    try { lines.push(`goal.yaml last modified ${new Date(statSync(this.store.contractPath(state.slug)).mtimeMs).toISOString()}`) } catch { lines.push("goal.yaml modification time unknown") }
+    const journalled = this.store.recent(state.slug, 5000).some((e) => e.type === "amended" && e.newLock === diskLock)
+    lines.push(journalled ? "a journalled amendment previously produced these bytes" : "no journalled acceptance produced these bytes; the writer is unknown (edited outside the engine)")
+    const matching = this.amendmentReviews.all().filter((p) => p.slug === state.slug && p.nextLock === diskLock && !p.recovery)
+    for (const p of matching) {
+      let author = "unavailable"
+      try { const info: any = await this.ctx.session.get({ sessionID: p.sessionID } as any); if ((info?.data ?? info)?.id) author = "live" } catch { /* removed or unknown */ }
+      lines.push(`proposal ${p.id} (status ${p.status}; ${p.commit ? "commit recorded" : "no commit: it was never accepted"}) from session ${p.sessionID} (author session ${author}) proposed exactly these bytes`)
+    }
+    if (!matching.length) lines.push("no staged proposal matches these bytes")
+    return lines
+  }
+
+  /** Disk goal.yaml differs from the locked generation (an unjournalled edit).
+   * Any live session of the project may ask; the owner reviews the exact
+   * difference and adopts, restores or leaves it. Within an owner-set policy
+   * that includes `recover`, an in-policy difference is adopted directly. */
+  private async recoverDivergence(sessionID: string, input: { slug: string; expectedLock: string }) {
+    const outcome = await this.serial(async () => {
+      const state = [...this.runs.values()].find((s) => s.slug === input.slug && !isTerminal(s.status))
+      if (!state) throw new Error("No live run for the selected goal")
+      if (state.lock !== input.expectedLock) throw new Error("Recovery targets a stale lock; re-read the selected goal")
+      if (state.status === "verifying") throw new Error("The selected goal is verifying; wait for its verdict before recovering")
+      if (this.amendmentReviews.all().some((p) => p.slug === state.slug && p.status === "executing")) throw new Error("An accepted amendment is committing; reload to recover it first")
+      const disk = this.store.readContract(state.slug)
+      if (!disk) throw new Error("No goal.yaml on disk for the selected goal")
+      if (disk.lock === state.lock) throw new Error("The disk contract does not differ from the locked generation; nothing to recover.")
+      if (!disk.contract) throw new Error(`The disk contract is invalid, so it cannot be adopted:\n${formatIssues(disk.issues)}`)
+      const locked = this.contractOf(state)
+      if (!locked) throw new Error("The locked contract snapshot is unavailable; nothing changed")
+      const change = classifyChange(locked, disk.contract)
+      const allowed = policyAllows(locked.autonomy.amend, change, true)
+      if (allowed.ok) return { applied: this.applyByPolicy(sessionID, state, locked, disk.contract, disk.lock, disk.text, "out-of-band disk edit", change.classes, true) }
+      const provenance = await this.divergenceProvenance(state, disk.lock)
+      const diff = amendmentDiff(locked, disk.contract)
+      const now = Date.now()
+      const p = this.amendmentReviews.create({
+        sessionID, targetSessionID: state.sessionID, slug: state.slug, runId: state.runId, lock: state.lock, nextLock: disk.lock, nextText: disk.text,
+        rationale: "recover an out-of-band disk contract", diff, title: disk.contract.title, createdAt: now, expiresAt: 0, expiryPolicy: "target", issuerPID: process.pid,
+        recovery: { provenance },
+        question: [
+          `Recover the divergent contract of ${state.slug} (run ${state.runId})?`,
+          `Locked SHA256 ${state.lock}; disk SHA256 ${disk.lock}. The disk file differs from the locked generation.`,
+          `Provenance:\n${provenance.map((l) => `- ${l}`).join("\n")}`,
+          diff.summary, diff.details,
+          "Adopt makes the disk bytes a new journalled generation; Restore writes the locked bytes back and keeps the disk bytes as evidence; Leave changes nothing. No earlier proposal or approval counts as acceptance; the goal stays stopped.",
+        ].join("\n\n"),
+      })
+      if (isActive(state.status)) {
+        clearTimeout(this.timers.get(state.sessionID))
+        setStatus(state, "paused", "divergent disk contract under owner review")
+      }
+      this.persist(state)
+      this.invalidateOldDecision(state, "superseded by a divergence recovery review")
+      this.store.ledger(state.slug, { type: "divergence-staged", decisionId: p.id, sessionID, runId: state.runId, lock: state.lock, diskLock: disk.lock, provenance, ...(locked.autonomy.amend.length ? { outsidePolicy: allowed.reasons } : {}) })
+      return { staged: p, outsidePolicy: locked.autonomy.amend.length ? allowed.reasons : [] }
+    })
+    if (outcome.applied) return outcome.applied
+    const p = outcome.staged!
+    await this.presentAmendment(p)
+    return { decisionId: p.id, slug: p.slug, runId: p.runId, lock: p.lock, diskLock: p.nextLock, diff: p.diff, provenance: p.recovery!.provenance, status: "pending",
+      ...(outcome.outsidePolicy?.length ? { outsidePolicy: outcome.outsidePolicy } : {}),
+      message: "Divergence recovery review offered natively (Adopt disk version / Restore locked version / Leave unchanged). Show it to the owner; no earlier proposal or approval is counted, and the goal stays stopped." }
+  }
+
+  private async resolveRecovery(request: AmendmentRequest, answer: Record<string, unknown>) {
+    const choice = selectedReviewChoice(request, recoveryChoices, answer)
+    if (!choice || choice.value === "leave") {
+      this.amendmentReviews.update(request.id, { status: "rejected", result: "Owner left the divergence unchanged; nothing applied." })
+      this.store.ledger(request.slug, { type: "divergence-left", by: "owner", decisionId: request.id, lock: request.lock, diskLock: request.nextLock })
+      return
+    }
+    await this.serial(() => {
+      const state = this.runs.get(request.targetSessionID), disk = this.store.readContract(request.slug)
+      if (!state || isTerminal(state.status) || state.runId !== request.runId || state.lock !== request.lock || !disk || disk.lock !== request.nextLock) {
+        this.amendmentReviews.update(request.id, { status: "failed", result: "Run or disk contract changed since review; nothing applied." })
+        this.store.ledger(request.slug, { type: "divergence-recovery-failed", decisionId: request.id, reason: "review binding changed" })
+        this.notice(request.sessionID, "The divergence changed since the review; nothing applied. Ask for a fresh recovery review.", "warning")
+        return
+      }
+      if (!this.amendmentReviews.reserve(request.id)) return
+      const locked = this.contractOf(state)!
+      if (choice.value === "adopt") {
+        const next = parseContract(request.nextText, { slug: request.slug })
+        const acceptedAt = Date.now()
+        const stopped = structuredClone(state)
+        setStatus(stopped, "paused", "owner adopted the disk contract; resume when ready")
+        const result = amendedState(stopped, locked, next.contract!, request.nextLock, `owner adopted out-of-band disk contract (recovery ${request.id})`, acceptedAt)
+        const approved = this.amendmentReviews.writeAhead(request.id, { state: result, acceptedAt })
+        try {
+          const applied = this.store.commitAmendment(approved)
+          Object.assign(state, applied)
+          delete state.claim
+          delete state.verdict
+          if (!next.contract!.priority) delete state.priority
+          this.loaded.set(state.slug, { contract: next.contract!, lock: next.lock, text: request.nextText })
+          this.persist(state)
+          this.amendmentReviews.update(request.id, { status: "succeeded", result: `Adopted the disk contract as ${state.lock}; the goal stays paused.` })
+          this.retireAmendmentReviews(approved)
+          this.invalidateOldDecision(state)
+          this.store.ledger(request.slug, { type: "divergence-adopted", by: "owner", decisionId: request.id, oldLock: request.lock, newLock: request.nextLock })
+          this.notice(request.sessionID, `Adopted the disk contract of ${request.slug} as a new journalled generation; the goal stays paused.`, "success")
+          this.emitUpdate(state)
+        } catch (error) {
+          this.store.ledger(request.slug, { type: "amendment-commit-interrupted", decisionId: request.id, error: String(error) })
+          this.noticeM(request.sessionID, M.amendmentInterrupted())
+        }
+        return
+      }
+      try {
+        const kept = this.store.restoreLocked(request.slug, request.runId, request.lock, { text: disk.text, lock: disk.lock })
+        this.amendmentReviews.update(request.id, { status: "succeeded", result: `Restored the locked contract ${request.lock}; the disk bytes are kept at ${kept}.` })
+        for (const other of this.amendmentReviews.all())
+          if (other.id !== request.id && other.slug === request.slug && other.runId === request.runId && other.lock === request.lock
+            && other.nextLock === request.nextLock && ["pending", "interrupted"].includes(other.status)) {
+            this.amendmentReviews.update(other.id, { status: "cancelled", result: `Owner restored the locked generation (recovery ${request.id}); this proposal was not accepted.` })
+            this.store.ledger(request.slug, { type: "amendment-review-superseded", decisionId: other.id, restoredBy: request.id, actionExecuted: false })
+          }
+        this.store.ledger(request.slug, { type: "divergence-restored", by: "owner", decisionId: request.id, lock: request.lock, discardedLock: disk.lock, kept })
+        this.notice(request.sessionID, `Restored the locked contract of ${request.slug}; the divergent bytes are kept as evidence.`, "success")
+        this.emitUpdate(state)
+      } catch (error) {
+        this.amendmentReviews.update(request.id, { status: "failed", result: `Restore failed; nothing written: ${String(error)}` })
+        this.store.ledger(request.slug, { type: "divergence-recovery-failed", decisionId: request.id, reason: String(error) })
+      }
+    })
+  }
+
+  /** Owner undo of the latest agent-policy generation: the prior locked bytes
+   * become a new journalled generation. Never available to the agent. */
+  private revertPolicyChange(state: RunState): { ok: boolean; message: string } {
+    const last = this.amendmentReviews.all().filter((p) => p.slug === state.slug && p.runId === state.runId && p.appliedBy === "agent-policy"
+      && p.status === "succeeded" && p.commit && p.nextLock === state.lock).sort((a, b) => b.createdAt - a.createdAt)[0]
+    if (!last) return { ok: false, message: "No agent-applied change is the current generation of this goal; nothing to revert." }
+    const disk = this.store.readContract(state.slug), current = this.contractOf(state)
+    if (!disk || disk.lock !== state.lock || !current) return { ok: false, message: "The disk contract differs from the locked generation; recover the divergence first." }
+    const priorText = this.store.lockedText(state.slug, state.runId, last.lock)
+    const prior = parseContract(priorText, { slug: state.slug })
+    if (!prior.contract || prior.lock !== last.lock) return { ok: false, message: "The prior generation snapshot is unavailable; nothing reverted." }
+    const now = Date.now()
+    const p = this.amendmentReviews.create({
+      sessionID: state.sessionID, targetSessionID: state.sessionID, slug: state.slug, runId: state.runId, lock: state.lock, nextLock: prior.lock, nextText: priorText,
+      rationale: `owner reverted agent-policy change ${last.id}`, diff: amendmentDiff(current, prior.contract), title: prior.contract.title, createdAt: now, expiresAt: 0,
+      expiryPolicy: "target", issuerPID: process.pid, question: `Owner revert of agent-policy change ${last.id}.`, appliedBy: "owner-revert",
+    }, { keepOthers: true })
+    this.amendmentReviews.reserve(p.id)
+    const result = amendedState(state, current, prior.contract, prior.lock, `owner reverted agent-policy change ${last.id}`, now)
+    const approved = this.amendmentReviews.writeAhead(p.id, { state: result, acceptedAt: now })
+    const applied = this.store.commitAmendment(approved)
+    const from = state.lock
+    Object.assign(state, applied)
+    this.loaded.set(state.slug, { contract: prior.contract, lock: prior.lock, text: priorText })
+    this.persist(state)
+    this.amendmentReviews.update(p.id, { status: "succeeded", result: `Reverted to ${prior.lock}.` })
+    this.store.ledger(state.slug, { type: "reverted", by: "owner", decisionId: p.id, revertedDecisionId: last.id, from, to: prior.lock })
+    this.emitUpdate(state)
+    return { ok: true, message: `Reverted ${state.slug} to ${prior.lock.slice(0, 12)} (undoing agent change ${last.id}); journalled as ${p.id}.` }
   }
 
   private async presentAmendment(request: AmendmentRequest) {
     const nativeForm = (this.ctx.session as any).form
     if (typeof nativeForm?.create === "function") {
-      const form = await nativeForm.create({ sessionID: request.sessionID, title: `Amend ${request.slug}?`, metadata: { goalDecisionID: request.id }, fields: [{ key: "action", title: request.question, type: "string", custom: true, options: amendmentChoices }] })
+      const form = await nativeForm.create({ sessionID: request.sessionID, title: `${request.recovery ? "Recover" : "Amend"} ${request.slug}?`, metadata: { goalDecisionID: request.id }, fields: [{ key: "action", title: request.question, type: "string", custom: true, options: [...this.amendmentReviews.choicesFor(request)] }] })
       this.amendmentReviews.bind(form)
     } else {
-      const payload = { questions: [{ header: "Goal", question: request.question, options: amendmentChoices.map((c) => ({ label: c.label, description: c.description })) }] }
+      const payload = { questions: [{ header: "Goal", question: request.question, options: this.amendmentReviews.choicesFor(request).map((c) => ({ label: c.label, description: c.description })) }] }
       await this.ctx.session.prompt({ sessionID: request.sessionID, text: `Ask the owner with the question tool using this exact JSON. The host alone applies the selected amendment; do not edit goal.yaml or call an owner action afterwards.\nGOAL_FORM_JSON:${JSON.stringify(payload)}`, resume: true, metadata: { goal: { kind: "amendment-review", decisionId: request.id } } } as any)
     }
   }
@@ -983,7 +1196,7 @@ export class GoalApp {
     if (request.issuerPID !== process.pid && processAlive(request.issuerPID)) throw new Error("Another live server owns this amendment review; inspect it there.")
     if (!["pending", "interrupted", "expired"].includes(request.status)) throw new Error(`Amendment review is ${request.status}; old approval cannot be replayed.`)
     const state = this.runs.get(request.targetSessionID), disk = this.store.readContract(request.slug)
-    if (!state || isTerminal(state.status) || state.runId !== request.runId || state.lock !== request.lock || !disk?.contract || disk.lock !== request.lock)
+    if (!state || isTerminal(state.status) || state.runId !== request.runId || state.lock !== request.lock || !disk?.contract || disk.lock !== (request.recovery ? request.nextLock : request.lock))
       throw new Error("The reviewed amendment target changed; old choices cannot be reused.")
     if (request.status === "expired" || reviewExpired(request)) {
       if (request.status !== "expired") {
@@ -1007,6 +1220,7 @@ export class GoalApp {
       const request = this.amendmentReviews.get(input.decisionId)
       if (!request || request.sessionID !== sessionID)
         throw new Error("No current amendment review owned by this Composer session; nothing authorized.")
+      if (request.recovery) throw new Error("A divergence recovery is answered in its native review (Adopt disk version / Restore locked version / Leave unchanged); chat text is not mapped to it. Nothing authorized.")
       if (request.status === "executing") throw new Error("Amendment review is executing; inspect its outcome before acting. No approval was replayed.")
       if (!["pending", "interrupted"].includes(request.status)) return {
         alreadyResolved: true as const, request,
@@ -1055,8 +1269,13 @@ export class GoalApp {
   private async resolveAmendment(request: AmendmentRequest, answer: Record<string, unknown>, ownerChat?: { action: "accept" | "reject" | "comment"; text: string; messageID: string }) {
     request = this.amendmentReviews.get(request.id) ?? request
     if (request.status !== "pending" || request.issuerPID !== process.pid && processAlive(request.issuerPID)) return
+    if (request.recovery) {
+      if (ownerChat) return
+      return this.resolveRecovery(request, answer)
+    }
     const value = ownerChat?.text ?? (request.fieldKey ? answer[request.fieldKey] : undefined)
-    const selected = ownerChat ? amendmentChoices.find((c) => c.value === ownerChat.action) : selectedReviewChoice(request, amendmentChoices, answer)
+    const choices = this.amendmentReviews.choicesFor(request)
+    const selected = ownerChat ? choices.find((c) => c.value === ownerChat.action) : selectedReviewChoice(request, choices, answer)
     if (reviewExpired(request)) {
       this.amendmentReviews.update(request.id, { status: "expired", result: "Review expired; the locked contract is unchanged." })
       this.store.ledger(request.slug, { type: "amendment-review-expired", decisionId: request.id, sessionID: request.sessionID, actionExecuted: false })
@@ -2040,7 +2259,7 @@ export class GoalApp {
 
   // ───────────────────────────── owner actions (command, RPC)
 
-  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose", arg?: string, via: "form" | "dialog" = "dialog", decisionId?: string): Promise<{ ok: boolean; message: string }> {
+  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose" | "revert", arg?: string, via: "form" | "dialog" = "dialog", decisionId?: string): Promise<{ ok: boolean; message: string }> {
     return this.serial(async () => {
       const pending = this.pendingDecisions.get(sessionID)
       const request = this.decisions.get(decisionId ?? pending?.id ?? "")
@@ -2232,6 +2451,8 @@ export class GoalApp {
           const message = await this.amendGoal(state, confirmed)
           return { ok: message.startsWith("Amended") || message.startsWith("Proposed"), message }
         }
+        case "revert":
+          return this.revertPolicyChange(state)
         case "archive": {
           // T032: demote, never delete — the folder moves to goals-archive/
           // with ledger and evidence intact; the registry keeps answering yes.
@@ -2475,6 +2696,7 @@ export class GoalApp {
       case "amend":
       case "archive":
       case "attach":
+      case "revert":
       case "decompose": {
         const result = await this.ownerAct(sessionID, sub as any, arg)
         return say(result.message, result.ok ? "success" : "error")
@@ -2668,7 +2890,7 @@ export class GoalApp {
         const noted = this.launches.noteChatAdmission(launch.id, intent ? event.messageID : undefined)
         if (intent && noted) await this.unholdLaunchChat(noted)
       }
-      const requests = this.amendmentReviews.all(event.sessionID).filter((p) => ["pending", "interrupted"].includes(p.status) && !reviewExpired(p))
+      const requests = this.amendmentReviews.all(event.sessionID).filter((p) => ["pending", "interrupted"].includes(p.status) && !reviewExpired(p) && !p.recovery)
       if (requests.length !== 1) return
       const request = requests[0]!, state = this.runs.get(request.targetSessionID)
       if (!state || isTerminal(state.status)
@@ -2804,6 +3026,7 @@ export class GoalApp {
         properties: { decisionId: { type: "string", minLength: 1, maxLength: 256 }, action: { type: "string", enum: ["accept", "reject", "comment"] }, continueGoal: { type: "boolean" } }, required: ["decisionId", "action"],
       }, async (args, context) => this.resolveAmendmentChat(context.sessionID, { decisionId: String(args.decisionId), action: args.action, continueGoal: args.continueGoal === true })),
       tool("propose_amendment", "Stage a validated replacement YAML contract as a reviewed diff for a selected live goal. Does NOT edit goal.yaml or grant consent. Exact owner accept/reject/comment is required; changed statements/checks reset proof and the goal remains stopped. Never call an owner accept operation yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" }, yaml: { type: "string", minLength: 1, maxLength: 200000 }, rationale: { type: "string", minLength: 1, maxLength: 2000 } }, required: ["slug", "expectedLock", "yaml", "rationale"] }, async (args, context) => this.proposeAmendment(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock), yaml: String(args.yaml), rationale: String(args.rationale) })),
+      tool("recover_divergence", "When a live goal's disk goal.yaml differs from its locked contract (an edit made outside the engine), offer the owner a native review of the exact difference and last-writer provenance: Adopt disk version, Restore locked version or Leave unchanged. Callable from any live session of this project. No earlier proposal or approval counts. Inside an owner-set autonomy policy that includes recover, an in-policy difference is adopted directly, journalled and owner-revertible. Never edit goal.yaml yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" } }, required: ["slug", "expectedLock"] }, async (args, context) => this.recoverDivergence(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock) })),
       tool("prepare_launch", "Validate and stage an exact goal contract for native owner review and same/fresh-session launch. The host executes the owner's choice directly, including after reload or an interrupted question result. Preparation is not permission to start or approve yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, fresh: { type: "boolean" } }, required: ["slug"] }, async (args, context) => this.prepareLaunch(context.sessionID, String(args.slug), args.fresh === true)),
       tool("provenance", "Report the actual server PID, location, installed Git revision and loaded server/UI/skill artifact hashes for this goal session. Never substitute an unscoped shared-service or newest-cache lookup for this evidence.", { properties: {} }, async (_args, context) => ({ ...await this.provenance(context.sessionID) })),
       tool("status", "Show the active goal: status, criteria board, plan, budget, last verdict. Cheap; use it after a compaction or when unsure what remains.", { properties: {} }, async (_args, context) => {

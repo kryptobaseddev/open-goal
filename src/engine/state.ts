@@ -123,7 +123,7 @@ export function setStatus(state: RunState, status: Status, reason?: string, now 
   return state
 }
 
-export type OwnerAction = "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive"
+export type OwnerAction = "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "revert"
 
 /** Owner transitions; returns an error string when the action does not apply. */
 export function ownerCan(state: RunState, action: OwnerAction): string | undefined {
@@ -136,6 +136,8 @@ export function ownerCan(state: RunState, action: OwnerAction): string | undefin
       return isTerminal(state.status) ? `goal is already ${state.status}` : undefined
     case "verify":
       return isTerminal(state.status) ? `goal is ${state.status}` : undefined
+    case "revert":
+      return isTerminal(state.status) ? `goal is ${state.status}` : state.status === "verifying" ? "goal is verifying; wait for its verdict" : undefined
     case "amend":
       // T038: amendment re-locks a live contract; a terminal goal gets a new
       // goal instead (supersession), never a rewrite of history.

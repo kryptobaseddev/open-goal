@@ -2,7 +2,9 @@
 // relies on to tell a loop-verifiable goal from a wish.
 import { createHash } from "node:crypto"
 import {
+  AMEND_CLASSES,
   CHECK_KINDS,
+  type AmendClass,
   HOST_KINDS,
   PRIORITIES,
   SCHEMA,
@@ -286,11 +288,23 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
     questions: pick("autonomy.questions", autonomyRaw.questions, ["defer", "allow"] as const, "defer"),
     on_user_message: pick("autonomy.on_user_message", autonomyRaw.on_user_message, ["steer", "pause"] as const, "steer"),
     on_interrupt: pick("autonomy.on_interrupt", autonomyRaw.on_interrupt, ["pause", "resume-on-message"] as const, "pause"),
+    amend: [],
+  }
+  if (autonomyRaw.amend !== undefined) {
+    if (!Array.isArray(autonomyRaw.amend)) err("autonomy.amend", `amend must be a list of ${AMEND_CLASSES.join(", ")}`)
+    else for (const value of autonomyRaw.amend) {
+      const v = str(value)
+      if (v && (AMEND_CLASSES as readonly string[]).includes(v)) { if (!autonomy.amend.includes(v as AmendClass)) autonomy.amend.push(v as AmendClass) }
+      else err("autonomy.amend", `unknown change class "${String(value)}"; allowed: ${AMEND_CLASSES.join(", ")}`)
+    }
   }
   const verificationRaw = isRecord(raw.verification) ? raw.verification : {}
   const mode = pick<VerificationMode>("verification.mode", verificationRaw.mode, ["host", "host+verifier", "strict"] as const, "host+verifier")
   const maxRejections = verificationRaw.max_rejections === undefined ? 3 : Number(verificationRaw.max_rejections)
   if (!(Number.isInteger(maxRejections) && maxRejections >= 1 && maxRejections <= 10)) err("verification.max_rejections", "max_rejections must be an integer from 1 to 10")
+  const verifierRead = strings(verificationRaw.read)
+  if (verificationRaw.read !== undefined && !Array.isArray(verificationRaw.read)) err("verification.read", "read must be a list of folders the verifier may read")
+  for (const path of verifierRead) if (/[*?[\]{}]/.test(path)) err("verification.read", `"${path}" must be a plain folder or file path, not a glob`)
 
   const scopeRaw = isRecord(raw.scope) ? raw.scope : {}
   const stopRaw = isRecord(raw.stop) ? raw.stop : {}
@@ -327,7 +341,7 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
     budget,
     stop: { ...(str(stopRaw.when) ? { when: str(stopRaw.when) } : {}), escalate_when: strings(stopRaw.escalate_when) },
     autonomy,
-    verification: { mode, max_rejections: maxRejections },
+    verification: { mode, max_rejections: maxRejections, read: verifierRead },
     execution: str(executionRaw.agent) ? { agent: str(executionRaw.agent) } : {},
     meta: isRecord(raw.meta) ? raw.meta : {},
   }

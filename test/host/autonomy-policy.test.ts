@@ -22,6 +22,8 @@ const amendments = async (host: Awaited<ReturnType<typeof goalHost>>) =>
 
 function worker(state: { lock: string; yaml: string }) {
   return script((_request, turn) => {
+    const form = turn.trigger.split("\n").find((line) => line.startsWith("GOAL_FORM_JSON:") || line.startsWith("GOAL_DECISION_JSON:"))
+    if (form && !turn.results) return { toolCalls: [{ name: "question", args: JSON.parse(form.slice(form.indexOf(":") + 1)) }] }
     if (turn.trigger === "PROPOSE" && !turn.results)
       return { toolCalls: [{ name: "goal_propose_amendment", args: { slug: "demo", expectedLock: state.lock, yaml: state.yaml, rationale: "agent change" } }] }
     if (turn.trigger === "RECOVER" && !turn.results)

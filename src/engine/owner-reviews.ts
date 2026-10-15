@@ -94,9 +94,9 @@ export class OwnerReviewStore<T extends ReviewRequest> {
       return p
     })
   }
-  create(input: Omit<T, "id" | "status">): T {
+  create(input: Omit<T, "id" | "status">, options: { keepOthers?: boolean } = {}): T {
     return this.mutate((data) => {
-      for (const p of Object.values(data.requests))
+      if (!options.keepOthers) for (const p of Object.values(data.requests))
         if (p.sessionID === input.sessionID && ["pending", "interrupted"].includes(p.status)) p.status = "cancelled"
       const p = { ...input, id: randomUUID(), status: "pending" } as T
       // The nonce is in the displayed question and must match the actual

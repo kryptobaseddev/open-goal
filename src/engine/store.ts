@@ -114,13 +114,29 @@ export class Store {
     const generation = result.amendments.filter((a) => a.status === "accepted").length
     this.evidence(request.slug, request.runId, `amendment-${generation}-${request.id}`, {
       decisionId: request.id, generation, oldLock: request.lock, newLock: request.nextLock,
-      by: "owner", at: request.commit.acceptedAt, rationale: request.rationale,
+      by: request.appliedBy ?? "owner", ...(request.policyClasses ? { policyClasses: request.policyClasses } : {}), at: request.commit.acceptedAt, rationale: request.rationale,
       ...request.diff, contract: request.nextText,
     })
     if (!this.recent(request.slug, 1000).some((e) => e.type === "amended" && e.decisionId === request.id))
-      this.ledger(request.slug, { type: "amended", decisionId: request.id, generation, oldLock: request.lock, newLock: request.nextLock, summary: request.diff.summary })
+      this.ledger(request.slug, { type: "amended", decisionId: request.id, generation, oldLock: request.lock, newLock: request.nextLock, summary: request.diff.summary, by: request.appliedBy ?? "owner", ...(request.policyClasses ? { policyClasses: request.policyClasses } : {}), ...(request.recovery ? { recovery: true } : {}) })
     return result
   }
+
+  /** Owner-chosen divergence restore: keep the divergent disk bytes as
+   * evidence, then write the locked generation's exact bytes back. */
+  restoreLocked(slug: string, runId: string, lock: string, discarded: { text: string; lock: string }): string {
+    const locked = this.lockedSnapshot(slug, runId, lock)
+    const dir = join(this.dir(slug), "evidence", runId)
+    mkdirSync(dir, { recursive: true })
+    const kept = join(dir, `divergent-${discarded.lock}-${Date.now()}.yaml`)
+    this.writeAtomic(kept, discarded.text)
+    const current = this.readContract(slug)
+    if (!current || current.lock !== discarded.lock) throw new Error("Disk contract changed again during restore; nothing written")
+    this.writeAtomic(this.contractPath(slug), locked)
+    return kept
+  }
+
+  lockedText(slug: string, runId: string, lock: string): string { return this.lockedSnapshot(slug, runId, lock) }
 
   private lockedSnapshot(slug: string, runId: string, lock: string): string {
     const keyed = join(this.dir(slug), "evidence", runId, `contract-${lock}.yaml`)
