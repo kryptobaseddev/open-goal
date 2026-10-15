@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — 2026-10-15
+
+- **A divergence refusal names the fix (T106)** — when a goal's disk `goal.yaml` differs from its locked generation, the owner-chat amendment resolver, the amendment review, the resume/verify prerequisite and the invalid-goal refusal all name the cause with both hashes and the exact `goal_recover_divergence {"slug":…,"expectedLock":…}` call. A refusal whose cause is not divergence keeps its existing wording, and the divergence check reads the locked snapshot versus the disk bytes, never a pending proposal. axiom-lab-release answered an impossible "Accept amendment" 10+ times without ever being told why.
+- **The impossible review is not re-offered (T106)** — while the disk differs, `goal_review` refuses to re-present the acceptance review (the staged review stays pending) and `goal_manage` offers no resume question. Once the divergence is resolved, reviews and resumes work normally again.
+- **Adoption returns the refreshed target (T106)** — `goal_status` and the `goal_recover_divergence` result carry the `target` tuple (`key`, `lock`, `runId`, `sessionID`) that `goal_manage` accepts, and an identity-changed refusal names the refreshed tuple instead of only saying "refresh its details". axiom lost a round to `goal_inventory` after an adoption because the goal KEY changes to `live:<slug>:<runId>`.
+
 ## 0.4.0 — 2026-10-15
 
 - **Recover a contract edited outside the engine (T101)** — when a live goal's `goal.yaml` differs from its lock, `goal_recover_divergence` (callable from any live session of the project) offers the owner the exact difference and last-writer provenance: Adopt disk version (a new journalled generation; changed criteria reset), Restore locked version (locked bytes written back, divergent bytes kept under evidence/) or Leave unchanged. An unaccepted proposal with matching bytes and a dead author is shown as provenance, never counted as consent, and is superseded by the owner's pick. This unblocks the shape where staging and acceptance both refused.
