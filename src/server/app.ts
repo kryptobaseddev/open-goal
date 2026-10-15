@@ -185,6 +185,15 @@ export class GoalApp {
       // memory. A re-attaching TUI's snapshot then reads the disk truth
       // (complete/N) instead of nothing, so a server reload can never strand
       // the sidebar card at its last pre-restart view.
+      // One session can own several goals over time (finish one, start the
+      // next). `runs` is keyed by session, so the mirror must never let a
+      // terminal sibling shadow the live run — that made goal_status, the
+      // injected contract and provenance report a finished goal after reload.
+      const held = this.runs.get(state.sessionID)
+      if (held && held.runId !== state.runId && !isTerminal(held.status) && isTerminal(state.status)) {
+        this.store.ledger(state.slug, { type: "recovery-shadow-avoided", sessionID: state.sessionID, kept: held.slug, ignored: state.slug })
+        continue
+      }
       this.runs.set(state.sessionID, state)
     }
   }

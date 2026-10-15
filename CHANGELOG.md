@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 — 2026-10-15
+
+- **A completed sibling no longer shadows the live goal (T106)** — a session can own several goals over time (finish one, start the next). On reload the engine mirrors every goal on disk into runs keyed by session, so the alphabetically-last folder won and a COMPLETE goal shadowed the running one: `goal_status`, the injected contract and the collected provenance all reported the finished goal. Found on the real v0.4.1 hot reload against this project. The mirror now keeps a live run and only skips a terminal sibling, recording `recovery-shadow-avoided` in the ledger.
+
 ## 0.4.1 — 2026-10-15
 
 - **A divergence refusal names the fix (T106)** — when a goal's disk `goal.yaml` differs from its locked generation, the owner-chat amendment resolver, the amendment review, the resume/verify prerequisite and the invalid-goal refusal all name the cause with both hashes and the exact `goal_recover_divergence {"slug":…,"expectedLock":…}` call. A refusal whose cause is not divergence keeps its existing wording, and the divergence check reads the locked snapshot versus the disk bytes, never a pending proposal. axiom-lab-release answered an impossible "Accept amendment" 10+ times without ever being told why.
