@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.6 — 2026-10-15
+
+- **The contract names the verifier's model and effort (T107)** — `verification.model` (`providerID/modelID[#variant]`) and `verification.effort` now reach the verifier child; a value that cannot be parsed falls back to the previous resolution and journals `verifier-model-fallback` with `requested`, `reason` and `used`, so a typo never blocks a run.
+- **Evidence quotes tolerate JUnit/XML escaping (T108)** — a verifier that quoted the decoded line it read from a junit file was rejected because the raw bytes carry `&#10;`/`&quot;`/`&lt;`. `checkQuotes` now matches the raw bytes or their entity-decoded equivalent, for the raw junit and a plain-text renderer alike.
+- **A commit-history criterion is answerable without a shell (T109)** — the verifier has only read/glob/grep, so "check the git history" was unanswerable and burned the round budget (the real C4/C5 cause). The host puts a bounded git digest in the child prompt and saves a quotable copy inside the project; no shell and no external path.
+- **The per-round budget is testable below the 60s floor (T110)** — the floor is now the option `verifierMinRoundMs` (default 60_000), so the verdict-grace tests run in seconds instead of a minute each. A late `goal_verdict` is still used.
+- **The stall notice names the policy (T111)** — `goal.paused.stalled` now names the owner-set `autonomy.on_stall` value and the owner's choices (`/goal resume`, `/goal abort`, or `on_stall: continue`).
+- **Read-only calls write nothing under a goal folder (T115)** — `goal_status`, `goal_provenance` and `goal_inventory` no longer write anything under `.opencode/goals` (the provenance evidence used to be written by the read). The host records `engine-provenance.json` during verification instead, where the protected install checker expects it. Reported by VidaPeps.
+- **The fingerprint sees linked-worktree work (T116)** — `fingerprint()` now includes `git worktree list --porcelain`, so a commit in `.worktrees/<slug>` records `changed:true` and no longer trips the stall auto-pause. Reported by VidaPeps.
+- **Bounds of the live-goal write guard are documented (T112)** — `docs/research/live-goal-write-guard-bounds.md` names the mechanism, a captured refused-write/allowed-read example, and the residual risk a static path scan cannot see, without claiming full coverage.
+- **Verifier diagnostics read the context correctly** — `verifierCause` and `verdictsFromTranscript` read `message.parts`/`state.output`, but this OpenCode carries parts under `message.content` and the denial as an object in `state.error`, so a real denial was misreported as an unknown timeout (pre-existing on v0.4.5; found while proving I1).
+
 ## 0.4.5 — 2026-10-15
 
 - **A late goal_verdict is still an answer (T108)** — a verifier that calls `goal_verdict` just after the per-round budget was recorded as "did not call goal_verdict" and the round thrown away. There is now a short grace window after the budget, and if the call is in the captured transcript it is used (`verifier-fallback`, ledger `from: "transcript"`). A verifier that never decides is still a failure.
