@@ -3621,7 +3621,9 @@ export function shellWriteTargets(command: string): string[] {
       new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*${escaped}[\s\S]*?(?:\\.write\\(|open\\([^)]*['\"][wa]|writeFile|appendFile|createWriteStream|>>?)`),
       new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*?(?:\\.write\\(|open\\([^)]*['\"][wa]|writeFile|appendFile|createWriteStream)[\s\S]*${escaped}`),
       // open('<path>', 'w') and friends put the write beside the path itself.
-      new RegExp(`(?:open|writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|truncate)\\(\\s*['\"]${escaped}['\"]`),
+      // A bare open('<path>') is a READ; only a write call or an explicit
+      // write mode counts (the sibling pattern below covers the mode).
+      new RegExp(`(?:writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|truncate)\\(\\s*['\"]${escaped}['\"]`),
       new RegExp(`['\"]${escaped}['\"]\\s*,\\s*['\"][wa]`),
       new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*?(?:writeFile|appendFile|createWriteStream|truncate|unlink|rename|copyFile)`),
     ].some((pattern) => pattern.test(command))

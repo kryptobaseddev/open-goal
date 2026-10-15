@@ -62,8 +62,9 @@ test("a shell write into a live goal folder is refused and names the supported t
       expect(after.status, `${tag}: the command's status did not land`).not.toBe("complete")
     }
 
-    // Reads stay allowed: inspecting goal state is not a write.
-    for (const cmd of [`cat ${RUN}`, `grep -c version ${RUN}`, `ls -la .opencode/goals/demo`]) {
+    // Reads stay allowed: inspecting goal state is not a write, including
+    // through an interpreter that only reads it.
+    for (const cmd of [`cat ${RUN}`, `grep -c version ${RUN}`, `ls -la .opencode/goals/demo`, `python3 -c "import json;print(json.load(open('${RUN}'))['status'])"`]) {
       command = cmd
       const result = await attempt(host, owner, cmd, "read")
       expect(result, `read "${cmd}" must not be refused`).not.toMatch(/owner and the host|names the supported tool/i)
