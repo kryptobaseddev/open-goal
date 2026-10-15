@@ -63,6 +63,8 @@ export type Options = {
   verifierAgent: string
   /** Verifier round budget in ms (each of the 2 rounds gets this; 240s default; config-overridable). */
   verifierTimeoutMs: number
+  /** Grace after the per-round budget during which a late goal_verdict counts. */
+  verifierGraceMs: number
   liveChecks: boolean
   launchApprovalMs: number
 }
@@ -76,6 +78,7 @@ export const DEFAULTS: Options = {
   maxPromptFailures: 3,
   verifierAgent: "goal-verifier",
   verifierTimeoutMs: 240_000,
+  verifierGraceMs: 30_000,
   liveChecks: true,
   launchApprovalMs: 10 * 60_000,
 }
@@ -2321,9 +2324,13 @@ export class GoalApp {
         const timeout = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), perRoundMs))
         outcome = await Promise.race([this.ctx.session.wait({ sessionID: childID } as any).then(() => "done" as const), timeout])
         if (outcome === "timeout") {
-          // Read the transcript BEFORE ending the child: interrupting first
-          // left `messages: []`, hiding why the round hung (axiom C2 x3).
+          // A verifier that CALLS goal_verdict just after the budget must still
+          // be heard: one real round finished and was thrown away as a timeout.
+          const grace = new Promise<void>((resolve) => setTimeout(resolve, this.options.verifierGraceMs))
+          await Promise.race([this.ctx.session.wait({ sessionID: childID } as any).then(() => undefined).catch(() => undefined), grace])
           try { messages = ((await this.ctx.session.context({ sessionID: childID } as any)) ?? []) as unknown[] } catch { /* recorded as unavailable below */ }
+          verdicts = this.verifierInbox.get(childID) ?? []
+          if (verdicts.length) { outcome = "done"; break }
           await this.ctx.session.interrupt({ sessionID: childID } as any).catch(() => {})
           break
         }
@@ -2342,6 +2349,16 @@ export class GoalApp {
           }
         }
         break
+      }
+      if (!verdicts.length) {
+        // A child that DID call goal_verdict but landed after the round budget
+        // is still an answer: read it back from the captured transcript.
+        const fromTranscript = verdictsFromTranscript(messages, new Set(criteria.map((c) => c.id)))
+        if (fromTranscript.length) {
+          verdicts = fromTranscript
+          by = "verifier-fallback"
+          this.store.ledger(state.slug, { type: "verifier-fallback", turn: state.turn, count: fromTranscript.length, from: "transcript" })
+        }
       }
       if (!verdicts.length) {
         const parsed = parseFallbackVerdicts(messages, new Set(criteria.map((c) => c.id)))
@@ -3442,16 +3459,41 @@ export class GoalApp {
 /** Name why a verifier round stalled: Core reports "Permission denied:
  * external_directory" without the path, so pair it with the absolute paths
  * the child asked for outside the project and its granted read roots. */
+/** A goal_verdict call captured in the transcript but recorded too late. */
+export function verdictsFromTranscript(messages: unknown[], ids: Set<string>): VerifierVerdict[] {
+  for (const message of (messages ?? []) as Array<{ parts?: any[] }>) {
+    for (const part of message?.parts ?? []) {
+      if (part?.type !== "tool" || String(part?.tool ?? "") !== "goal_verdict") continue
+      const raw = part.state?.input
+      try {
+        const input = typeof raw === "string" ? JSON.parse(raw) : raw
+        const verdicts = Array.isArray(input?.verdicts) ? input.verdicts : []
+        const usable = verdicts.filter((v: any) => v && ids.has(String(v.id)) && ["proven", "not_proven", "contradicted"].includes(String(v.verdict)))
+        if (usable.length) return usable as VerifierVerdict[]
+      } catch { /* an unparseable call is not a verdict */ }
+    }
+  }
+  return []
+}
+
 export function verifierCause(messages: unknown[], allowedRoots: readonly string[]): string | undefined {
-  const text = JSON.stringify(messages ?? [])
-  if (!text.includes("external_directory")) return /permission denied/i.test(text) ? "a tool call was denied by permissions; see the transcript" : undefined
   const canon = (p: string) => p.replace(/^\/private(?=\/(?:var|tmp)\/)/, "")
   const inside = (p: string) => allowedRoots.some((root) => { const rel = relative(canon(root), canon(p)); return rel === "" || !rel.startsWith("..") && !rel.startsWith("/") })
   const paths: string[] = []
-  for (const match of text.matchAll(/\\?"(?:path|filePath|pattern|directory)\\?"\s*:\s*\\?"(\/[^"\\]+)/g))
-    if (!inside(match[1]!) && !paths.includes(match[1]!)) paths.push(match[1]!)
-  const where = paths.length ? ` to ${paths.slice(0, 5).join(", ")}${paths.length > 5 ? ` (+${paths.length - 5} more)` : ""}` : ""
-  return `denied external_directory access${where}; add the folder to verification.read in the contract or cite evidence inside the project`
+  for (const message of (messages ?? []) as Array<{ parts?: any[] }>) {
+    for (const part of message?.parts ?? []) {
+      if (part?.type !== "tool") continue
+      // Only a tool RESULT that says the permission was rejected is a denial.
+      // Reading a file whose text mentions external_directory is not.
+      const output = String(part.state?.output ?? part.state?.content ?? "")
+      if (!/permission\.rejected|Permission denied/i.test(output) || !/external_directory/i.test(output)) continue
+      const raw = part.state?.input
+      const asked = /"(?:path|filePath|directory|pattern)"\s*:\s*"([^"]+)"/.exec(typeof raw === "string" ? raw : JSON.stringify(raw ?? {}))?.[1]
+      if (asked && !inside(asked) && !paths.includes(asked)) paths.push(asked)
+    }
+  }
+  if (!paths.length) return undefined
+  return `denied external_directory access to ${paths.slice(0, 5).join(", ")}${paths.length > 5 ? ` (+${paths.length - 5} more)` : ""}; add the folder to verification.read in the contract or cite evidence inside the project`
 }
 
 function compactTranscript(messages: unknown[]): unknown[] {

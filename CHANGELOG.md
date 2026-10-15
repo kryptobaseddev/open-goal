@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.5 — 2026-10-15
+
+- **A late goal_verdict is still an answer (T108)** — a verifier that calls `goal_verdict` just after the per-round budget was recorded as "did not call goal_verdict" and the round thrown away. There is now a short grace window after the budget, and if the call is in the captured transcript it is used (`verifier-fallback`, ledger `from: "transcript"`). A verifier that never decides is still a failure.
+- **A slow round is not a denied one (T108)** — `verifierCause` scanned the whole transcript for "external_directory", so reading a file whose TEXT mentions it (the protected diagnostics test does) was reported as a permission denial. Only a tool result that actually says the permission was rejected counts, and a denial inside a granted `verification.read` root is not a denial either. This misfire narrated the goal engine's own verdict on this very work.
+
 ## 0.4.4 — 2026-10-15
 
 - **Reading goal state is not writing it (T108)** — the new write guard was too broad: a shell command that merely read the run state through an interpreter (`open('<path>')` with no write mode) was refused. Only a write call or an explicit write mode counts now. Found by using the guard on this very goal; red before the fix (1 pass / 1 fail), green after (2 / 0), with the case pinned in the guard test alongside `cat`, `grep` and `ls`.
