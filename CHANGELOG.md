@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4 — 2026-10-15
+
+- **Reading goal state is not writing it (T108)** — the new write guard was too broad: a shell command that merely read the run state through an interpreter (`open('<path>')` with no write mode) was refused. Only a write call or an explicit write mode counts now. Found by using the guard on this very goal; red before the fix (1 pass / 1 fail), green after (2 / 0), with the case pinned in the guard test alongside `cat`, `grep` and `ls`.
+
 ## 0.4.3 — 2026-10-15
 
 - **Every write path into a live goal folder is refused (T108)** — the guard covered edit/write/patch only, so an agent hand-merged `run.json` with a shell command (the reported file had duplicate `updatedAt`, `tokens`, `tools` and `lastUsageEmit` keys). Shell commands and scripts are now checked too — redirection, `tee`, `sed -i`, `mv`/`cp`/`rm`/`truncate`, and interpreters that write the path — and every refusal names the supported tool: `goal_progress`, `goal_wait`, `goal_block`, `goal_flag`, `goal_claim`, `goal_manage`, `goal_recover_divergence`. Reads still work, and another project's or an archived folder is unaffected.
