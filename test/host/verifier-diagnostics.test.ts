@@ -35,14 +35,16 @@ test("a timed-out verifier round keeps its transcript and names the denied sibli
   const roots: { sibling?: string } = {}
   const host = await goalHost(script(worker, (req) => {
     if (verifierStep(req) === 0) return { toolCalls: [{ name: "read", args: { path: roots.sibling } }] }
-    return { text: "still looking", delayMs: 30000 }
+    return { text: "still looking", delayMs: 90000 }
   }), {}, { plugin: plugin({ verifierTimeoutMs: 6000 }) })
   try {
     roots.sibling = join(host.root, "sibling", "notes.md")
     await Bun.write(roots.sibling, "SIBLING-EVIDENCE\n")
     const owner = await newSession(host)
     await host.client.session.command({ sessionID: owner, name: "goal", text: "start demo" } as never)
-    const verdict = await until(async () => (await ledger(host)).find((e) => e.type === "verdict"), 60000, 250)
+    // Rounds have a 60s floor (verifierTimeoutMs is clamped), so the stalled
+    // child times out at about 60s, well before its 90s reply.
+    const verdict = await until(async () => (await ledger(host)).find((e) => e.type === "verdict"), 120000, 250)
     const line = (verdict.lines as string[]).join("\n")
     expect(line).toContain("verifier timed out")
     expect(line).toContain("external_directory")
@@ -55,7 +57,7 @@ test("a timed-out verifier round keeps its transcript and names the denied sibli
     expect(JSON.stringify(transcript.messages)).toContain("read")
     expect((await run(host)).criteria.C3.status).not.toBe("pass")
   } finally { await host.stop() }
-}, 90000)
+}, 150000)
 
 test("contract-listed verifier read paths are readable, unlisted paths stay denied, and nothing becomes writable", async () => {
   const roots: Record<string, string> = {}
@@ -65,7 +67,8 @@ test("contract-listed verifier read paths are readable, unlisted paths stay deni
     if (step === 0) return { toolCalls: [{ name: "read", args: { path: roots.sibling } }] }
     if (step === 1) return { toolCalls: [{ name: "read", args: { path: roots.other } }] }
     if (step === 2) return { toolCalls: [{ name: "write", args: { path: roots.hack, content: "x" } }] }
-    return { toolCalls: [{ name: "goal_verdict", args: { verdicts: [{ id: "C3", verdict: "proven", reason: "states it", evidence: [{ path: "done.txt", quote: DONE.trim() }] }] } }] }
+    if (step === 3) return { toolCalls: [{ name: "goal_verdict", args: { verdicts: [{ id: "C3", verdict: "proven", reason: "states it", evidence: [{ path: "done.txt", quote: DONE.trim() }] }] } }] }
+    return { text: "Verdict recorded." }
   }), { ".opencode/goals/demo/goal.yaml": goal }, { plugin: plugin({ verifierTimeoutMs: 20000 }) })
   try {
     roots.sibling = join(host.root, "sibling", "notes.md")

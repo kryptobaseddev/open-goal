@@ -1,6 +1,7 @@
 // The goal engine: owns run state for this location, drives continuations from
 // session.execution.* events, injects the contract into every request, and runs
 // verification. Spike findings referenced as S1-S9 live in docs/spikes.md.
+import { createHash } from "node:crypto"
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -114,6 +115,11 @@ export class GoalApp {
    *  a reply dispatches the same act the TUI dialog would. */
   private pendingFormDecisions = new Map<string, { decisionId: string; kind: string; slug: string; choices: Array<{ label: string; act?: string; arg?: string }>; formID?: string; askedAt: number }>()
   private verifierInbox = new Map<string, VerifierVerdict[]>()
+  /** Verifier child → extra READ-ONLY roots the contract grants, and the
+   * external paths Core denied it (to name the cause of a stuck round). */
+  private verifierScopes = new Map<string, { allow: string[] }>()
+  /** Per-scope verifier agents (base agent + contract-listed read roots). */
+  private scopedVerifierAgents = new Set<string>()
   private timers = new Map<string, ReturnType<typeof setTimeout>>()
   private registrations: Array<{ dispose: () => Promise<void> | void }> = []
   private rpc?: { events: { emit: (name: any, data: any) => Promise<void> } }
@@ -2141,9 +2147,14 @@ export class GoalApp {
     // T053: the tracer shows the child running while it works
     state.activity = { kind: "verifier-child", since: Date.now(), ...(model ? { detail: model.label } : {}) }
     this.persist(state)
-    const child: any = await this.ctx.session.create({ parentID: state.sessionID, agent: this.options.verifierAgent, title: `goal verify · ${contract.id}`, ...(model ? { model: model.ref } : {}) } as any)
+    // Contract-listed extra READ-ONLY roots get their own agent: the same
+    // deny-all rules plus external_directory allows for exactly those roots.
+    const readRoots = contract.verification.read.map((p) => resolve(this.root, p))
+    const agentName = readRoots.length ? await this.scopedVerifierAgent(readRoots) : this.options.verifierAgent
+    const child: any = await this.ctx.session.create({ parentID: state.sessionID, agent: agentName, title: `goal verify · ${contract.id}`, ...(model ? { model: model.ref } : {}) } as any)
     const childID: string = child?.id ?? child?.data?.id
     this.verifierInbox.delete(childID)
+    this.verifierScopes.set(childID, { allow: readRoots })
     this.store.ledger(state.slug, { type: "verifier-model", turn: state.turn, model: model?.label ?? null })
     const lines: string[] = []
     lines.push("You are an independent completion verifier. You did not do this work and you gain nothing if it passes. Fail closed: a criterion is proven only if you can quote file text that proves it.")
@@ -2157,6 +2168,7 @@ export class GoalApp {
       lines.push(`  ${state.claim.summary}`)
       for (const [id, note] of Object.entries(state.claim.evidence)) lines.push(`  ${id}: ${note}`)
     }
+    if (readRoots.length) lines.push(`Besides the project, the owner lets you READ (never write) these paths: ${readRoots.join(", ")}. Every other path outside the project is denied.`)
     lines.push("Use read, glob and grep to inspect the repository. Then call goal_verdict exactly once with one entry per criterion above: verdict proven, not_proven or contradicted; a one-line reason; and for proven, evidence items with the file path (relative to the project root) and a verbatim quote of at least one full line. Do not answer in prose instead of calling the tool. If the tool is unavailable or fails, reply with ONLY a fenced json block as your final message: ```json {\"verdicts\":[{\"id\":\"C1\",\"verdict\":\"proven\",\"reason\":\"...\",\"evidence\":[{\"path\":\"relative/path\",\"quote\":\"verbatim line\"}]}]} ```")
     try {
       // T044: empty exchanges are retried once and always recorded — a silent
@@ -2184,6 +2196,9 @@ export class GoalApp {
         const timeout = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), perRoundMs))
         outcome = await Promise.race([this.ctx.session.wait({ sessionID: childID } as any).then(() => "done" as const), timeout])
         if (outcome === "timeout") {
+          // Read the transcript BEFORE ending the child: interrupting first
+          // left `messages: []`, hiding why the round hung (axiom C2 x3).
+          try { messages = ((await this.ctx.session.context({ sessionID: childID } as any)) ?? []) as unknown[] } catch { /* recorded as unavailable below */ }
           await this.ctx.session.interrupt({ sessionID: childID } as any).catch(() => {})
           break
         }
@@ -2211,18 +2226,20 @@ export class GoalApp {
           this.store.ledger(state.slug, { type: "verifier-fallback", turn: state.turn, count: parsed.length })
         }
       }
-      const transcript = this.store.evidence(state.slug, state.runId, `verifier-transcript-turn-${state.turn}-${Date.now()}`, { childID, done: outcome, by, rounds: round, retried, model: model?.label ?? null, messages: compactTranscript(messages) })
-      this.store.ledger(state.slug, { type: "verifier-transcript", turn: state.turn, by, rounds: round, retried, model: model?.label ?? null, file: transcript })
+      const cause = verifierCause(messages, [this.root, ...readRoots])
+      const transcript = this.store.evidence(state.slug, state.runId, `verifier-transcript-turn-${state.turn}-${Date.now()}`, { childID, done: outcome, by, rounds: round, retried, model: model?.label ?? null, ...(cause ? { cause } : {}), messages: compactTranscript(messages) })
+      this.store.ledger(state.slug, { type: "verifier-transcript", turn: state.turn, by, rounds: round, retried, model: model?.label ?? null, file: transcript, ...(cause ? { cause } : {}) })
       const error = verdicts.length
         ? undefined
         : outcome === "timeout"
-          ? "verifier timed out"
+          ? `verifier timed out${cause ? ` — ${cause}` : messages.length ? ` after ${messages.length} transcript message(s); see ${transcript}` : " with no transcript available"}`
           : exchangeEmpty(messages)
             ? `verifier exchange was empty after ${round} round(s); recorded under evidence/ — never silent`
             : "verifier did not call goal_verdict"
       return { verdicts, by, ...(verdicts.length ? {} : { error: error! }) }
     } finally {
       this.verifierInbox.delete(childID)
+      this.verifierScopes.delete(childID)
       await this.ctx.session.remove({ sessionID: childID } as any).catch(() => {})
     }
   }
@@ -2524,6 +2541,33 @@ export class GoalApp {
     return result
   }
 
+  private async scopedVerifierAgent(roots: string[]): Promise<string> {
+    const name = `${this.options.verifierAgent}-${createHash("sha256").update(roots.join("\n")).digest("hex").slice(0, 10)}`
+    if (this.scopedVerifierAgents.has(name)) return name
+    const variants = (root: string) => { const plain = root.replace(/^\/private(?=\/(?:var|tmp)\/)/, ""); return /^\/(?:var|tmp)\//.test(plain) ? [plain, `/private${plain}`] : [root] }
+    this.registrations.push(await this.ctx.agent.transform((editor: any) => {
+      editor.update(name, (agent: any) => {
+        agent.name = "Goal verifier (scoped)"
+        agent.description = "Independent read-only verifier with owner-listed extra read roots."
+        agent.mode = "subagent"
+        agent.hidden = true
+        agent.permissions.push(
+          { action: "*", resource: "*", effect: "deny" },
+          { action: "read", resource: "*", effect: "allow" },
+          { action: "glob", resource: "*", effect: "allow" },
+          { action: "grep", resource: "*", effect: "allow" },
+          { action: "goal_verdict", resource: "*", effect: "allow" },
+          ...roots.flatMap((root) => variants(root).flatMap((path) => [
+            { action: "external_directory", resource: path, effect: "allow" },
+            { action: "external_directory", resource: `${path}/*`, effect: "allow" },
+          ])),
+        )
+      })
+    }))
+    this.scopedVerifierAgents.add(name)
+    return name
+  }
+
   private async registerAgents() {
     const name = this.options.verifierAgent
     this.registrations.push(
@@ -2542,7 +2586,7 @@ export class GoalApp {
           )
         })
         for (const agent of editor.list()) {
-          if (String(agent.id) === name) continue
+          if (String(agent.id) === name || String(agent.id).startsWith(`${name}-`)) continue
           editor.update(String(agent.id), (item: any) => item.permissions.push({ action: "goal_verdict", resource: "*", effect: "deny" }))
         }
       }),
@@ -3232,7 +3276,7 @@ export class GoalApp {
           required: ["verdicts"],
         },
         async (args, context) => {
-          if (String(context.agent) !== this.options.verifierAgent) throw new Error("goal_verdict is reserved for the goal verifier.")
+          if (String(context.agent) !== this.options.verifierAgent && !this.scopedVerifierAgents.has(String(context.agent))) throw new Error("goal_verdict is reserved for the goal verifier.")
           const verdicts: VerifierVerdict[] = (args.verdicts ?? []).map((v: any) => ({ id: String(v.id).toUpperCase(), verdict: v.verdict, ...(v.reason ? { reason: String(v.reason) } : {}), evidence: Array.isArray(v.evidence) ? v.evidence.map((e: any) => ({ path: String(e.path), quote: String(e.quote) })) : [] }))
           this.verifierInbox.set(String(context.sessionID), verdicts)
           return "Verdict recorded. You are done; end your turn."
@@ -3252,6 +3296,21 @@ export class GoalApp {
 // ───────────────────────────── helpers
 
 /** Reduce a child session's messages to a storable, human-readable transcript. */
+/** Name why a verifier round stalled: Core reports "Permission denied:
+ * external_directory" without the path, so pair it with the absolute paths
+ * the child asked for outside the project and its granted read roots. */
+export function verifierCause(messages: unknown[], allowedRoots: readonly string[]): string | undefined {
+  const text = JSON.stringify(messages ?? [])
+  if (!text.includes("external_directory")) return /permission denied/i.test(text) ? "a tool call was denied by permissions; see the transcript" : undefined
+  const canon = (p: string) => p.replace(/^\/private(?=\/(?:var|tmp)\/)/, "")
+  const inside = (p: string) => allowedRoots.some((root) => { const rel = relative(canon(root), canon(p)); return rel === "" || !rel.startsWith("..") && !rel.startsWith("/") })
+  const paths: string[] = []
+  for (const match of text.matchAll(/\\?"(?:path|filePath|pattern|directory)\\?"\s*:\s*\\?"(\/[^"\\]+)/g))
+    if (!inside(match[1]!) && !paths.includes(match[1]!)) paths.push(match[1]!)
+  const where = paths.length ? ` to ${paths.slice(0, 5).join(", ")}${paths.length > 5 ? ` (+${paths.length - 5} more)` : ""}` : ""
+  return `denied external_directory access${where}; add the folder to verification.read in the contract or cite evidence inside the project`
+}
+
 function compactTranscript(messages: unknown[]): unknown[] {
   return messages.map((m) => {
     const message = m as { type?: string; role?: string; parts?: any[]; content?: any }
@@ -3262,8 +3321,12 @@ function compactTranscript(messages: unknown[]): unknown[] {
       parts: parts.map((p) => ({
         type: p?.type,
         ...(p?.text !== undefined ? { text: String(p.text).slice(0, 4000) } : {}),
-        ...(p?.tool !== undefined ? { tool: String(p.tool) } : {}),
-        ...(p?.state !== undefined ? { state: String(p.state) } : {}),
+        ...(p?.tool !== undefined ? { tool: String(p.tool) } : p?.type === "tool" && p?.name !== undefined ? { tool: String(p.name) } : {}),
+        ...(p?.state !== undefined ? typeof p.state === "object" && p.state
+          // Keep what a reader needs to see why a round stalled: the call,
+          // its status and a bounded slice of its output or error.
+          ? { state: String(p.state.status ?? "unknown"), input: JSON.stringify(p.state.input ?? null).slice(0, 2000), output: JSON.stringify(p.state.content ?? p.state.error ?? p.state.output ?? null).slice(0, 2000) }
+          : { state: String(p.state) } : {}),
       })),
     }
   })
