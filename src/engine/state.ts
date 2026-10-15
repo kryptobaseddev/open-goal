@@ -61,7 +61,7 @@ export type RunState = {
   claim?: { at: number; turn: number; summary: string; evidence: Record<string, string> }
   wait?: { until: number; reason: string }
   pending?: { messageID: string; turn: number; at: number; kind: PendingKind }
-  turnFacts: { tools: number; goalCalls: number; stepsChanged: boolean }
+  turnFacts: { tools: number; goalCalls: number; stepsChanged: boolean; progressRecorded: boolean }
   steers: number
   compacted: boolean
   /** last wall-clock ms the TUI/rpc was refreshed by a usage.recorded burst (T013) */
@@ -95,7 +95,7 @@ export function initialRun(contract: Contract, args: { sessionID: string; runId:
     wrapup: false,
     criteria: Object.fromEntries([...contract.criteria, ...contract.invariants].map((c) => [c.id, { status: "unknown", rejections: 0 } as CriterionState])),
     steps: Object.fromEntries(contract.plan.map((s, i) => [s.id, i === 0 ? "active" : "pending"])),
-    turnFacts: { tools: 0, goalCalls: 0, stepsChanged: false },
+    turnFacts: { tools: 0, goalCalls: 0, stepsChanged: false, progressRecorded: false },
     steers: 0,
     compacted: false,
     flags: [],

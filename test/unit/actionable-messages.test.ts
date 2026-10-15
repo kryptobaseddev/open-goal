@@ -17,6 +17,8 @@ const samples: Record<string, () => EngineMessage> = {
   goalSummary: () => M.goalSummary("goal complete — 5/5 criteria proven", 2, "complete"),
   amended: () => M.amended(2, "C15 needle 0.2.0 → 0.2.2"),
   policyApplied: () => M.policyApplied("amendment", "timeout", "criteria changed [C2]", "demo"),
+  stallReported: () => M.stallReported(3),
+  runStateRepaired: () => M.runStateRepaired("demo", ".opencode/goals/demo/run.json.corrupt-1.json"),
   divergenceChanged: () => M.divergenceChanged(),
   divergenceAdopted: () => M.divergenceAdopted("demo"),
   divergenceRestored: () => M.divergenceRestored("demo"),

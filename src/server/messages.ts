@@ -87,6 +87,10 @@ export const M = {
   divergenceChanged: () => msg("goal.divergence.changed", "warning", "The divergence changed since the review; nothing applied.", [{ label: "Review again", run: "goal_recover_divergence for a fresh recovery review" }]),
   divergenceAdopted: (slug: string) => msg("goal.divergence.adopted", "success", `Adopted the disk contract of ${slug} as a new journalled generation; the goal stays paused.`, [resume, status]),
   divergenceRestored: (slug: string) => msg("goal.divergence.restored", "success", `Restored the locked contract of ${slug}; the divergent bytes are kept as evidence. The goal stays paused.`, [resume, status]),
+  stallReported: (turns: number) =>
+    msg("goal.stall.reported", "warning", `No visible change for ${turns} turns, but the agent kept working: the run continues under the owner-set on_stall policy and this stall is recorded.`, [status, resume]),
+  runStateRepaired: (slug: string, kept: string) =>
+    msg("goal.runstate.repaired", "warning", `run.json for ${slug} was malformed or carried duplicate keys; it was rebuilt from the run's own ledger and evidence. The raw bytes are kept at ${kept}.`, [status, resume]),
   amended: (generation: number, summary: string) =>
     msg("goal.amended", "success", `Goal amended (generation ${generation}): ${summary}. The contract re-locked; the next turn renders the new text.`, [verify, status]),
   pausedAdmissionError: (reason: string) =>

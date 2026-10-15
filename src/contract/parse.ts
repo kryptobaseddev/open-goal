@@ -289,6 +289,7 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
     on_user_message: pick("autonomy.on_user_message", autonomyRaw.on_user_message, ["steer", "pause"] as const, "steer"),
     on_interrupt: pick("autonomy.on_interrupt", autonomyRaw.on_interrupt, ["pause", "resume-on-message"] as const, "pause"),
     amend: [],
+    on_stall: pick("autonomy.on_stall", autonomyRaw.on_stall, ["pause", "continue"] as const, "pause"),
   }
   if (autonomyRaw.amend !== undefined) {
     if (!Array.isArray(autonomyRaw.amend)) err("autonomy.amend", `amend must be a list of ${AMEND_CLASSES.join(", ")}`)

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
+import { until } from "./harness"
 
 // The reported file was a hand merge: duplicate "updatedAt", "tokens", "tools"
 // and "lastUsageEmit" keys. JSON.parse accepts that silently (last value wins),

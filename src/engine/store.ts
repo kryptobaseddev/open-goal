@@ -1,6 +1,6 @@
 // A goal is a folder: .opencode/goals/<slug>/ holds the owner's contract
 // (goal.yaml) and the plugin's run.json, ledger.jsonl and evidence/.
-import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, writeSync } from "node:fs"
+import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, writeFileSync, writeSync } from "node:fs"
 import { join } from "node:path"
 import { parseContract, type ParseResult } from "../contract/parse"
 import type { RunState } from "./state"
@@ -60,15 +60,35 @@ export class Store {
     return { ...parseContract(text, { slug }), text }
   }
 
-  readRun(slug: string, options: { archived?: boolean } = {}): RunState | undefined {
+  /** T108: the raw bytes plus any duplicated object keys. JSON.parse silently
+   * keeps the last duplicate, so a hand merge (the reported shape: two
+   * "updatedAt", "tokens", "tools", "lastUsageEmit") would otherwise become the
+   * run's state without anyone writing it on purpose. */
+  readRunRaw(slug: string, options: { archived?: boolean } = {}): { text: string; duplicates: string[] } | undefined {
     const path = join(options.archived ? this.archivedPath(slug) : this.dir(slug), "run.json")
     if (!existsSync(path)) return undefined
+    const text = readFileSync(path, "utf8")
+    return { text, duplicates: duplicateJsonKeys(text) }
+  }
+
+  readRun(slug: string, options: { archived?: boolean } = {}): RunState | undefined {
+    const raw = this.readRunRaw(slug, options)
+    if (!raw || raw.duplicates.length) return undefined
     try {
-      const value = JSON.parse(readFileSync(path, "utf8"))
+      const value = JSON.parse(raw.text)
       return value?.version === 1 ? (value as RunState) : undefined
     } catch {
       return undefined
     }
+  }
+
+  /** Keep the exact bytes a corrupt run.json had, beside the run. */
+  keepCorruptRun(slug: string, text: string, at = Date.now()): string {
+    const dir = this.dir(slug)
+    mkdirSync(dir, { recursive: true })
+    const path = join(dir, `run.json.corrupt-${at}.json`)
+    writeFileSync(path, text, { mode: 0o600 })
+    return path
   }
 
   writeRun(state: RunState) {
@@ -203,4 +223,41 @@ export class Store {
     }
     return file
   }
+}
+
+/** Duplicated keys inside any JSON object, as dotted paths. A tiny scanner,
+ * because JSON itself cannot report them. */
+export function duplicateJsonKeys(text: string): string[] {
+  const duplicates: string[] = []
+  const stack: Array<{ keys: Set<string>; path: string }> = []
+  let i = 0, pending = ""
+  while (i < text.length) {
+    const ch = text[i]!
+    if (ch === '"') {
+      let j = i + 1, raw = ""
+      while (j < text.length) {
+        if (text[j] === "\\") { raw += text[j + 1] ?? ""; j += 2; continue }
+        if (text[j] === '"') break
+        raw += text[j]
+        j++
+      }
+      i = j + 1
+      // A string is a key when the next non-space character is ':'.
+      let k = i
+      while (k < text.length && /\s/.test(text[k]!)) k++
+      if (text[k] === ":" && stack.length) {
+        const level = stack[stack.length - 1]!
+        const path = level.path ? `${level.path}.${raw}` : raw
+        if (level.keys.has(raw)) duplicates.push(path)
+        level.keys.add(raw)
+        pending = path
+      }
+      continue
+    }
+    if (ch === "{") { stack.push({ keys: new Set(), path: pending }); pending = ""; i++; continue }
+    if (ch === "}") { stack.pop(); pending = ""; i++; continue }
+    if (ch === "," || ch === ":" || ch === "[" || ch === "]") { if (ch === ",") pending = ""; i++; continue }
+    i++
+  }
+  return [...new Set(duplicates)]
 }

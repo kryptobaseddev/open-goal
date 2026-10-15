@@ -72,6 +72,9 @@ export type Autonomy = {
   on_interrupt: "pause" | "resume-on-message"
   /** Owner-set policy: classes the agent may apply itself (default none). */
   amend: AmendClass[]
+  /** Owner-set: what the stall detector does. `pause` (default) stops for the
+   * owner; `continue` keeps a stalled-but-active run going with a report. */
+  on_stall: "pause" | "continue"
 }
 
 export type VerificationMode = "host" | "host+verifier" | "strict"

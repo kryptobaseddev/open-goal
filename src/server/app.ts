@@ -174,7 +174,7 @@ export class GoalApp {
   /** Running goals from a previous process come back paused (never resumed blindly). */
   private recover() {
     for (const slug of this.store.slugs()) {
-      const state = this.store.readRun(slug)
+      const state = this.recoverRunState(slug)
       if (!state) continue
       if (isActive(state.status)) {
         setStatus(state, "paused", "host restarted; resume when ready")
@@ -196,6 +196,60 @@ export class GoalApp {
       }
       this.runs.set(state.sessionID, state)
     }
+  }
+
+  /** T108: a run.json that is malformed or carries duplicate keys is never
+   * silently trusted (JSON would keep the last duplicate). Repair exactly what
+   * the run's own ledger and evidence prove; otherwise refuse and leave it to
+   * the owner. */
+  private recoverRunState(slug: string): RunState | undefined {
+    const raw = this.store.readRunRaw(slug)
+    if (!raw) return undefined
+    let parsed: RunState | undefined
+    try {
+      const value = JSON.parse(raw.text)
+      parsed = value?.version === 1 ? (value as RunState) : undefined
+    } catch { parsed = undefined }
+    if (parsed && !raw.duplicates.length) return parsed
+
+    const reason = raw.duplicates.length
+      ? `run.json carried duplicate keys (${raw.duplicates.join(", ")}); JSON keeps the last value silently`
+      : "run.json is not valid JSON"
+    this.store.ledger(slug, { type: "run-state-corruption", duplicateKeys: raw.duplicates, reason })
+
+    const repaired = this.repairRunState(slug, raw.text, raw.duplicates)
+    if (repaired) return repaired
+    this.store.ledger(slug, { type: "run-state-unprovable", duplicateKeys: raw.duplicates, reason,
+      detail: "the run's own ledger/evidence cannot prove its runId, lock and session; owner decision required" })
+    return undefined
+  }
+
+  /** Prove the run's identity from its own bytes: the ledger's last start event
+   * plus the locked contract snapshot. Nothing is taken from the corrupt file. */
+  private repairRunState(slug: string, text: string, duplicates: string[]): RunState | undefined {
+    const start = this.store.recent(slug, 5000).filter((e) => e.type === "start" && typeof e.runId === "string" && typeof e.sessionID === "string" && typeof e.lock === "string").at(-1)
+    if (!start) return undefined
+    const runId = String(start.runId), sessionID = String(start.sessionID), lock = String(start.lock)
+    const snapshot = join(this.store.dir(slug), "evidence", runId, `contract-${lock}.yaml`)
+    const plain = join(this.store.dir(slug), "evidence", runId, "contract.yaml")
+    const source = existsSync(snapshot) ? snapshot : existsSync(plain) ? plain : undefined
+    if (!source) return undefined
+    const parsed = parseContract(readFileSync(source, "utf8"), { slug })
+    if (!parsed.contract || parsed.lock !== lock) return undefined
+
+    const kept = this.store.keepCorruptRun(slug, text)
+    const lastTurn = this.store.recent(slug, 5000).filter((e) => e.type === "turn" && typeof e.turn === "number").at(-1)
+    const state = initialRun(parsed.contract, { sessionID, runId, lock, ...(typeof start.commit === "string" ? { commit: start.commit } : {}) })
+    state.turn = Number(lastTurn?.turn ?? 0)
+    for (const id of Object.keys(state.criteria)) {
+      const recorded = this.store.recent(slug, 5000).findLast((e) => e.type === "criterion" && e.criterion === id) as any
+      if (recorded?.status) state.criteria[id] = { status: recorded.status, rejections: 0, ...(recorded.by ? { by: recorded.by } : {}) }
+    }
+    setStatus(state, "paused", "run state was repaired from its own ledger and evidence; resume when ready")
+    this.store.writeRun(state)
+    this.store.ledger(slug, { type: "run-state-repaired", kept, runId, lock, sessionID, duplicateKeys: duplicates, turn: state.turn })
+    this.noticeM(sessionID, M.runStateRepaired(slug, kept))
+    return state
   }
 
   /** Serialize state mutations so concurrent events cannot interleave writes. */
@@ -1987,11 +2041,15 @@ export class GoalApp {
     const fp = fingerprint(this.root)
     const changed = fp !== undefined && fp !== state.fingerprint
     state.fingerprint = fp
-    let progress = changed || state.turnFacts.stepsChanged
+    // T108: recording progress with goal_progress is the supported way for an
+    // agent to say what it did; it must count, or agents are pushed to editing
+    // run.json to make their work visible. Host-visible activity is recorded
+    // too, so a stalled-but-working run is never described as idle.
+    let progress = changed || state.turnFacts.stepsChanged || state.turnFacts.progressRecorded
     if (changed && this.options.liveChecks) progress = (await this.liveChecks(state, contract)) || progress
     state.counters.noProgress = progress ? 0 : state.counters.noProgress + 1
-    this.store.ledger(state.slug, { type: "turn", turn: state.turn, kind, tools: state.turnFacts.tools, changed, progress, noProgress: state.counters.noProgress })
-    state.turnFacts = { tools: 0, goalCalls: 0, stepsChanged: false }
+    this.store.ledger(state.slug, { type: "turn", turn: state.turn, kind, tools: state.turnFacts.tools, activity: state.turnFacts.tools > 0, changed, progress, noProgress: state.counters.noProgress })
+    state.turnFacts = { tools: 0, goalCalls: 0, stepsChanged: false, progressRecorded: false }
 
     if (state.blocker && state.blocker.count >= this.options.blockerRepeats) {
       setStatus(state, "blocked", `${state.blocker.key}: ${state.blocker.reason}`)
@@ -2017,8 +2075,23 @@ export class GoalApp {
     }
 
     if (state.counters.noProgress >= this.options.stallTurns) {
-      setStatus(state, "paused", `stalled: no change the host could see for ${state.counters.noProgress} turns`)
-      this.store.ledger(state.slug, { type: "paused", reason: state.reason })
+      const stalled = state.counters.noProgress
+      const active = this.store.recent(state.slug, 100).filter((e) => e.type === "turn").slice(-stalled).some((e) => e.activity === true || Number(e.tools) > 0)
+      const reason = active
+        ? `stalled: no visible change for ${stalled} turns while the agent kept working (host-visible activity)`
+        : `stalled: no change the host could see for ${stalled} turns`
+      this.store.ledger(state.slug, { type: "stall", turns: stalled, activity: active, reason, policy: contract.autonomy.on_stall })
+      // Owner-set policy: a genuinely stalled-but-active run may continue with a
+      // recorded report instead of pausing. Idle runs and the default still stop.
+      if (active && contract.autonomy.on_stall === "continue") {
+        state.counters.noProgress = 0
+        this.store.ledger(state.slug, { type: "stall-report", turns: stalled, action: "continued", policy: contract.autonomy.on_stall })
+        this.noticeM(state.sessionID, M.stallReported(stalled))
+        this.persist(state)
+        return this.schedule(state, this.options.cooldownMs, "continue")
+      }
+      setStatus(state, "paused", reason)
+      this.store.ledger(state.slug, { type: "paused", reason: state.reason, activity: active })
       this.noticeM(state.sessionID, M.pausedStalled(state.reason ?? "stalled"))
       return this.persist(state)
     }
@@ -3063,7 +3136,7 @@ export class GoalApp {
           const ownedRunPath = live.some((s) => rel === `.opencode/goals/${s.slug}` || rel.startsWith(`.opencode/goals/${s.slug}/`))
           const ownerReceipt = /^\.opencode\/goals\/\.(?:owner-|launch-approvals)/.test(rel)
           if (rel.startsWith(".opencode/goals-archive/") || ownerReceipt || ownedRunPath || state && !isTerminal(state.status) && rel.startsWith(".opencode/goals/"))
-            throw new Error("The goal contract and run state are owned by the owner and the host. Do not edit a live goal folder, owner consent records or archived history. Use goal_propose_amendment to stage a diff for native owner acceptance.")
+            throw new Error("The goal contract and run state are owned by the owner and the host. Do not edit a live goal folder, owner consent records or archived history. Run state changes go through goal_progress, goal_wait, goal_block, goal_flag, goal_claim, goal_manage or goal_recover_divergence; a contract change goes through goal_propose_amendment for native owner acceptance.")
           // A goal-less manager session may propose a diff, but it is not a
           // loophole for editing another session's protected oracle.
           if (live.some((s) => this.contractOf(s)?.protect.some((g) => globMatch(rel, g))))
@@ -3179,6 +3252,9 @@ export class GoalApp {
             }
             state.progress = { note: String(args.note).slice(0, 400), ...(args.next ? { next: String(args.next).slice(0, 400) } : {}), at: Date.now(), turn: state.turn }
             state.turnFacts.goalCalls += 1
+            // T108: a recorded progress note is host-visible work, so it counts
+            // as progress for the stall detector.
+            state.turnFacts.progressRecorded = true
             this.store.ledger(state.slug, { type: "progress", turn: state.turn, step: args.step, done: !!args.step_done, note: state.progress.note, next: state.progress.next })
             this.persist(state)
             return { ok: true, recorded: true, status: state.status, slug: state.slug, runId: state.runId, message: "Recorded. Plan progress does not approve completion criteria." }
@@ -3518,7 +3594,40 @@ function targetPaths(tool: string, input: any): string[] {
   if (!input || typeof input !== "object") return []
   if ((tool === "edit" || tool === "write") && typeof input.path === "string") return [input.path]
   if (tool === "patch" && typeof input.patchText === "string") return [...input.patchText.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map((m) => m[1]!.trim())
+  if ((tool === "shell" || tool === "bash" || tool === "execute") && typeof input.command === "string") return shellWriteTargets(input.command)
   return []
+}
+
+/** T108: a shell command or script is another reachable write path into a live
+ * goal folder. Reads must stay allowed, so only a write-shaped use of the path
+ * counts: redirection, tee, in-place edit, move/copy/remove, a truncating
+ * descriptor, or an inline interpreter that writes it. */
+export function shellWriteTargets(command: string): string[] {
+  const goals = /(?:\.opencode\/goals\/|\/\.opencode\/goals\/)/g
+  const found = new Set<string>()
+  for (const match of command.matchAll(goals)) {
+    const at = match.index! + match[0].length
+    const rest = command.slice(at)
+    const path = /\.opencode\/goals\/([^\s'";|&)>]+)/.exec(match[0] + rest)
+    const relative = path ? `.opencode/goals/${path[1]}` : undefined
+    if (!relative) continue
+    const escaped = relative.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const writeish = [
+      new RegExp(`>>?\\s*['\"]?${escaped}`), // > path, >> path
+      new RegExp(`\\btee\\b[^|;&]*${escaped}`), // tee path
+      new RegExp(`\\bsed\\b[^|;&]*-i[^|;&]*${escaped}`), // sed -i path
+      new RegExp(`\\b(?:mv|cp|install|rm|truncate|touch|chmod|chown|ln|dd)\\b[^|;&]*${escaped}`), // move/remove/replace
+      new RegExp(`[|>]\\s*['\"]?${escaped}`),
+      new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*${escaped}[\s\S]*?(?:\\.write\\(|open\\([^)]*['\"][wa]|writeFile|appendFile|createWriteStream|>>?)`),
+      new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*?(?:\\.write\\(|open\\([^)]*['\"][wa]|writeFile|appendFile|createWriteStream)[\s\S]*${escaped}`),
+      // open('<path>', 'w') and friends put the write beside the path itself.
+      new RegExp(`(?:open|writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|truncate)\\(\\s*['\"]${escaped}['\"]`),
+      new RegExp(`['\"]${escaped}['\"]\\s*,\\s*['\"][wa]`),
+      new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*?(?:writeFile|appendFile|createWriteStream|truncate|unlink|rename|copyFile)`),
+    ].some((pattern) => pattern.test(command))
+    if (writeish) found.add(relative)
+  }
+  return [...found]
 }
 
 function globMatch(file: string, glob: string): boolean {

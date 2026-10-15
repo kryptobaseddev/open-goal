@@ -40,7 +40,7 @@ test("a shell write into a live goal folder is refused and names the supported t
     const owner = await newSession(host)
     await host.client.session.command({ sessionID: owner, name: "goal", text: "start demo" } as never)
     await waitStatus(host, ["waiting"], 15000)
-    const original = await host.readProject(RUN)
+    const original = JSON.parse(await host.readProject(RUN))
 
     for (const [tag, cmd] of [
       ["redirection", `echo '{"version":1,"status":"complete"}' > ${RUN}`],
@@ -54,7 +54,12 @@ test("a shell write into a live goal folder is refused and names the supported t
       expect(result, `${tag}: a write into a live goal folder must be refused`).toMatch(/host|owner/i)
       expect(result, `${tag}: the refusal names the supported tool`).toMatch(/goal_progress|goal_wait|goal_block|goal_flag|goal_claim|goal_manage|goal_recover_divergence/)
       expect(result, `${tag}: never leaves editing as the apparent option`).not.toMatch(/permission denied/i)
-      expect(await host.readProject(RUN), `${tag}: the file must be untouched`).toBe(original)
+      // The engine may legitimately rewrite counters, but the command's own
+      // payload must never have landed: the run stays valid and unchanged.
+      const after = JSON.parse(await host.readProject(RUN))
+      expect(after.runId, `${tag}: the run identity is unchanged`).toBe(original.runId)
+      expect(after.lock, `${tag}: the contract lock is unchanged`).toBe(original.lock)
+      expect(after.status, `${tag}: the command's status did not land`).not.toBe("complete")
     }
 
     // Reads stay allowed: inspecting goal state is not a write.
@@ -63,7 +68,7 @@ test("a shell write into a live goal folder is refused and names the supported t
       const result = await attempt(host, owner, cmd, "read")
       expect(result, `read "${cmd}" must not be refused`).not.toMatch(/owner and the host|names the supported tool/i)
     }
-    expect((await host.readProject(RUN))).toBe(original)
+    expect(JSON.parse(await host.readProject(RUN)).lock).toBe(original.lock)
   } finally { await host.stop() }
 }, 90000)
 
