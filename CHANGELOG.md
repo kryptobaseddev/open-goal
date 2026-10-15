@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-10-15
+
+- **Recover a contract edited outside the engine (T101)** — when a live goal's `goal.yaml` differs from its lock, `goal_recover_divergence` (callable from any live session of the project) offers the owner the exact difference and last-writer provenance: Adopt disk version (a new journalled generation; changed criteria reset), Restore locked version (locked bytes written back, divergent bytes kept under evidence/) or Leave unchanged. An unaccepted proposal with matching bytes and a dead author is shown as provenance, never counted as consent, and is superseded by the owner's pick. This unblocks the shape where staging and acceptance both refused.
+- **Owner-set agent autonomy (T101)** — `autonomy.amend: [timeout, budget, plan, recover]` lets the agent apply those changes itself through the same write-ahead journal as an owner acceptance, recorded `by: agent-policy`, announced in the banner and undoable with `/goal revert <slug>`. Changed criteria statements or checks, protect, scope, verification mode, stop rules or the policy itself are refused and routed to the owner. Default is today's owner-only behaviour.
+- **Diagnosable verifier timeouts (T101)** — the child transcript is read before the round is interrupted (it used to record `messages: []`), keeps each tool call's name, input and bounded output, and the verdict names the cause, e.g. `denied external_directory access to /path/sibling`.
+- **Opt-in verifier read paths (T101)** — `verification.read` lists folders outside the project the verifier may read. A per-scope verifier agent allows only those roots; writes and every other outside path stay denied.
+- **Parallel launch slugs re-tested on OpenCode 2.0.29** — the protected oracle passes with per-boundary records; the historical 2.0.27 report remains unreproduced and is not claimed fixed.
+
 ## 0.3.15 — 2026-10-14
 
 - **Actual owner chat can start a reviewed draft (T105, P0)** — an explicit start/continue-goal instruction is fetched from the authoring session, bound to the latest actually displayed unchanged contract and mode, and consumed once in a distinct admission receipt. Expired form answers stay expired; quoted, conditional, foreign, changed, ambiguous, child-session and spent authority cannot launch. A sole matching pending launch question can be unheld without accepting it. Existing live goals still use guarded management, not inferred chat replacement.

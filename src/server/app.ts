@@ -1019,7 +1019,7 @@ export class GoalApp {
     this.retireAmendmentReviews(approved)
     this.invalidateOldDecision(state)
     if (recovery) this.store.ledger(state.slug, { type: "divergence-adopted", by: "agent-policy", decisionId: p.id, oldLock, newLock: nextLock, policyClasses: classes })
-    this.notice(state.sessionID, `Agent applied an in-policy ${kind} (${classes.join(", ")}): ${diff.summary}. Undo with /goal revert ${state.slug}.`, "warning")
+    this.noticeM(state.sessionID, M.policyApplied(kind, classes.join(", "), diff.summary, state.slug))
     this.emitUpdate(state)
     return { ok: true, applied: true, appliedBy: "agent-policy", decisionId: p.id, slug: state.slug, runId: state.runId, lock: oldLock, nextLock, policyClasses: classes, diff,
       message: `Applied under the owner-set autonomy policy (${classes.join(", ")}); journalled as ${p.id} and revertible by the owner. Re-read the contract before continuing.` }
@@ -1104,7 +1104,7 @@ export class GoalApp {
       if (!state || isTerminal(state.status) || state.runId !== request.runId || state.lock !== request.lock || !disk || disk.lock !== request.nextLock) {
         this.amendmentReviews.update(request.id, { status: "failed", result: "Run or disk contract changed since review; nothing applied." })
         this.store.ledger(request.slug, { type: "divergence-recovery-failed", decisionId: request.id, reason: "review binding changed" })
-        this.notice(request.sessionID, "The divergence changed since the review; nothing applied. Ask for a fresh recovery review.", "warning")
+        this.noticeM(request.sessionID, M.divergenceChanged())
         return
       }
       if (!this.amendmentReviews.reserve(request.id)) return
@@ -1128,7 +1128,7 @@ export class GoalApp {
           this.retireAmendmentReviews(approved)
           this.invalidateOldDecision(state)
           this.store.ledger(request.slug, { type: "divergence-adopted", by: "owner", decisionId: request.id, oldLock: request.lock, newLock: request.nextLock })
-          this.notice(request.sessionID, `Adopted the disk contract of ${request.slug} as a new journalled generation; the goal stays paused.`, "success")
+          this.noticeM(request.sessionID, M.divergenceAdopted(request.slug))
           this.emitUpdate(state)
         } catch (error) {
           this.store.ledger(request.slug, { type: "amendment-commit-interrupted", decisionId: request.id, error: String(error) })
@@ -1146,7 +1146,7 @@ export class GoalApp {
             this.store.ledger(request.slug, { type: "amendment-review-superseded", decisionId: other.id, restoredBy: request.id, actionExecuted: false })
           }
         this.store.ledger(request.slug, { type: "divergence-restored", by: "owner", decisionId: request.id, lock: request.lock, discardedLock: disk.lock, kept })
-        this.notice(request.sessionID, `Restored the locked contract of ${request.slug}; the divergent bytes are kept as evidence.`, "success")
+        this.noticeM(request.sessionID, M.divergenceRestored(request.slug))
         this.emitUpdate(state)
       } catch (error) {
         this.amendmentReviews.update(request.id, { status: "failed", result: `Restore failed; nothing written: ${String(error)}` })

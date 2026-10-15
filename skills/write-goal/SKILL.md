@@ -116,6 +116,21 @@ form remains a blocker; dismissing a form alone isn't approval. On older install
 report the capability gap rather than replaying a timed choice or fabricating an
 owner API call. Always check `goal_status`: an expired receipt isn't a running goal.
 
+If a live goal's `goal.yaml` on disk differs from its locked contract (an edit
+made outside the engine, so staging and acceptance refuse), call
+`goal_recover_divergence` with `{slug, expectedLock}` from any live session of
+that project. The host shows the owner the exact difference and last-writer
+provenance with **Adopt disk version / Restore locked version / Leave
+unchanged**. An unaccepted proposal whose text matches the disk bytes is
+evidence, never consent. Never restore or edit the YAML by hand.
+
+Ask about agent autonomy during the interview when the owner wants fewer
+interruptions: `autonomy.amend` lists change classes (`timeout`, `budget`,
+`plan`, `recover`) the agent applies itself, journalled and undoable with
+`/goal revert <slug>`. The owner sets it; the agent can never widen it. Ask
+whether the verifier must read sibling folders; list them under
+`verification.read` (read-only) instead of letting rounds time out.
+
 If `goal_manage` returns `requiredReview` for an unresolved amendment, don't request
 another resume choice: the prerequisite prevents it from executing. The author can
 restore that exact review with `goal_review`; a live session may instead stage a

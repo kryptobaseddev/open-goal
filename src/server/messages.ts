@@ -82,6 +82,11 @@ export const M = {
       { label: "Show status", run: "/goal status" },
       ...(status2 === "complete" ? [{ label: "Archive", run: "/goal archive", act: "archive" }, { label: "Start the next goal", run: "/goal new <what you want next>" }] : [{ label: "Resolve review", run: "/goal approve <C#>" }]),
     ]),
+  policyApplied: (kind: string, classes: string, summary: string, slug: string) =>
+    msg("goal.policy.applied", "warning", `Agent applied an in-policy ${kind} (${classes}): ${summary}. It is journalled; the owner can undo it.`, [{ label: "Undo this change", run: `/goal revert ${slug}` }, status]),
+  divergenceChanged: () => msg("goal.divergence.changed", "warning", "The divergence changed since the review; nothing applied.", [{ label: "Review again", run: "goal_recover_divergence for a fresh recovery review" }]),
+  divergenceAdopted: (slug: string) => msg("goal.divergence.adopted", "success", `Adopted the disk contract of ${slug} as a new journalled generation; the goal stays paused.`, [resume, status]),
+  divergenceRestored: (slug: string) => msg("goal.divergence.restored", "success", `Restored the locked contract of ${slug}; the divergent bytes are kept as evidence. The goal stays paused.`, [resume, status]),
   amended: (generation: number, summary: string) =>
     msg("goal.amended", "success", `Goal amended (generation ${generation}): ${summary}. The contract re-locked; the next turn renders the new text.`, [verify, status]),
   pausedAdmissionError: (reason: string) =>
