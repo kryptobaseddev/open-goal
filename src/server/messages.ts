@@ -124,8 +124,11 @@ export const M = {
       { label: "Keep steering", run: "keep replying in the session" },
       abort,
     ], "error"),
-  pausedStalled: (why: string) =>
-    msg("goal.paused.stalled", "info", `Goal paused — ${why}. /goal resume to continue.`, [resume, abort]),
+  // T111: the stall notice names the owner-set autonomy.on_stall option and the
+  // owner's choices, so a stalled run points at /goal resume and at the policy
+  // that would have auto-continued a genuinely working run.
+  pausedStalled: (why: string, onStall: "pause" | "continue" = "pause") =>
+    msg("goal.paused.stalled", "info", `Goal paused — ${why}. Your autonomy.on_stall is "${onStall}". Choices: /goal resume to continue, /goal abort to stop, or set autonomy.on_stall: continue in goal.yaml so a stalled-but-active run keeps going with a recorded report.`, [resume, abort]),
   verifying: () => msg("goal.verifying", "info", `Verifying the goal: host checks run first, then the independent verifier child. Nothing to do until goal.summary lands.`, [{ label: "Show status", run: "/goal status" }]),
   complete: (title: string, caveats: number) =>
     msg("goal.complete", "success", `Goal complete: ${title}.${caveats ? ` ${caveats} caveat${caveats > 1 ? "s" : ""} in the summary (provenance/unproven scope).` : ""} Every required criterion was verified. The loop has stopped — nothing further runs on its own; follow-ups live in the summary dialog and the goal folder.`, [

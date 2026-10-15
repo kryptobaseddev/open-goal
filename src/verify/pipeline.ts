@@ -87,7 +87,24 @@ function failure(check: Extract<Check, { kind: "command" }>, result: ShellResult
 
 const collapse = (s: string) => s.replace(/\s+/g, " ").trim()
 
-/** The host re-reads every quote the verifier cites; an unverifiable quote is no evidence. */
+/** T108: JUnit/XML bytes carry entity escapes (`&#10;`, `&quot;`, `&lt;`). A
+ * verifier that quotes the *decoded* line it read (a newline, a quote mark) did
+ * not match the raw XML, so a correct round was rejected as "quoted text not
+ * found" — the live C5 failure. Decode both sides before comparing. */
+export function decodeEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (m, h) => { try { return String.fromCodePoint(parseInt(h, 16)) } catch { return m } })
+    .replace(/&#(\d+);/g, (m, d) => { try { return String.fromCodePoint(Number(d)) } catch { return m } })
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+}
+
+/** The host re-reads every quote the verifier cites; an unverifiable quote is no
+ * evidence. A quote may match the raw bytes or their entity-decoded equivalent,
+ * so both the raw junit and a plain-text renderer of the same line are accepted. */
 export function checkQuotes(root: string, verdict: VerifierVerdict): { ok: boolean; why?: string } {
   if (verdict.verdict !== "proven") return { ok: false, why: verdict.reason ?? verdict.verdict }
   if (!verdict.evidence.length) return { ok: false, why: "verifier cited no evidence" }
@@ -95,7 +112,10 @@ export function checkQuotes(root: string, verdict: VerifierVerdict): { ok: boole
     const path = inside(root, item.path)
     if (!path || !existsSync(path)) return { ok: false, why: `cited file ${item.path} does not exist` }
     if (!item.quote || collapse(item.quote).length < 8) return { ok: false, why: `quote from ${item.path} is too short to check` }
-    if (!collapse(readFileSync(path, "utf8")).includes(collapse(item.quote))) return { ok: false, why: `quoted text not found in ${item.path}` }
+    const raw = readFileSync(path, "utf8")
+    const hit = (hay: string, needle: string) => collapse(hay).includes(collapse(needle))
+    if (!hit(raw, item.quote) && !hit(decodeEntities(raw), decodeEntities(item.quote)))
+      return { ok: false, why: `quoted text not found in ${item.path} (raw or entity-decoded)` }
   }
   return { ok: true }
 }

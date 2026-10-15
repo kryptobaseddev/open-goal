@@ -306,6 +306,11 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
   const verifierRead = strings(verificationRaw.read)
   if (verificationRaw.read !== undefined && !Array.isArray(verificationRaw.read)) err("verification.read", "read must be a list of folders the verifier may read")
   for (const path of verifierRead) if (/[*?[\]{}]/.test(path)) err("verification.read", `"${path}" must be a plain folder or file path, not a glob`)
+  // T107: the contract may name the verifier child's model and effort. The
+  // strings are kept verbatim; the engine decides validity at run time and
+  // falls back with a recorded reason, so a bad value never blocks a launch.
+  const verifierModel = str(verificationRaw.model)
+  const verifierEffort = str(verificationRaw.effort)
 
   const scopeRaw = isRecord(raw.scope) ? raw.scope : {}
   const stopRaw = isRecord(raw.stop) ? raw.stop : {}
@@ -342,7 +347,7 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
     budget,
     stop: { ...(str(stopRaw.when) ? { when: str(stopRaw.when) } : {}), escalate_when: strings(stopRaw.escalate_when) },
     autonomy,
-    verification: { mode, max_rejections: maxRejections, read: verifierRead },
+    verification: { mode, max_rejections: maxRejections, read: verifierRead, ...(verifierModel ? { model: verifierModel } : {}), ...(verifierEffort ? { effort: verifierEffort } : {}) },
     execution: str(executionRaw.agent) ? { agent: str(executionRaw.agent) } : {},
     meta: isRecord(raw.meta) ? raw.meta : {},
   }

@@ -41,7 +41,7 @@ const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
       .finally(() => clearTimeout(timer))
   })
 import { ascendingId, runId as newRunId } from "../util/ids"
-import { fingerprint, headCommit } from "../util/git"
+import { fingerprint, gitDigest, headCommit } from "../util/git"
 import { runHostCheck, verifyClaim, type VerifierVerdict } from "../verify/pipeline"
 import { runShell } from "../util/shell"
 import { captureArtifactHashes, type RuntimeProvenance } from "../verify/artifact"
@@ -63,6 +63,8 @@ export type Options = {
   verifierAgent: string
   /** Verifier round budget in ms (each of the 2 rounds gets this; 240s default; config-overridable). */
   verifierTimeoutMs: number
+  /** T110: the floor a round budget is clamped to. 60s by default, config-overridable so a host test can exercise verdict handling far below the 60s floor. */
+  verifierMinRoundMs: number
   /** Grace after the per-round budget during which a late goal_verdict counts. */
   verifierGraceMs: number
   liveChecks: boolean
@@ -78,6 +80,7 @@ export const DEFAULTS: Options = {
   maxPromptFailures: 3,
   verifierAgent: "goal-verifier",
   verifierTimeoutMs: 240_000,
+  verifierMinRoundMs: 60_000,
   verifierGraceMs: 30_000,
   liveChecks: true,
   launchApprovalMs: 10 * 60_000,
@@ -2095,7 +2098,7 @@ export class GoalApp {
       }
       setStatus(state, "paused", reason)
       this.store.ledger(state.slug, { type: "paused", reason: state.reason, activity: active })
-      this.noticeM(state.sessionID, M.pausedStalled(state.reason ?? "stalled"))
+      this.noticeM(state.sessionID, M.pausedStalled(state.reason ?? "stalled", contract.autonomy.on_stall))
       return this.persist(state)
     }
 
@@ -2188,7 +2191,9 @@ export class GoalApp {
     // The host records its own serving artifact before checks start. The
     // shell check is explicitly bound to this run and process, not the
     // globally discoverable OpenCode service (which may be another server).
-    await this.provenance(state.sessionID)
+    // T115: provenance() itself is read-only; the host owns this evidence write.
+    const runtime = await this.provenance(state.sessionID)
+    if (!isTerminal(state.status)) this.store.evidence(state.slug, state.runId, "engine-provenance", runtime)
     const checkContext = JSON.stringify({ slug: state.slug, runId: state.runId, sessionID: state.sessionID, lock: state.lock, serverPID: process.pid })
     const outcome = await verifyClaim(contract, state, {
       root: this.root,
@@ -2271,7 +2276,15 @@ export class GoalApp {
     // entirely empty exchanges (no text, no tool call) with GLM via zai;
     // an explicit model rides on every child create so the request can never
     // depend on the agent's own (possibly absent) resolution.
-    const model = await this.resolveVerifierModel(state.sessionID)
+    // T107: the contract may name the verifier's model and effort. A name that
+    // cannot be parsed falls back to the resolved default with the reason
+    // journalled, so a typo never blocks verification.
+    const named = contractVerifierModel(contract.verification)
+    let model: { ref: { providerID: string; id: string; variant?: string }; label: string } | undefined = named.ref ? { ref: named.ref, label: named.label! } : undefined
+    if (!model) {
+      model = await this.resolveVerifierModel(state.sessionID)
+      if (named.reason) this.store.ledger(state.slug, { type: "verifier-model-fallback", turn: state.turn, requested: named.requested ?? contract.verification.model ?? null, reason: named.reason, used: model?.label ?? null })
+    }
     // T053: the tracer shows the child running while it works
     state.activity = { kind: "verifier-child", since: Date.now(), ...(model ? { detail: model.label } : {}) }
     this.persist(state)
@@ -2284,6 +2297,15 @@ export class GoalApp {
     this.verifierInbox.delete(childID)
     this.verifierScopes.set(childID, { allow: readRoots })
     this.store.ledger(state.slug, { type: "verifier-model", turn: state.turn, model: model?.label ?? null })
+    // T109: the verifier has only read/glob/grep, so a criterion that asks about
+    // commit history was unanswerable and burned the round budget. The host
+    // supplies a digest in the prompt AND saves a quotable copy inside the
+    // project, so the verifier needs no shell and no external path.
+    const digest = gitDigest(this.root)
+    let digestRel: string | undefined
+    try {
+      digestRel = relative(this.root, this.store.evidence(state.slug, state.runId, `git-history-turn-${state.turn}-${Date.now()}`, { schema: "opencode-goal/git-history/v1", digest }))
+    } catch { digestRel = undefined }
     const lines: string[] = []
     lines.push("You are an independent completion verifier. You did not do this work and you gain nothing if it passes. Fail closed: a criterion is proven only if you can quote file text that proves it.")
     lines.push(`Goal outcome: ${contract.outcome}`)
@@ -2296,6 +2318,8 @@ export class GoalApp {
       lines.push(`  ${state.claim.summary}`)
       for (const [id, note] of Object.entries(state.claim.evidence)) lines.push(`  ${id}: ${note}`)
     }
+    lines.push(`Repository history digest (host-provided and authoritative; you have no shell):\n${digest}`)
+    if (digestRel) lines.push(`A quotable copy is saved inside the project at ${digestRel}; read it and quote a line from it when a criterion is about commit history.`)
     if (readRoots.length) lines.push(`Besides the project, the owner lets you READ (never write) these paths: ${readRoots.join(", ")}. Every other path outside the project is denied.`)
     lines.push("Use read, glob and grep to inspect the repository. Then call goal_verdict exactly once with one entry per criterion above: verdict proven, not_proven or contradicted; a one-line reason; and for proven, evidence items with the file path (relative to the project root) and a verbatim quote of at least one full line. Do not answer in prose instead of calling the tool. If the tool is unavailable or fails, reply with ONLY a fenced json block as your final message: ```json {\"verdicts\":[{\"id\":\"C1\",\"verdict\":\"proven\",\"reason\":\"...\",\"evidence\":[{\"path\":\"relative/path\",\"quote\":\"verbatim line\"}]}]} ```")
     try {
@@ -2305,7 +2329,7 @@ export class GoalApp {
       // provider hangs of the last run each burned a 120s round and were
       // retried too late); each of the two rounds gets the full budget, and
       // plugin/project config overrides it (ctx.options merge in the ctor).
-      const perRoundMs = Math.max(60_000, this.options.verifierTimeoutMs)
+      const perRoundMs = Math.max(Math.max(1, this.options.verifierMinRoundMs), this.options.verifierTimeoutMs)
       let round = 0
       let verdicts: VerifierVerdict[] = []
       let by: "verifier" | "verifier-fallback" = "verifier"
@@ -2677,9 +2701,10 @@ export class GoalApp {
       features: { server: entry?.features?.server === true, tui: entry?.features?.tui === true, rpc: entry?.features?.rpc === true },
       ...(state ? { sessionID: state.sessionID, runId: state.runId, lock: state.lock } : {}),
     }
-    // Evidence is owned and written by the host. Read-only requests must
-    // never append to completed historical goal folders.
-    if (state && !isTerminal(state.status)) this.store.evidence(state.slug, state.runId, "engine-provenance", result)
+    // T115: this is a READ-ONLY probe. It returns the runtime identity and
+    // writes NOTHING under .opencode/goals, so no read can look like an agent
+    // hand-edit. The host records the evidence itself during verification
+    // (verify() → recordProvenance), where a write is expected and owned.
     return result
   }
 
@@ -3459,11 +3484,33 @@ export class GoalApp {
 /** Name why a verifier round stalled: Core reports "Permission denied:
  * external_directory" without the path, so pair it with the absolute paths
  * the child asked for outside the project and its granted read roots. */
+/** T107: parse the contract's verifier model/effort. Never throws — an unusable
+ * value returns a `reason` so the caller falls back to the resolved default and
+ * journals why. `#variant` on the model wins over a separate `effort`. */
+export function contractVerifierModel(v: { model?: string; effort?: string }): { ref?: { providerID: string; id: string; variant?: string }; label?: string; requested?: string; reason?: string } {
+  const raw = (v.model ?? "").trim()
+  const effort = (v.effort ?? "").trim()
+  if (!raw) return effort ? { reason: `verification.effort "${effort}" was given without verification.model` } : {}
+  const m = /^([\w][\w.-]*)\/([^#/\s]+)(?:#(\S+))?$/.exec(raw)
+  if (!m) return { requested: raw, reason: `verification.model "${raw}" is not "providerID/modelID[#variant]"` }
+  const variant = m[3] ?? (effort || undefined)
+  return { ref: { providerID: m[1]!, id: m[2]!, ...(variant ? { variant } : {}) }, label: `${m[1]}/${m[2]}${variant ? `#${variant}` : ""}` }
+}
+
+/** The parts of a context message. OpenCode carries them under `parts` in some
+ * versions and under `content` (an array) in others; both readers here and the
+ * transcript builder must see the same parts, or a denial or a late verdict is
+ * silently missed. */
+export function messageParts(message: unknown): any[] {
+  const m = message as { parts?: any[]; content?: any } | undefined
+  return m?.parts ?? (Array.isArray(m?.content) ? m.content : [])
+}
+
 /** A goal_verdict call captured in the transcript but recorded too late. */
 export function verdictsFromTranscript(messages: unknown[], ids: Set<string>): VerifierVerdict[] {
-  for (const message of (messages ?? []) as Array<{ parts?: any[] }>) {
-    for (const part of message?.parts ?? []) {
-      if (part?.type !== "tool" || String(part?.tool ?? "") !== "goal_verdict") continue
+  for (const message of messages ?? []) {
+    for (const part of messageParts(message)) {
+      if (part?.type !== "tool" || String(part?.tool ?? part?.name ?? "") !== "goal_verdict") continue
       const raw = part.state?.input
       try {
         const input = typeof raw === "string" ? JSON.parse(raw) : raw
@@ -3480,12 +3527,16 @@ export function verifierCause(messages: unknown[], allowedRoots: readonly string
   const canon = (p: string) => p.replace(/^\/private(?=\/(?:var|tmp)\/)/, "")
   const inside = (p: string) => allowedRoots.some((root) => { const rel = relative(canon(root), canon(p)); return rel === "" || !rel.startsWith("..") && !rel.startsWith("/") })
   const paths: string[] = []
-  for (const message of (messages ?? []) as Array<{ parts?: any[] }>) {
-    for (const part of message?.parts ?? []) {
+  for (const message of messages ?? []) {
+    for (const part of messageParts(message)) {
       if (part?.type !== "tool") continue
       // Only a tool RESULT that says the permission was rejected is a denial.
-      // Reading a file whose text mentions external_directory is not.
-      const output = String(part.state?.output ?? part.state?.content ?? "")
+      // Reading a file whose text mentions external_directory is not. Read the
+      // same fields the transcript builder stores (content/error/output) and
+      // serialise them the same way — on newer OpenCode the denial is an object
+      // in state.error, so String() gave "[object Object]" and the cause was
+      // reported as unknown.
+      const output = JSON.stringify(part.state?.content ?? part.state?.error ?? part.state?.output ?? "")
       if (!/permission\.rejected|Permission denied/i.test(output) || !/external_directory/i.test(output)) continue
       const raw = part.state?.input
       const asked = /"(?:path|filePath|directory|pattern)"\s*:\s*"([^"]+)"/.exec(typeof raw === "string" ? raw : JSON.stringify(raw ?? {}))?.[1]
@@ -3499,7 +3550,7 @@ export function verifierCause(messages: unknown[], allowedRoots: readonly string
 function compactTranscript(messages: unknown[]): unknown[] {
   return messages.map((m) => {
     const message = m as { type?: string; role?: string; parts?: any[]; content?: any }
-    const parts = message.parts ?? (Array.isArray(message.content) ? message.content : [])
+    const parts = messageParts(message)
     return {
       type: message.type,
       role: message.role,

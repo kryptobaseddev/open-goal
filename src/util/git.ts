@@ -16,7 +16,19 @@ export const headCommit = (cwd: string): string | undefined => {
   return r.ok ? r.out.trim() : undefined
 }
 
-/** Hash of HEAD + staged/unstaged diff + untracked file list, excluding goal state. */
+/** T116: linked worktrees live under the project but their commits are invisible
+ * to the root worktree's diff, so the last goal run recorded changed:false and
+ * tripped the stall auto-pause three times. `git worktree list --porcelain`
+ * names every worktree's HEAD and branch; a commit in any of them changes it. */
+export function worktreeSignature(cwd: string): string {
+  return git(cwd, ["worktree", "list", "--porcelain"])
+    .out.split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
+}
+
+/** Hash of HEAD + staged/unstaged diff + untracked file list + linked-worktree HEADs, excluding goal state. */
 export function fingerprint(cwd: string): string | undefined {
   if (!isRepo(cwd)) return undefined
   const head = git(cwd, ["rev-parse", "HEAD"]).out
@@ -34,7 +46,20 @@ export function fingerprint(cwd: string): string | undefined {
         return file
       }
     })
-  return createHash("sha256").update(head).update(diff).update(contents.join("\n")).digest("hex").slice(0, 20)
+  return createHash("sha256").update(head).update(diff).update(contents.join("\n")).update(worktreeSignature(cwd)).digest("hex").slice(0, 20)
+}
+
+/** T109: a bounded, host-computed git history digest. The verifier child has only
+ * read/glob/grep (no shell), so a criterion that asks about commit history was
+ * unanswerable and burned the round budget. The host supplies this text; the
+ * verifier judges from it and from the copy the host saves under evidence/. */
+export function gitDigest(cwd: string, limit = 20): string {
+  if (!isRepo(cwd)) return "(not a git repository)"
+  const head = git(cwd, ["rev-parse", "HEAD"]).out.trim()
+  const branch = git(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]).out.trim()
+  const log = git(cwd, ["log", "-n", String(limit), "--no-color", "--pretty=format:%h %ad %s", "--date=short"]).out.trim()
+  const trees = worktreeSignature(cwd)
+  return [`HEAD ${head}`, `branch ${branch}`, log, trees ? `linked worktrees:\n${trees}` : ""].filter(Boolean).join("\n")
 }
 
 /** Files changed relative to `base` (committed, staged, unstaged and untracked). */

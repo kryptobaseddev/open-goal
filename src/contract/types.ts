@@ -101,7 +101,15 @@ export type Contract = {
   budget: Budget
   stop: { when?: string; escalate_when: string[] }
   autonomy: Autonomy
-  verification: { mode: VerificationMode; max_rejections: number; read: string[] }
+  verification: {
+    mode: VerificationMode
+    max_rejections: number
+    read: string[]
+    /** T107: the contract names the verifier child's model, "providerID/modelID[#variant]". */
+    model?: string
+    /** T107: the contract names the verifier child's effort (used as the model variant when the model carries none). */
+    effort?: string
+  }
   execution: { agent?: string }
   meta: Record<string, unknown>
 }
