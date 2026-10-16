@@ -63,15 +63,20 @@ export type DogfoodExport = {
 export const cacheKey = (release: ReleaseIdentity): string => createHash("sha256").update(`${release.sha}\n${JSON.stringify(release.artifacts)}`).digest("hex")
 
 /** Classify ONE flow from what actually happened. Order matters: the honest worst case wins. */
-export function classify(input: { exit: number; timedOut?: boolean; providerError?: boolean; fixture?: boolean; staleCache?: boolean; raw: RawOutcome }): { label: FlowLabel; reason: string } {
-  if (input.timedOut) return { label: "timeout", reason: "the flow did not finish inside its bound; no verdict was produced" }
-  if (input.providerError) return { label: "timeout", reason: "the provider errored before the flow produced a verdict" }
-  if (input.exit !== 0) return { label: "partial", reason: `the flow exited ${input.exit} after producing some evidence` }
-  if (input.fixture) return { label: "fixture", reason: "the flow ran against the scripted fixture provider, not a real model" }
-  if (input.staleCache) return { label: "stale-cache", reason: "a cached record could not be reused because the release or artifact hashes changed" }
-  const empty = (["ownerMessages", "forms", "toolCalls", "results"] as const).filter((k) => (input.raw[k] ?? []).length === 0)
-  if (empty.length) return { label: "partial", reason: `the flow passed but recorded no ${empty.join(", ")}` }
-  return { label: "pass", reason: "a real model completed the flow and its raw interaction was preserved" }
+export function classify(input: { exit: number; timedOut?: boolean; providerError?: boolean; fixture?: boolean; staleCache?: boolean; raw: RawOutcome; note?: string }): { label: FlowLabel; reason: string } {
+  // A captured cause is appended verbatim so a reader never has to guess what happened.
+  const suffix = input.note ? ` (${input.note.replace(/\s+/g, " ").slice(0, 200)})` : ""
+  if (input.timedOut) return { label: "timeout", reason: `the flow did not finish inside its bound; no verdict was produced${suffix}` }
+  if (input.providerError) return { label: "timeout", reason: `the provider failed before the flow produced a verdict${suffix}` }
+  if (input.exit !== 0) return { label: "partial", reason: `the flow did not complete (exit ${input.exit}) after producing some evidence${suffix}` }
+  if (input.fixture) return { label: "fixture", reason: `the flow ran against the scripted fixture provider, not a real model${suffix}` }
+  if (input.staleCache) return { label: "stale-cache", reason: `a cached record could not be reused because the release or artifact hashes changed${suffix}` }
+  // A pass needs the raw interaction preserved, but not every KIND of it: a flow
+  // that legitimately asked no form has no forms to preserve. Only preserving
+  // NOTHING at all means the claim cannot be checked.
+  const total = input.raw.ownerMessages.length + input.raw.forms.length + input.raw.toolCalls.length + input.raw.results.length
+  if (!total) return { label: "partial", reason: `the flow exited 0 but preserved no raw interaction${suffix}` }
+  return { label: "pass", reason: `a real model completed the flow and its raw interaction was preserved (${input.raw.ownerMessages.length} owner messages, ${input.raw.forms.length} forms, ${input.raw.toolCalls.length} tool calls)${suffix}` }
 }
 
 export const summarize = (records: FlowRecord[]): Record<FlowLabel, number> => {
@@ -159,7 +164,7 @@ export const exportPaths = (version: string, sha: string) => ({
   rawDir: `.opencode/dogfood/${sha.slice(0, 12)}`,
 })
 
-export type FlowRun = { exit: number; timedOut?: boolean; providerError?: boolean; fixture?: boolean; staleCache?: boolean; ms: number; requestIds: string[]; readCoordinates: ReadCoordinate[]; raw: RawOutcome }
+export type FlowRun = { exit: number; timedOut?: boolean; providerError?: boolean; fixture?: boolean; staleCache?: boolean; ms: number; requestIds: string[]; readCoordinates: ReadCoordinate[]; raw: RawOutcome; note?: string }
 
 export type DogfoodDeps = {
   identity: () => Promise<{ release: ReleaseIdentity; serving: ServingIdentity; selections: Selections }>

@@ -90,14 +90,37 @@ const DRIVER: Record<FlowId, string> = {
 }
 const FLOW_BUDGET_MS = Number(process.env.OCGOAL_DOGFOOD_FLOW_MS ?? 600_000)
 
-/** Bounded: walk the driver's evidence, read small JSON, keep ids + read coordinates. */
-function collectEvidence(dir: string, cap = 24): { requestIds: string[]; readCoordinates: ReadCoordinate[]; raw: RawOutcome; text: string } {
+// The five drivers are ONE chained scenario, not five independent programs: the
+// interview CREATES the isolated QA project, and manager/lifecycle/completion
+// REQUIRE QA_RESUME_ROOT and RESUME that same root (for the interview that env
+// means "retry an existing root"). The shared root is threaded through a state
+// file, so a second run (the start rehearsal or the completing check) resumes the
+// same project instead of inventing a new one.
+const statePath = join(rawDir, "state.json")
+const readState = (): { qaRoot?: string } => {
+  try {
+    return JSON.parse(readFileSync(statePath, "utf8"))
+  } catch {
+    return {}
+  }
+}
+const writeState = (s: { qaRoot?: string }) => writeFileSync(statePath, JSON.stringify(s, null, 2))
+const NEEDS_ROOT: readonly FlowId[] = ["manager", "lifecycle", "completion"]
+
+/**
+ * Bounded: walk the driver's evidence, read small JSON, and extract the raw
+ * owner interaction + the identifiers a reader needs to find the records. Reads
+ * are capped (files, size, depth) so a runaway directory cannot blow up the run.
+ */
+function collectEvidence(dir: string, cap = 40): { requestIds: string[]; readCoordinates: ReadCoordinate[]; raw: RawOutcome } {
   const requestIds = new Set<string>()
   const readCoordinates: ReadCoordinate[] = []
   const raw: RawOutcome = { ownerMessages: [], forms: [], toolCalls: [], results: [] }
-  const text: string[] = []
+  const formQuestion = new Map<string, string>()
+  const answers: Array<{ formID: string; answer: unknown }> = []
+  const idRe = /"(?:requestId|requestID|sessionID)":\s*"((?:ses|req|msg)_[A-Za-z0-9]+)"/g
   const walk = (d: string, depth = 0) => {
-    if (depth > 4 || readCoordinates.length >= cap) return
+    if (depth > 6 || readCoordinates.length >= cap) return
     let entries: string[] = []
     try {
       entries = readdirSync(d)
@@ -117,91 +140,119 @@ function collectEvidence(dir: string, cap = 24): { requestIds: string[]; readCoo
         continue
       }
       if (!/\.(json|jsonl|txt|log|md)$/.test(name) || st.size > 512 * 1024) continue
-      const rel = relative(root, p)
-      readCoordinates.push({ path: rel, offset: 0, limit: 4096 })
+      readCoordinates.push({ path: relative(root, p), offset: 0, limit: 4096 })
       let body = ""
       try {
         body = readFileSync(p, "utf8")
       } catch {
         continue
       }
-      text.push(body.slice(0, 4096))
-      for (const m of body.matchAll(/"(?:requestId|requestID)":\s*"([^"]+)"/g)) requestIds.add(m[1]!)
-      if (/author-transcript/.test(name)) {
+      for (const m of body.matchAll(idRe)) requestIds.add(m[1]!)
+      // The QUESTION definitions, so an answer can be paired with its question.
+      if (/^form-.*\.json$/.test(name)) {
         try {
-          const parsed = JSON.parse(body)
-          const messages: any[] = Array.isArray(parsed) ? parsed : (parsed.messages ?? parsed.transcript ?? [])
-          for (const m of messages.slice(-40)) {
-            const role = String(m?.role ?? m?.type ?? "")
-            const content = typeof m?.content === "string" ? m.content : JSON.stringify(m?.content ?? "")
-            if (role === "user") raw.ownerMessages.push(content.slice(0, 400))
-            else if (Array.isArray(m?.toolCalls)) for (const t of m.toolCalls) raw.toolCalls.push({ name: String(t?.name ?? "tool"), result: String(t?.result ?? "").slice(0, 200) })
-            else if (role) raw.results.push(`${role}: ${content.slice(0, 300)}`)
-          }
-        } catch {
-          /* not a transcript we can parse; the raw text is still preserved below */
-        }
-      }
-      if (/forms?\.json$/.test(name)) {
-        try {
-          const parsed = JSON.parse(body)
-          for (const f of (Array.isArray(parsed) ? parsed : parsed.forms ?? []).slice(0, 20))
-            raw.forms.push({ id: String(f?.id ?? "form"), question: String(f?.question ?? f?.title ?? ""), ...(f?.answer ? { answer: String(f.answer) } : {}) })
+          const f = JSON.parse(body).form ?? {}
+          const q = f.fields?.[0]?.title ?? f.title ?? "(question)"
+          if (f.id) formQuestion.set(String(f.id), String(q).slice(0, 300))
         } catch {
           /* ignore */
+        }
+      }
+      if (name === "answers.json") {
+        try {
+          for (const a of JSON.parse(body)) if (a?.formID) answers.push({ formID: String(a.formID), answer: a.answer })
+        } catch {
+          /* ignore */
+        }
+      }
+      if (/transcript/.test(name)) {
+        try {
+          const parsed = JSON.parse(body)
+          const arr: any[] = Array.isArray(parsed) ? parsed : (parsed.messages ?? [])
+          for (const entry of arr.slice(-80)) {
+            if (typeof entry?.id === "string" && /^(msg|ses)_/.test(entry.id)) requestIds.add(entry.id)
+            const parts: any[] = Array.isArray(entry?.content) ? entry.content : []
+            const textOf = (ps: any[]) => ps.map((x) => (typeof x?.text === "string" ? x.text : "")).filter(Boolean).join(" ")
+            if (String(entry?.type) === "user") {
+              const t = parts.length ? textOf(parts) : String(entry?.text ?? "")
+              if (t) raw.ownerMessages.push(t.slice(0, 400))
+            }
+            for (const part of parts) {
+              if (part?.type !== "tool") continue
+              const out = Array.isArray(part?.state?.content) ? textOf(part.state.content) : String(part?.state?.output ?? "")
+              raw.toolCalls.push({ name: String(part?.name ?? "tool"), ...(out ? { result: out.replace(/\s+/g, " ").slice(0, 200) } : {}) })
+            }
+            if (String(entry?.type) === "tool" && entry?.name) raw.toolCalls.push({ name: String(entry.name) })
+          }
+        } catch {
+          /* not a transcript we can parse; the bounded read coordinate still points at it */
         }
       }
     }
   }
   walk(dir)
-  return { requestIds: [...requestIds].slice(0, 12), readCoordinates: readCoordinates.slice(0, cap), raw, text: text.join("\n").slice(0, 8192) }
+  for (const a of answers.slice(0, 20)) raw.forms.push({ id: a.formID, question: formQuestion.get(a.formID) ?? "(question)", ...(a.answer ? { answer: JSON.stringify(a.answer).slice(0, 160) } : {}) })
+  return { requestIds: [...requestIds].slice(0, 12), readCoordinates: readCoordinates.slice(0, cap), raw }
 }
 
-async function runFlow(flow: FlowId): Promise<FlowRun> {
-  const evidenceRoot = join(rawDir, flow)
-  mkdirSync(evidenceRoot, { recursive: true })
+async function runFlow(flow: FlowId, state: { qaRoot?: string }): Promise<FlowRun> {
   const started = Date.now()
   const driver = join(root, "scripts", DRIVER[flow])
+  const emptyRaw = (): RawOutcome => ({ ownerMessages: [], forms: [], toolCalls: [], results: [] })
+  if (NEEDS_ROOT.includes(flow) && !state.qaRoot)
+    return { exit: 1, ms: 0, requestIds: [], readCoordinates: [], raw: emptyRaw(), note: `${flow} needs the shared QA root the interview flow creates, and there is none yet` }
+  const env: Record<string, string> = { ...(process.env as Record<string, string>), OCGOAL_GIT_SPEC: `github:kryptobaseddev/opencode-goal#${ref}` }
+  if (flow === "interview") {
+    // ALWAYS a fresh isolated project: the dependents resume the root this run
+    // creates. (Passing QA_RESUME_ROOT here means "retry an existing root", which
+    // is wrong once that root already holds a launched goal.)
+    delete env.QA_RESUME_ROOT
+  } else if (NEEDS_ROOT.includes(flow)) env.QA_RESUME_ROOT = state.qaRoot!
+  else delete env.QA_RESUME_ROOT // amendment runs on its own root
+  const child = Bun.spawn(["bun", driver, "--assert"], { cwd: root, stdout: "pipe", stderr: "pipe", stdin: "ignore", env })
   let timedOut = false
-  let providerError = false
-  let exit = 1
-  let out = ""
-  const child = Bun.spawn(["bun", driver, "--assert"], {
-    cwd: root,
-    stdout: "pipe",
-    stderr: "pipe",
-    stdin: "ignore",
-    env: { ...process.env, QA_RESUME_ROOT: join(evidenceRoot, "project"), OCGOAL_GIT_SPEC: `github:kryptobaseddev/opencode-goal#${ref}` },
-  })
   const timer = setTimeout(() => {
     timedOut = true
     child.kill("SIGKILL")
   }, FLOW_BUDGET_MS)
   const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited])
   clearTimeout(timer)
-  exit = Number(code)
-  out = `${stdout}\n${stderr}`
-  if (/ECONNRESET|ECONNREFUSED|provider|rate limit|overloaded/i.test(out) && exit !== 0) providerError = true
-  const { requestIds, readCoordinates, raw, text } = collectEvidence(evidenceRoot)
-  raw.results.push(...out.split("\n").filter((l) => /^(status|flow|goal|✓|✗|pass|fail)/i.test(l)).slice(-20))
-  if (!raw.results.length) raw.results.push(out.slice(0, 400))
-  // a driver that refused to run (no endpoint/model) is a partial, never a pass
-  if (/refus|no configured|unavailable/i.test(out) && exit !== 0) providerError = providerError || true
-  return {
-    exit,
-    timedOut,
-    providerError,
-    ms: Date.now() - started,
-    requestIds,
-    readCoordinates,
-    raw: { ...raw, results: [...new Set([...raw.results, ...(text ? [] : [])])].slice(0, 40) },
+  const exit = Number(code)
+  const out = `${stdout}\n${stderr}`
+  // The driver prints one JSON line carrying its isolated root + evidence dir.
+  let evidenceDir: string | undefined
+  for (const line of stdout.split("\n")) {
+    const i = line.indexOf("{")
+    if (i === -1) continue
+    try {
+      const parsed = JSON.parse(line.slice(i))
+      if (parsed?.evidence) evidenceDir = String(parsed.evidence)
+      if (parsed?.root && flow === "interview") {
+        state.qaRoot = String(parsed.root)
+        writeState(state)
+      }
+    } catch {
+      /* not the success line */
+    }
   }
+  // A provider failure is a real model failure; a start-up crash is NOT - it is
+  // reported as what it is (an incomplete flow) with its cause attached.
+  const providerError = /ECONNRESET|ECONNREFUSED|rate.?limit|overloaded|no configured shared test host|no existing QA service/i.test(out)
+  const note = out
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => /^(error|Error|✗|\{?"?success"?:false)/.test(l))
+  const dir = evidenceDir ?? join(state.qaRoot ?? join(rawDir, flow), "qa-evidence")
+  const { requestIds, readCoordinates, raw } = collectEvidence(dir)
+  raw.results.push(...out.split("\n").filter((l) => l.trim()).slice(-20))
+  return { exit, timedOut, providerError, ms: Date.now() - started, requestIds, readCoordinates, raw, ...(note ? { note } : {}) }
 }
 
 const flowsToRun = only ? [only] : [...FLOWS]
+const state = readState()
 const result = await runDogfood({
   identity: async () => ({ release, serving, selections }),
-  runFlow: async (flow) => (flowsToRun.includes(flow) ? runFlow(flow) : { exit: 1, ms: 0, requestIds: [], readCoordinates: [], raw: { ownerMessages: [], forms: [], toolCalls: [], results: [] } }),
+  runFlow: async (flow) => (flowsToRun.includes(flow) ? runFlow(flow, state) : { exit: 1, ms: 0, requestIds: [], readCoordinates: [], raw: { ownerMessages: [], forms: [], toolCalls: [], results: [] }, note: "not selected by --flow" }),
   store: {
     read: async (flow) => {
       try {

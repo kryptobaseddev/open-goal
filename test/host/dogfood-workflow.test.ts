@@ -70,7 +70,7 @@ describe("the exact-release dogfood workflow (v0.5.1)", () => {
       manager: { exit: 0, fixture: true, ms: 1, requestIds: ["r"], readCoordinates: [{ path: "c", offset: 0, limit: 1 }], raw },
       lifecycle: { exit: 0, timedOut: true, ms: 1, requestIds: ["r"], readCoordinates: [{ path: "c", offset: 0, limit: 1 }], raw },
       completion: { exit: 3, ms: 1, requestIds: ["r"], readCoordinates: [{ path: "c", offset: 0, limit: 1 }], raw },
-      amendment: { exit: 0, ms: 1, requestIds: ["r"], readCoordinates: [{ path: "c", offset: 0, limit: 1 }], raw: { ...raw, toolCalls: [] } },
+      amendment: { exit: 0, ms: 1, requestIds: ["r"], readCoordinates: [{ path: "c", offset: 0, limit: 1 }], raw: { ownerMessages: [], forms: [], toolCalls: [], results: [] } },
     })
     const result = await runDogfood(h.deps())
     const label = (f: FlowId) => result.export.flows.find((r) => r.flow === f)!.label

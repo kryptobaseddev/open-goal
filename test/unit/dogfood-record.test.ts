@@ -49,19 +49,30 @@ describe("dogfood record and export (v0.5.1)", () => {
     expect(classify({ exit: 1, raw }).label).toBe("partial")
     expect(classify({ exit: 0, fixture: true, raw }).label).toBe("fixture")
     expect(classify({ exit: 0, staleCache: true, raw }).label).toBe("stale-cache")
-    const empty = classify({ exit: 0, raw: { ownerMessages: [], forms: [], toolCalls: [], results: ["ok"] } })
+    const empty = classify({ exit: 0, raw: { ownerMessages: [], forms: [], toolCalls: [], results: [] } })
     expect(empty.label).toBe("partial")
-    expect(empty.reason).toContain("ownerMessages")
+    expect(empty.reason).toContain("no raw interaction")
   })
 
   test("a pass is never claimed for a fixture, a timeout or an empty interaction", () => {
     for (const input of [
       { exit: 0, fixture: true, raw },
       { exit: 0, timedOut: true, raw },
-      { exit: 0, raw: { ...raw, forms: [] } },
+      { exit: 0, raw: { ownerMessages: [], forms: [], toolCalls: [], results: [] } },
       { exit: 2, raw },
     ])
       expect(classify(input).label).not.toBe("pass")
+    // ...but a flow that legitimately asked no form and preserved tool calls still passes
+    expect(classify({ exit: 0, raw: { ...raw, forms: [] } }).label).toBe("pass")
+  })
+
+  test("a start-up crash is an incomplete flow with its cause, never a provider timeout", () => {
+    const crash = classify({ exit: 1, raw, note: "Error: realpathSync ENOENT: no such file or directory" })
+    expect(crash.label).toBe("partial")
+    expect(crash.reason).toContain("realpathSync ENOENT")
+    const provider = classify({ exit: 1, providerError: true, raw, note: "ECONNRESET" })
+    expect(provider.label).toBe("timeout")
+    expect(provider.reason).toContain("ECONNRESET")
   })
 
   test("validateExport names every required field and every missing flow", () => {
