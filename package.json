@@ -1,6 +1,6 @@
 {
   "name": "opencode-goal",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Persistent, host-verified goal mode for OpenCode 2 with a structured goal contract and a live TUI.",
   "type": "module",
   "license": "MIT",
@@ -24,7 +24,8 @@
     "typescript": "^5.9.3"
   },
   "bin": {
-    "ocg": "./cli/ocg.ts"
+    "ocg": "./cli/ocg.ts",
+    "cleo-goal": "./cli/ocg.ts"
   },
   "exports": {
     ".": "./server.ts",

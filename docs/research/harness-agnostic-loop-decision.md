@@ -6,6 +6,13 @@ function and the OpenCode adapter it came from, and exactly what the `ocg tick` 
 > **Nothing was published to npm by this work.** The publication metadata is prepared (a `bin` entry, the
 > `cli` folder in `files`) but no `npm publish` was run, no registry credential was used, and the package is
 > still installed from a git tag. Publishing is a separate owner decision.
+>
+> **Naming (owner decision, 2026-10-16).** The package becomes **`@cleocode/goal`** ("CLEO Goal"), published
+> from this repo through its own npm OIDC trusted publisher on the `@cleocode` org, standalone - no dependency
+> on CLEO, installable on its own as an OpenCode (later Claude and Codex) plugin. The bin is **`ocg`**,
+> documented as **"open cleo goal"**, with `cleo-goal` as an equally supported long form, so CLEO's existing
+> default `ocg tick` keeps working. The rename and the Node-runnable bin are the packaging goal that follows
+> this one; the git repository keeps its name, so nothing breaks meanwhile.
 
 ## Why
 
@@ -82,9 +89,17 @@ It implements CLEO's merged contract exactly:
 - every log line goes to **stderr**;
 - it never installs its own Stop hook: CLEO's dispatcher owns Stop, and a second entry would tick twice.
 
-It is **read-only**. The run state is advanced by the host that owns it, and OCG's own write guard refuses
-agent writes inside a live goal folder. The tick therefore decides from the run state **as persisted**: it
-does not observe the turn's work, so it does not itself increment `noProgress` or record progress.
+**It records the turn, then decides (v0.7.0).** It advances the turn through OCG's own store, recomputes the
+repository fingerprint (a move counts as progress), honours a claim the run already carries, and - best-effort
+and optional - mines a transcript the Stop payload points at for tool calls and a progress call. So
+`noProgress`, the stall pause, recovery, the wrap-up and the blocker repeats all work under a harness other
+than OpenCode. What it can and cannot observe, and how it degrades, is the next section.
+
+**It runs the verification of a claim.** When the run carries a claim, the tick sets the run to `verifying`,
+runs the host checks (`verifyClaim` with no verifier child), records the results and the verdict, and either
+completes the run (nothing on stdout - no live goal remains) or hands the agent the verdict as its next
+continuation. A goal it can finish is therefore one whose verification is **host-only**; a goal that asks for
+the independent verifier child still needs the OpenCode adapter, which owns that mechanism.
 
 ## What the unit suite covers, and what it does not
 
@@ -100,7 +115,56 @@ asserts the reason equals the adapter's continuation.
 `test/host/tick-bin.test.ts` spawns the **real bin** and asserts at the process boundary: stdout parses as
 JSON, the Stop payload is acknowledged on stderr only, and nothing is printed when no goal is live.
 
-**Not covered, deliberately.** The tick is not yet driven by a real non-OpenCode harness end to end, because
-CLEO 10.18 (which ships the dispatcher) is not published. The tick also does not advance turn counters,
-progress or the stall streak — that remains the work of whichever host owns the run, and is the next step
-for a non-OpenCode adapter. Neither gap is claimed to be solved here.
+## What the tick can observe, and what it cannot
+
+A Stop-time observer has the project, the run state, and - if the harness passes one - the Stop payload.
+That is the whole of it, and the tick records only what follows from it.
+
+**It can observe.** That the turn ended. The repository fingerprint now (git), which is the only progress it
+measures itself. A claim the run already carries. The budget the run has consumed, and a blocker on the run.
+
+**It cannot observe** the agent's tool calls, whether the agent called the progress tool, live-check
+transitions, or plan-step moves - those are session facts the OpenCode adapter reads from its own event
+stream. It recovers *some* of that from a transcript when the payload names a readable one, and nothing when
+it does not.
+
+**Degradation is stated, never guessed.** Every gap is logged to stderr as `could not see …`:
+- no Stop payload → the tool calls and the progress call are simply not visible;
+- a payload that is not JSON → the payload itself is named as unreadable;
+- a payload naming no transcript → the transcript is absent by the harness's design;
+- a transcript that is missing, unreadable, or parses but holds no tool calls and no messages → named as such.
+
+In every one of those cases the tick still records the turn and the fingerprint it *can* take, and
+`noProgress` advances honestly. It never invents a tool call, a progress call or a live-check transition.
+
+## Which goals the tick can drive to completion
+
+- **Yes**: a goal whose verification is host-only (`verification: {mode: host}`, or no verifier criteria). The
+  scripted-harness test drives exactly that: kickoff → the agent's work → a claim through `ocg claim` → a
+  verified `complete`, using nothing but the bin.
+- **No**: a goal whose contract asks for the independent verifier child. That child is the OpenCode adapter's
+  mechanism; the tick runs the host checks and no more, and it says so rather than pretending.
+- **Not yet exercised**: a *real* non-OpenCode harness, because CLEO 10.18 (which ships the Stop dispatcher)
+  is not published. The scripted harness is the strongest available proof today, and it is a simulation - the
+  design note says so rather than implying a live pilot.
+
+## What the unit and host suites cover
+
+`test/unit/tick-record.test.ts` covers the recording: the turn increment, a fingerprint move as progress and
+its absence without one, a fingerprint that cannot be taken, a claim honoured, a transcript mined for tool
+calls and a progress call, a transcript with no progress call (nothing fabricated), and every degradation
+above being named.
+
+`test/unit/tick.test.ts` covers the tick end to end over an injected store: no goal project, no live goal, the
+recorded turn in the adapter's own event shape, the reason byte-identical to the adapter's continuation, a
+claim verified to `complete`, a claim that fails and hands back the verdict, a claim with no verifier
+available (hold, not pretend), an owner-waiting goal, and the named degradations.
+
+`test/host/tick-scripted-harness.test.ts` spawns the **real bin** and drives a real goal to `complete`, then
+asserts the terminal state, the criteria board, the recorded turns and the ledger events.
+
+`test/host/tick-bin.test.ts` still pins the process boundary: stdout parses as JSON, logs go to stderr only,
+and nothing is printed when no goal is live.
+
+**Not covered**: the tick does not run the independent verifier child, it does not decide `human` criteria
+(only the owner does), and it has not been run against a real non-OpenCode harness.
