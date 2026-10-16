@@ -98,6 +98,11 @@ describe("dogfood record and export (v0.5.1)", () => {
     expect(md).toContain("server.ts")
     expect(md).toContain("does NOT claim")
     expect(md).toContain("agent `build`")
+    // The export explains its own engine attribution and label rules, so a
+    // read-only verifier can quote the EXPORT rather than reverse-engineer code.
+    expect(md).toContain("Which serving engine each flow ran against")
+    expect(md).toContain("How each label is assigned")
+    expect(md).toContain(`manager: ran against serving engine pid 4242 at location \`/tmp/qa\``)
   })
 
   test("the export lives in both places, and the cache key binds the release, the artifact hashes AND the serving engine", () => {
