@@ -16,7 +16,7 @@
 // Every CLEO interaction is the `cleo` CLI; this script never opens .cleo.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join, relative } from "node:path"
-import { bridgeReport, deriveChangeSet, junitToVitestJson, planEvidence, runBridge, type CleoGate, type CleoRun, type Git } from "../src/engine/cleo-bridge"
+import { bridgeReport, deriveChangeSet, junitToVitestJson, planEvidence, runBridge, sha256Hex, type CleoGate, type CleoRun, type Git } from "../src/engine/cleo-bridge"
 
 const argv = process.argv.slice(2)
 const value = (name: string): string | undefined => {
@@ -71,8 +71,9 @@ const report = async (testFiles: string[]) => {
   await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited])
   let parsed
   try { parsed = junitToVitestJson(readFileSync(xml, "utf8"), Date.now()) } catch { return undefined }
-  writeFileSync(json, JSON.stringify(parsed, null, 2))
-  return { reportPath: relative(root, json), passed: parsed.success, total: parsed.numTotalTests, failed: parsed.numFailedTests }
+  const bytes = JSON.stringify(parsed, null, 2)
+  writeFileSync(json, bytes)
+  return { reportPath: relative(root, json), reportSha256: sha256Hex(bytes), passed: parsed.success, total: parsed.numTotalTests, failed: parsed.numFailedTests }
 }
 
 /** CLEO's own AC map for a task: which aliases still need a binding, which are typed. */

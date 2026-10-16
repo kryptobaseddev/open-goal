@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 — 2026-10-16
+
+- **A consolidated exact-release real-model dogfood workflow (T102)** — `scripts/real-model-dogfood.ts --assert` runs the five existing native flows (interview/handoff, manager, lifecycle, completion, amendment) against the **installed** release in one bounded pass, records for each the exact release SHA, the serving PID and location, the model/agent selections and the server/UI/skill artifact hashes, preserves the bounded raw owner messages, forms and tool calls, and labels every flow **honestly**: `pass`, `fixture`, `stale-cache`, `partial` or `timeout`. Only a verified `pass` is reusable, and only while its release and artifact hashes still match — so a start rehearsal and the completing check do not pay for five real-model flows twice, and a recorded failure is never cached as an answer.
+- **A readable, two-place evidence export (T102)** — the committed summary `docs/research/real-model-dogfood/<version>.md` (plus a `.json` index) and the raw per-flow records under `.opencode/dogfood/<release>/`. It keeps raw hashes, request ids and bounded read coordinates only — never credentials or full provider payloads — and states plainly what it does not claim.
+- **The three `satisfies:` AC-reference forms (T102)** — a criterion's `proves:` accepts `T123#AC2`, `T123#<uuid>` and `T123#AC2@<14-digit pin>`; a locked contract should prefer the uuid or pinned form, because a bare alias drifts when a task's criteria are renumbered. `cleo.tasks[].acs` is still read for compatibility but is now warned as deprecated in favour of the per-criterion binding.
+- **`reportSha256` (T102)** — every scoped test report is recorded with the sha256 of its bytes beside its path, so a future `cleo goal close` can bind `test-run:` to exactly those bytes.
+- **Fixed** — `acsByGateFromProves` no longer maps a `diff`, `verifier` or `human` criterion onto `implemented`: a diff check is a guard (it passes when paths are *unchanged*), and a verdict alone never proves `implemented` or `testsPassed`. Those ACs stay open and are reported.
+
 ## 0.5.0 — 2026-10-16
 
 - **CLEO is an optional first-class citizen (T117)** — opencode-goal probes for the `cleo` CLI and the running project's `.cleo` workspace at setup and on demand, and reports exactly three states: **CLI absent**, **CLI present but the project uninitialized**, or **initialized**. `/goal cleo` shows the state and the exact command; `install` and `init` run that command **only on your explicit choice** (`npm i -g @cleocode/cleo`, `cleo init`) — never silently, never with sudo, and never inferred. A project with no CLEO records nothing and behaves byte-for-byte as before.

@@ -17,6 +17,7 @@
 // it is unit/host testable with injected `git` and `cleo` runners and no real
 // CLI, and it is the same code the real `/goal cleo sync` path executes.
 
+import { createHash } from "node:crypto"
 import type { CleoGate } from "../contract/types"
 
 export const CLEO_GATES: readonly CleoGate[] = ["implemented", "testsPassed", "qaPassed"]
@@ -36,7 +37,15 @@ export type EvidencePlan = {
 }
 
 export type StepResult = { argv: string[]; exit: number; out: string }
-export type TaskOutcome = { task: string; completed: boolean; steps: StepResult[]; openAcs: string[]; blocker?: string }
+export type TaskOutcome = {
+  task: string
+  completed: boolean
+  steps: StepResult[]
+  openAcs: string[]
+  blocker?: string
+  /** v0.5.1 - the scoped report this task's testsPassed evidence was bound to. */
+  report?: { path: string; sha256: string }
+}
 
 export type CleoRun = (argv: string[]) => Promise<{ stdout: string; exit: number }>
 export type Git = (args: string[]) => Promise<string>
@@ -255,7 +264,17 @@ export function acsByGateFromProves(
   return map
 }
 
-export type BridgeReport = { reportPath: string; passed: boolean; total: number; failed: number }
+/** The sha256 of any bytes, hex. Used to bind a report to its exact content. */
+export const sha256Hex = (bytes: string | Uint8Array): string => createHash("sha256").update(bytes).digest("hex")
+
+export type BridgeReport = {
+  reportPath: string
+  /** v0.5.1 - sha256 of the report BYTES, so CLEO can bind test-run: to them. */
+  reportSha256: string
+  passed: boolean
+  total: number
+  failed: number
+}
 
 /** Everything the bridge needs, injected so it is testable without a real CLI. */
 export type BridgeInputs = {
@@ -297,7 +316,11 @@ export async function runBridge(input: BridgeInputs): Promise<TaskOutcome[]> {
     const declaredTests = link?.acs?.testsPassed?.length ?? 0
     if (report && !report.passed && declaredTests)
       outcomes.push({ task, completed: false, steps: [], openAcs: [], blocker: `the scoped report for ${task} did not pass (${report.failed}/${report.total} failed) — refusing to record testsPassed evidence on a red run` })
-    else outcomes.push(await executePlan(planEvidence({ task, acs, typedAcs, runTyped, acsByGate: link?.acs, changeSet, reportPath: report?.reportPath }), input.runCleo))
+    else {
+      const outcome = await executePlan(planEvidence({ task, acs, typedAcs, runTyped, acsByGate: link?.acs, changeSet, reportPath: report?.reportPath }), input.runCleo)
+      if (report) outcome.report = { path: report.reportPath, sha256: report.reportSha256 }
+      outcomes.push(outcome)
+    }
   }
   return outcomes
 }

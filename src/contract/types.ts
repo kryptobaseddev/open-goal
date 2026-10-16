@@ -39,8 +39,18 @@ export type Criterion = {
   proves?: GoalAcRef[]
 }
 
-/** A CLEO acceptance-criterion reference, `T<digits>#AC<n>`. */
-export type GoalAcRef = `T${number}#AC${number}`
+/**
+ * A CLEO acceptance-criterion reference (`proves:` on a criterion). Three
+ * `satisfies:` forms are accepted and validated by the parser:
+ *   `T1234#AC2`  a bare AC alias
+ *   `T1234#<uuid>`  a criterion id
+ *   `T1234#AC2@<14-digit pin>`  a pinned AC alias
+ * CLEO widened GoalAcRef to all three (agreed 2026-10-16); a locked contract
+ * should PREFER the uuid or pinned form, because a bare `AC2` drifts when a
+ * task's criteria are renumbered. The type is deliberately loose; the parser
+ * (`AC_REF` in parse.ts) is the authority.
+ */
+export type GoalAcRef = `T${number}#${string}`
 
 export type Assumption = {
   id: string

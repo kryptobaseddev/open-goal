@@ -199,4 +199,20 @@ describe("cleo.tasks (v0.5.0)", () => {
     expect(renderSystemBlock(ok.contract!, "a".repeat(64))).toContain("proves CLEO: T081#AC2, T082#AC4")
     expect(parseContract(text('    proves: ["AC2"]\n')).issues.some((i) => i.level === "error" && i.path === "criteria[0].proves")).toBe(true)
   })
+
+  test("a legacy acs map is still read but warned as deprecated", () => {
+    const { contract, issues } = parseContract(`${valid}\ncleo:\n  tasks:\n    - id: T081\n      acs:\n        testsPassed: [AC2]\n`)
+    expect(contract!.cleo!.tasks[0]!.acs).toEqual({ testsPassed: ["AC2"] })
+    expect(issues.some((i) => i.level === "warning" && i.message.includes("deprecated"))).toBe(true)
+  })
+
+  test("proves accepts all three satisfies AC-reference forms", () => {
+    const text = (extra: string) =>
+      `schema: goal/v1\nid: t\ntitle: t\nintent:\n  verbatim: "x"\noutcome: y\nnon_goals: [z]\ncriteria:\n  - id: C1\n    statement: s\n    check: {kind: file, path: f}\n${extra}`
+    const forms = ["T123#AC2", "T123#0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d", "T123#AC2@00000000000001"]
+    const ok = parseContract(text(`    proves: [${forms.map((f) => `"${f}"`).join(", ")}]\n`))
+    expect(ok.issues.filter((i) => i.level === "error")).toEqual([])
+    expect(ok.contract!.criteria[0]!.proves?.join(",")).toBe(forms.join(","))
+    expect(parseContract(text('    proves: ["T123"]\n')).issues.some((i) => i.level === "error" && i.path === "criteria[0].proves")).toBe(true)
+  })
 })

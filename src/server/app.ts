@@ -24,7 +24,7 @@ import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
 import { goalHelp } from "./help"
 import { cleoFacts, cleoHealth, cleoHealthReport, cleoLinkEvent, CLEO_INIT_COMMAND, CLEO_INSTALL_COMMAND, type Runner } from "../engine/cleo-link"
-import { bridgeReport, acsByGateFromProves, junitToVitestJson, runBridge, suggestLinkedTasks, type CleoRun, type TaskOutcome } from "../engine/cleo-bridge"
+import { bridgeReport, acsByGateFromProves, junitToVitestJson, runBridge, sha256Hex, suggestLinkedTasks, type BridgeReport, type CleoRun, type TaskOutcome } from "../engine/cleo-bridge"
 import type { CleoTaskLink } from "../contract/types"
 import { buildPostGoalSummary } from "../summary/build"
 import { completionAudit } from "../summary/audit"
@@ -2839,7 +2839,7 @@ export class GoalApp {
   }
 
   /** Run a task's changed test files and emit the vitest-shaped JSON `test-run:` parses. */
-  private async scopedCleoReport(testFiles: string[]): Promise<{ reportPath: string; passed: boolean; total: number; failed: number } | undefined> {
+  private async scopedCleoReport(testFiles: string[]): Promise<BridgeReport | undefined> {
     if (!testFiles.length) return undefined
     const dir = join(this.root, ".opencode", "cleo-reports")
     try { mkdirSync(dir, { recursive: true }) } catch { return undefined }
@@ -2851,8 +2851,9 @@ export class GoalApp {
     await runShell(command, this.root, 1800)
     let report
     try { report = junitToVitestJson(readFileSync(xml, "utf8"), Date.now()) } catch { return undefined }
-    try { writeFileSync(json, JSON.stringify(report, null, 2)) } catch { return undefined }
-    return { reportPath: relative(this.root, json), passed: report.success, total: report.numTotalTests, failed: report.numFailedTests }
+    const bytes = JSON.stringify(report, null, 2)
+    try { writeFileSync(json, bytes) } catch { return undefined }
+    return { reportPath: relative(this.root, json), reportSha256: sha256Hex(bytes), passed: report.success, total: report.numTotalTests, failed: report.numFailedTests }
   }
 
   /**

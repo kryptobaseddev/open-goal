@@ -6,6 +6,8 @@ import {
   executePlan,
   junitToVitestJson,
   planEvidence,
+  runBridge,
+  sha256Hex,
   suggestLinkedTasks,
   type CleoRun,
 } from "../../src/engine/cleo-bridge"
@@ -197,5 +199,23 @@ describe("the goal→CLEO evidence bridge (v0.5.0)", () => {
       ),
     ).toEqual({})
     expect(acsByGateFromProves([], "T081")).toEqual({})
+  })
+
+  test("runBridge binds the scoped report's sha256 to the outcome, and refuses a red report", async () => {
+    const run: CleoRun = async (argv) => {
+      if (argv[0] === "done") return { stdout: JSON.stringify({ data: { acMapping: [{ alias: "AC1", mapped: false }], typedGates: [] } }), exit: 0 }
+      return { stdout: '{"success":true}', exit: 0 }
+    }
+    const git = gitOf({ "log --all --format=%H --grep T500": "abc", "show --name-only --format= abc": "src/a.ts\ntest/a.test.ts", "status --porcelain": "" })
+    const links = new Map([["T500", { id: "T500", acs: { testsPassed: ["AC1"] } }]])
+    const report = { reportPath: ".opencode/cleo-reports/r.json", reportSha256: sha256Hex("{}"), passed: true, total: 1, failed: 0 }
+    const ok = await runBridge({ tasks: ["T500"], links, runCleo: run, git, report: async () => report })
+    expect(ok[0]!.completed).toBe(true)
+    // the outcome carries the report sha256 BESIDE its path (the GoalOutcome emitter's input)
+    expect(ok[0]!.report).toEqual({ path: report.reportPath, sha256: report.reportSha256 })
+    const red = await runBridge({ tasks: ["T500"], links, runCleo: run, git, report: async () => ({ ...report, passed: false, failed: 1 }) })
+    expect(red[0]!.completed).toBe(false)
+    expect(red[0]!.blocker).toContain("refusing to record testsPassed evidence on a red run")
+    expect(sha256Hex("{}")).toHaveLength(64)
   })
 })

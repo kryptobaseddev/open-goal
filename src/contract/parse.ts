@@ -54,6 +54,11 @@ const VAGUE = [
   "works",
 ]
 const ACTIVITY = /^(keep|continue|improve|investigate|explore|work on|look into|try to|help|refactor as needed|clean up)\b/i
+/**
+ * v0.5.1 - the three CLEO `satisfies:` AC-reference forms a `proves:` entry may
+ * take: `T123#AC2`, `T123#<uuid>` and `T123#AC2@<14-digit pin>`.
+ */
+export const AC_REF = /^T\d+#(?:AC\d{1,4}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:@\d{14})?$/
 
 export const lockOf = (text: string) => createHash("sha256").update(text).digest("hex")
 
@@ -177,10 +182,11 @@ function parseCriteria(raw: unknown, path: string, prefix: "C" | "I", issues: Is
     if (prefix === "I" && check && !(HOST_KINDS as readonly string[]).includes(check.kind))
       issues.push({ level: "error", path: `${at}.check.kind`, message: "invariants must be host-checkable (command, file, contains, absent or diff)" })
     if (!check) return []
-    // v0.5.0 — the optional, precise per-criterion CLEO binding (T123#AC2).
+    // v0.5.1 - the precise per-criterion CLEO binding: any of the three
+    // satisfies forms (bare AC, uuid, or pinned AC).
     const provesRaw = strings(item.proves)
-    for (const ref of provesRaw) if (!/^T\d+#AC\d+$/.test(ref)) issues.push({ level: "error", path: `${at}.proves`, message: `AC reference must look like T123#AC2 (got "${ref}")` })
-    const proves = provesRaw.filter((ref) => /^T\d+#AC\d+$/.test(ref))
+    for (const ref of provesRaw) if (!AC_REF.test(ref)) issues.push({ level: "error", path: `${at}.proves`, message: `AC reference must be one of T123#AC2, T123#<uuid> or T123#AC2@<14-digit pin> (got "${ref}")` })
+    const proves = provesRaw.filter((ref) => AC_REF.test(ref))
     return [{ id, statement, essential: prefix === "I" ? true : item.essential !== false, check, ...(proves.length ? { proves: proves as GoalAcRef[] } : {}) }]
   })
 }
@@ -360,6 +366,9 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
         const acsRaw = isRecord(entry) && isRecord((entry as Record<string, unknown>).acs) ? (entry as Record<string, unknown>).acs as Record<string, unknown> : undefined
         const acs: Partial<Record<CleoGate, string[]>> = {}
         if (acsRaw) {
+          // v0.5.1 - `acs` is legacy: the precise per-criterion `proves:` binding
+          // replaces it. Still read for compatibility, but warned as deprecated.
+          warn(`${at}.acs`, "cleo.tasks[].acs is deprecated - declare the binding on the criterion instead, e.g. proves: [\"T123#AC2\"]; the acs map is still read for compatibility")
           for (const [gate, value] of Object.entries(acsRaw)) {
             if (!(CLEO_GATES as readonly string[]).includes(gate)) { err(`${at}.acs.${gate}`, `unknown gate "${gate}"; allowed: ${CLEO_GATES.join(", ")}`); continue }
             const aliases = strings(value).map((a) => a.toUpperCase())
