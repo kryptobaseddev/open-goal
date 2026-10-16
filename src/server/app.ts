@@ -23,6 +23,7 @@ import { DecisionStore, decisionChoices, type DecisionKind, type DecisionRequest
 import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
 import { goalHelp } from "./help"
+import { decide } from "../engine/loop"
 import { cleoFacts, cleoHealth, cleoHealthReport, cleoLinkEvent, CLEO_INIT_COMMAND, CLEO_INSTALL_COMMAND, type Runner } from "../engine/cleo-link"
 import { bridgeReport, acsByGateFromProves, junitToVitestJson, runBridge, sha256Hex, suggestLinkedTasks, type BridgeReport, type CleoRun, type TaskOutcome } from "../engine/cleo-bridge"
 import type { CleoTaskLink } from "../contract/types"
@@ -2056,15 +2057,6 @@ export class GoalApp {
     // Started from a tool call while the session was busy: kick off now.
     if (state.turn === 0) return this.admit(state, "kickoff")
 
-    if (kind === "wrapup") {
-      setStatus(state, "budget_limited", "budget used; wrap-up turn done")
-      this.store.ledger(state.slug, { type: "budget_limited" })
-      this.decide(state.sessionID, state.slug, "budget_limited", M.budgetStopped(contract.title))
-      await this.transcript(state.sessionID, `◎ budget used (${contract.title}). The owner decides: raise the budget in goal.yaml and amend, or abort. Do not start new work.`)
-      await this.summarize(state, contract)
-      return this.persist(state)
-    }
-
     // Progress is authoritative state change, not activity (R3).
     const fp = fingerprint(this.executionRoot(contract))
     const changed = fp !== undefined && fp !== state.fingerprint
@@ -2073,68 +2065,106 @@ export class GoalApp {
     // agent to say what it did; it must count, or agents are pushed to editing
     // run.json to make their work visible. Host-visible activity is recorded
     // too, so a stalled-but-working run is never described as idle.
-    let progress = changed || state.turnFacts.stepsChanged || state.turnFacts.progressRecorded
+    const turnFacts = { ...state.turnFacts }
+    let progress = changed || turnFacts.stepsChanged || turnFacts.progressRecorded
     if (changed && this.options.liveChecks) progress = (await this.liveChecks(state, contract)) || progress
     state.counters.noProgress = progress ? 0 : state.counters.noProgress + 1
-    this.store.ledger(state.slug, { type: "turn", turn: state.turn, kind, tools: state.turnFacts.tools, activity: state.turnFacts.tools > 0, changed, progress, noProgress: state.counters.noProgress })
+    this.store.ledger(state.slug, { type: "turn", turn: state.turn, kind, tools: turnFacts.tools, activity: turnFacts.tools > 0, changed, progress, noProgress: state.counters.noProgress })
     state.turnFacts = { tools: 0, goalCalls: 0, stepsChanged: false, progressRecorded: false }
 
-    if (state.blocker && state.blocker.count >= this.options.blockerRepeats) {
-      setStatus(state, "blocked", `${state.blocker.key}: ${state.blocker.reason}`)
-      this.store.ledger(state.slug, { type: "blocked", blocker: state.blocker })
-      this.decide(state.sessionID, state.slug, "blocked", M.blocked(String(state.blocker.key), String(state.blocker.reason), state.blocker.needs), { blocker: state.blocker })
-      await this.transcript(state.sessionID, `◎ blocked on ${state.blocker.key}: ${state.blocker.reason}${state.blocker.needs ? ` (needs ${state.blocker.needs})` : ""}. Only the owner can resolve this; stop working around it and wait.`)
-      return this.persist(state)
-    }
-
+    // v0.6.0: the DECISION is the extracted pure function (src/engine/loop.ts).
+    // This method only APPLIES its side effects, which are unchanged - the
+    // OpenCode adapter and the `ocg tick` entry point share one decision.
     const use = budgetUse(state, contract)
     const backstop = !contract.budget.turns && state.turn >= this.options.backstopTurns
-    if (use.ratio >= 1 || backstop) {
-      if (!state.wrapup) {
-        state.wrapup = true
-        this.store.ledger(state.slug, { type: "wrapup", ratio: use.ratio, backstop })
-        return this.admit(state, "wrapup")
-      }
-      setStatus(state, "budget_limited", backstop ? `backstop of ${this.options.backstopTurns} turns reached` : "budget used")
-      this.decide(state.sessionID, state.slug, "budget_limited", M.budgetStopped(contract.title))
-      await this.transcript(state.sessionID, `◎ budget used (${contract.title}). The owner decides: raise the budget in goal.yaml and amend, or abort. Do not start new work.`)
-      await this.summarize(state, contract)
-      return this.persist(state)
-    }
+    const stallTurns = state.counters.noProgress
+    const stalled = stallTurns >= this.options.stallTurns
+    const active = stalled && this.store.recent(state.slug, 100).filter((e) => e.type === "turn").slice(-stallTurns).some((e) => e.activity === true || Number(e.tools) > 0)
+    const stallReason = active
+      ? `stalled: no visible change for ${stallTurns} turns while the agent kept working (host-visible activity)`
+      : `stalled: no change the host could see for ${stallTurns} turns`
+    const action = decide(
+      state,
+      {
+        turn: "succeeded",
+        pending: kind,
+        changed,
+        progressRecorded: turnFacts.progressRecorded,
+        stepsChanged: turnFacts.stepsChanged,
+        activeStalled: active,
+        stallReason,
+        onStall: contract.autonomy.on_stall,
+        budgetRatio: use.ratio,
+        backstop,
+        cooldownMs: this.options.cooldownMs,
+      },
+      {
+        blockerRepeats: this.options.blockerRepeats,
+        stallTurns: this.options.stallTurns,
+        recoveryAt: this.options.recoveryAt,
+        backstopTurns: this.options.backstopTurns,
+      },
+    )
 
-    if (state.counters.noProgress >= this.options.stallTurns) {
-      const stalled = state.counters.noProgress
-      const active = this.store.recent(state.slug, 100).filter((e) => e.type === "turn").slice(-stalled).some((e) => e.activity === true || Number(e.tools) > 0)
-      const reason = active
-        ? `stalled: no visible change for ${stalled} turns while the agent kept working (host-visible activity)`
-        : `stalled: no change the host could see for ${stalled} turns`
-      this.store.ledger(state.slug, { type: "stall", turns: stalled, activity: active, reason, policy: contract.autonomy.on_stall })
-      // Owner-set policy: a genuinely stalled-but-active run may continue with a
-      // recorded report instead of pausing. Idle runs and the default still stop.
-      if (active && contract.autonomy.on_stall === "continue") {
-        state.counters.noProgress = 0
-        this.store.ledger(state.slug, { type: "stall-report", turns: stalled, action: "continued", policy: contract.autonomy.on_stall })
-        this.noticeM(state.sessionID, M.stallReported(stalled))
+    switch (action.kind) {
+      case "none":
+        return
+      case "admit":
+        if (action.tail === "wrapup") {
+          state.wrapup = true
+          this.store.ledger(state.slug, { type: "wrapup", ratio: use.ratio, backstop })
+          return this.admit(state, "wrapup")
+        }
+        return this.admit(state, action.tail)
+      case "schedule": {
+        if (action.waiting) {
+          setStatus(state, "waiting", action.waiting.reason)
+          state.activity = { kind: "waiting", since: Date.now(), until: state.wait!.until, detail: action.waiting.reason }
+          this.persist(state)
+          return this.schedule(state, action.delayMs, action.tail)
+        }
+        if (stalled) {
+          this.store.ledger(state.slug, { type: "stall", turns: stallTurns, activity: active, reason: stallReason, policy: contract.autonomy.on_stall })
+          state.counters.noProgress = 0
+          this.store.ledger(state.slug, { type: "stall-report", turns: stallTurns, action: "continued", policy: contract.autonomy.on_stall })
+          this.noticeM(state.sessionID, M.stallReported(stallTurns))
+          this.persist(state)
+          return this.schedule(state, action.delayMs, action.tail)
+        }
+        state.wait = undefined
         this.persist(state)
-        return this.schedule(state, this.options.cooldownMs, "continue")
+        return this.schedule(state, action.delayMs, action.tail)
       }
-      setStatus(state, "paused", reason)
-      this.store.ledger(state.slug, { type: "paused", reason: state.reason, activity: active })
-      this.noticeM(state.sessionID, M.pausedStalled(state.reason ?? "stalled", contract.autonomy.on_stall))
-      return this.persist(state)
+      case "stop": {
+        switch (action.code) {
+          case "blocked":
+            setStatus(state, "blocked", action.reason)
+            this.store.ledger(state.slug, { type: "blocked", blocker: state.blocker })
+            this.decide(state.sessionID, state.slug, "blocked", M.blocked(String(state.blocker?.key), String(state.blocker?.reason), state.blocker?.needs), { blocker: state.blocker })
+            await this.transcript(state.sessionID, `◎ blocked on ${state.blocker?.key}: ${state.blocker?.reason}${state.blocker?.needs ? ` (needs ${state.blocker.needs})` : ""}. Only the owner can resolve this; stop working around it and wait.`)
+            return this.persist(state)
+          case "wrapup":
+            setStatus(state, "budget_limited", action.reason)
+            this.store.ledger(state.slug, { type: "budget_limited" })
+            this.decide(state.sessionID, state.slug, "budget_limited", M.budgetStopped(contract.title))
+            await this.transcript(state.sessionID, `◎ budget used (${contract.title}). The owner decides: raise the budget in goal.yaml and amend, or abort. Do not start new work.`)
+            await this.summarize(state, contract)
+            return this.persist(state)
+          case "budget":
+            setStatus(state, "budget_limited", action.reason)
+            this.decide(state.sessionID, state.slug, "budget_limited", M.budgetStopped(contract.title))
+            await this.transcript(state.sessionID, `◎ budget used (${contract.title}). The owner decides: raise the budget in goal.yaml and amend, or abort. Do not start new work.`)
+            await this.summarize(state, contract)
+            return this.persist(state)
+          case "stalled":
+            this.store.ledger(state.slug, { type: "stall", turns: stallTurns, activity: active, reason: stallReason, policy: contract.autonomy.on_stall })
+            setStatus(state, "paused", action.reason)
+            this.store.ledger(state.slug, { type: "paused", reason: state.reason, activity: active })
+            this.noticeM(state.sessionID, M.pausedStalled(state.reason ?? "stalled", contract.autonomy.on_stall))
+            return this.persist(state)
+        }
+      }
     }
-
-    if (state.wait && state.wait.until > Date.now()) {
-      setStatus(state, "waiting", state.wait.reason)
-      state.activity = { kind: "waiting", since: Date.now(), until: state.wait.until, detail: state.wait.reason }
-      this.persist(state)
-      return this.schedule(state, state.wait.until - Date.now(), "continue")
-    }
-    state.wait = undefined
-
-    const next: PendingKind = state.counters.noProgress >= this.options.recoveryAt ? "recovery" : "continue"
-    this.persist(state)
-    this.schedule(state, this.options.cooldownMs, next)
   }
 
   /** Re-run cheap `live: true` command checks after a turn that changed files. */
