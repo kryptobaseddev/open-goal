@@ -284,5 +284,25 @@ as the sole binding with an `acs` deprecation warning, and `reportSha256`. v0.5.
 this goal's contract permits no other release, so these land alongside the three CLI verbs, not in a second
 v0.5.x.
 
+## 9. The cross-project doc, and a real mapping bug found in review
+
+- **The design document is now a CLEO doc** — slug `ocg-cleo-integration`, type `research`, attached to
+  T13791. Read-only fetch works:
+  `cd ~/projects/cleocode && cleo docs fetch ocg-cleo-integration --content`. Docs are project-scoped today
+  (the fetch needs the owning project's directory); the maintainer is filing the cross-project-fetch gap.
+  This is the mechanism that replaced the unreadable Claude artifact, and it works.
+- **`qaPassed` agreed (option a, with a condition):** `cleo goal close` maps a criterion whose command is the
+  project's typecheck/lint to `qaPassed`, and CLEO records `tool:typecheck`/`tool:lint` through **its own tool
+  runner at the head commit** — normally a cache hit, and never from OCG's exit code. That is the atom the
+  bridge writes today, so the runtime and `close` agree.
+- **A real bug in `acsByGateFromProves`, found by the maintainer's review and fixed.** The mapper sent every
+  non-command check to `implemented`, which would have put a `diff` guard, a verifier verdict or a human
+  sign-off onto `implemented` — exactly the fabricated linkage the maintainer warned about in the first
+  reply. The rule is now: tests command → `testsPassed`; typecheck/lint command → `qaPassed`;
+  file/contains/absent → `implemented`; **`diff`, `verifier` and `human` → no gate, so the AC stays OPEN and
+  is reported**. Fixed with a test covering the open cases (`e91167d`). It is a **post-v0.5.0 commit** — the
+  tag is immutable and this goal may not release again — and ships with the verb wiring next.
+
+
 
 
