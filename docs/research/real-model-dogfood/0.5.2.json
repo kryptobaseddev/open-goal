@@ -69,7 +69,7 @@
     "model": "deepseek/deepseek-flash",
     "agent": "build"
   },
-  "generatedAt": "2026-10-16T22:05:29.981Z",
+  "generatedAt": "2026-10-16T22:14:34.025Z",
   "flows": [
     {
       "flow": "interview",
@@ -158,42 +158,42 @@
       ],
       "readCoordinates": [
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/provenance.json",
+          "path": ".opencode/dogfood/f33c45847106/interview/evidence/00-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/fresh-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/interview/evidence/01-fresh-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bb797f001ExrsKvqC2zf146.json",
+          "path": ".opencode/dogfood/f33c45847106/interview/evidence/02-form-frm_146bb797f001ExrsKvqC2zf146.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/author-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/interview/evidence/03-author-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/context.json",
+          "path": ".opencode/dogfood/f33c45847106/interview/evidence/04-context.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bc174d001vve49pF2aR3YvF.json",
+          "path": ".opencode/dogfood/f33c45847106/interview/evidence/05-form-frm_146bc174d001vve49pF2aR3YvF.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/answers.json",
+          "path": ".opencode/dogfood/f33c45847106/interview/evidence/06-answers.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/run.json",
+          "path": ".opencode/dogfood/f33c45847106/interview/evidence/07-run.json",
           "offset": 0,
           "limit": 4096
         }
@@ -409,157 +409,157 @@
       ],
       "readCoordinates": [
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/00-explicit-session-jump.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/01-f9-reopen-selected-focus.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.state.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/02-visible-close-to-sidebar.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/03-f9-reopen-selected-focus.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/04-visible-close-to-sidebar.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/second-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/05-second-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/host.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/06-host.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/07-narrow-focus-and-bounds.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/provenance.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/08-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/result.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/09-result.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/10-narrow-focus-and-bounds.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/11-goal-less-native-manager.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.state.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/12-goal-less-native-manager.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/13-expand-before-jump.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.state.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/14-explicit-session-jump.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/15-two-rendered-cards.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/16-selected-action-isolated.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/first-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/17-first-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/18-two-rendered-cards.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.state.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/19-selected-action-isolated.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/20-expand-before-jump.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.state.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/21-expand-before-jump.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/22-selected-action-isolated.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.state.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/23-two-rendered-cards.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/24-explicit-session-jump.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/pty-result.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/25-pty-result.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/26-goal-less-native-manager.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.state.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/27-narrow-focus-and-bounds.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.state.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/28-f9-reopen-selected-focus.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/render-tree.json",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/29-render-tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/manager/evidence/30-visible-close-to-sidebar.screen.txt",
           "offset": 0,
           "limit": 4096
         }
@@ -740,202 +740,202 @@
       ],
       "readCoordinates": [
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/00-explicit-session-jump.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/01-f9-reopen-selected-focus.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.state.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/02-visible-close-to-sidebar.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/03-f9-reopen-selected-focus.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/04-visible-close-to-sidebar.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/second-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/05-second-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/host.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/06-host.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/07-narrow-focus-and-bounds.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/provenance.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/08-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/result.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/09-result.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/10-narrow-focus-and-bounds.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/11-goal-less-native-manager.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.state.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/12-goal-less-native-manager.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/13-expand-before-jump.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.state.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/14-explicit-session-jump.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/15-two-rendered-cards.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/16-selected-action-isolated.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/first-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/17-first-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/18-two-rendered-cards.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.state.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/19-selected-action-isolated.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/20-expand-before-jump.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.state.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/21-expand-before-jump.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/22-selected-action-isolated.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.state.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/23-two-rendered-cards.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/24-explicit-session-jump.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/pty-result.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/25-pty-result.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/26-goal-less-native-manager.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.state.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/27-narrow-focus-and-bounds.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.state.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/28-f9-reopen-selected-focus.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/render-tree.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/29-render-tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/30-visible-close-to-sidebar.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/provenance.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/31-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-provenance.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/32-lifecycle-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/fresh-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/33-fresh-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bb797f001ExrsKvqC2zf146.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/34-form-frm_146bb797f001ExrsKvqC2zf146.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-ledger.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/35-lifecycle-ledger.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/author-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/36-author-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-result.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/37-lifecycle-result.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/38-lifecycle-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/context.json",
+          "path": ".opencode/dogfood/f33c45847106/lifecycle/evidence/39-context.json",
           "offset": 0,
           "limit": 4096
         }
@@ -1282,202 +1282,202 @@
       ],
       "readCoordinates": [
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/00-explicit-session-jump.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/01-f9-reopen-selected-focus.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.state.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/02-visible-close-to-sidebar.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/03-f9-reopen-selected-focus.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/04-visible-close-to-sidebar.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/second-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/05-second-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/host.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/06-host.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/07-narrow-focus-and-bounds.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/provenance.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/08-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/result.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/09-result.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/10-narrow-focus-and-bounds.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/11-goal-less-native-manager.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.state.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/12-goal-less-native-manager.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/13-expand-before-jump.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.state.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/14-explicit-session-jump.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/15-two-rendered-cards.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/16-selected-action-isolated.tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/first-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/17-first-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/18-two-rendered-cards.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.state.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/19-selected-action-isolated.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/20-expand-before-jump.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.state.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/21-expand-before-jump.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/22-selected-action-isolated.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.state.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/23-two-rendered-cards.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/24-explicit-session-jump.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/pty-result.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/25-pty-result.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/26-goal-less-native-manager.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.state.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/27-narrow-focus-and-bounds.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.state.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/28-f9-reopen-selected-focus.state.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/render-tree.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/29-render-tree.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/30-visible-close-to-sidebar.screen.txt",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/provenance.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/31-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-provenance.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/32-lifecycle-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/fresh-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/33-fresh-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bb797f001ExrsKvqC2zf146.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/34-form-frm_146bb797f001ExrsKvqC2zf146.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-ledger.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/35-lifecycle-ledger.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/completion-ledger.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/36-completion-ledger.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/completion-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/37-completion-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/author-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/38-author-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-result.json",
+          "path": ".opencode/dogfood/f33c45847106/completion/evidence/39-lifecycle-result.json",
           "offset": 0,
           "limit": 4096
         }
@@ -1851,507 +1851,174 @@
         "agent": "build"
       },
       "requestIds": [
-        "ses_eb943ab3effefdquBH0drbgaHk",
-        "ses_eb943ae5dffekm8WSbbjxlhHlR",
-        "ses_eb943aaeaffeNH0zpK7M8UA89a",
-        "msg_146bc99d1001ke1G6JweAk8JTl",
-        "msg_146bc99ea001jEEPsG0CLA8AuK",
-        "msg_146bca396001m62etEiFWFKNDT",
-        "msg_146bcab5a0010GsNouF5PwU47U",
-        "msg_146bcb43f001slgzsMIb1MRGCK",
-        "msg_146bcbb3d001XJuL40Sw6NtCI0",
-        "msg_146bcc7b80013T8v8pQSz8mpEV",
-        "msg_146bccf42001Dw8qcm8s1cfnUt",
-        "msg_146bcd606001V5K8LHQkr8I9ZO"
+        "ses_eb93f2d62ffe3f2hkWtf71aSk2",
+        "msg_146c0d7db001lUo5gdRjMxXxTK",
+        "msg_146c0d7f9001jsJ92D1ft1c8F3",
+        "msg_146c0e096001X5hzSLyKy7EcRw",
+        "msg_146c0e09b001cYH2e9XGjPjGtJ",
+        "msg_146c0ebb9001skeDlRNkk0mOSJ",
+        "msg_146c0f5b0001Tpg7L3Vg55ckcD",
+        "msg_146c1028a001ILermDl6393R2v",
+        "msg_146c10c3d001cgSyy7YZHTrAom",
+        "msg_146c11890001uwSHlNwiCom5Aj",
+        "msg_146c121150022VXded5V2Lla3h",
+        "msg_146c121ca001QaB7djsO5hQBEC"
       ],
       "readCoordinates": [
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/amendment/evidence/00-reviewed-proposal.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/amendment/evidence/01-before-accept-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.state.json",
+          "path": ".opencode/dogfood/f33c45847106/amendment/evidence/02-provenance.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.screen.txt",
+          "path": ".opencode/dogfood/f33c45847106/amendment/evidence/03-result.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.tree.json",
+          "path": ".opencode/dogfood/f33c45847106/amendment/evidence/04-transcript.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/second-transcript.json",
+          "path": ".opencode/dogfood/f33c45847106/amendment/evidence/05-context.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/host.json",
+          "path": ".opencode/dogfood/f33c45847106/amendment/evidence/06-before-accept-forms.json",
           "offset": 0,
           "limit": 4096
         },
         {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.screen.txt",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/provenance.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/result.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.tree.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.tree.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.state.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.tree.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.state.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.tree.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.tree.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/first-transcript.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.screen.txt",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.state.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.screen.txt",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.state.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.screen.txt",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.state.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.screen.txt",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/pty-result.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.screen.txt",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.state.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.state.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/render-tree.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.screen.txt",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/provenance.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-provenance.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/fresh-transcript.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bb797f001ExrsKvqC2zf146.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-ledger.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/completion-ledger.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/completion-transcript.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/author-transcript.json",
-          "offset": 0,
-          "limit": 4096
-        },
-        {
-          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-result.json",
+          "path": ".opencode/dogfood/f33c45847106/amendment/evidence/07-ledger.json",
           "offset": 0,
           "limit": 4096
         }
       ],
-      "label": "partial",
-      "labelReason": "the flow did not complete (exit 1) after producing some evidence",
-      "ms": 156055,
-      "startedAt": "2026-10-16T22:05:29.980Z",
+      "label": "pass",
+      "labelReason": "a real model completed the flow and its raw interaction was preserved (4 owner messages, 0 forms, 27 tool calls)",
+      "ms": 54302,
+      "startedAt": "2026-10-16T22:07:38.649Z",
       "raw": {
         "ownerMessages": [
-          "The automated QA owner's manager inspection is finished. Your existing marker is ready. Complete this SAME waiting inspection goal now: read its marker, call goal_claim with evidence for every criterion, then END YOUR TURN so the installed host runs its declared checks. Do not wait again, request manual verification, fabricate passes, create a replacement goal, edit the locked contract, or change ",
-          "◎ goal-decision (kind=complete, slug=qa-manager-two) — the goal engine needs the OWNER's decision now.\nDecision: Goal complete: qa-manager-two. The loop has stopped. What next? — start the write-goal interview for the next goal · /goal archive · install CLEO — no .cleo workspace in this project yet\nAsk the owner NOW with the question tool using the EXACT JSON below. Keep the question's nonce, targ",
-          "Goal entry — interpret the owner's intent, not merely the first word.\nOwner's original words: \"Create a goal for this isolated QA project: use slug qa-interview. Write proof.txt with exactly status: ok on one line. This is a bounded QA test, not a request to edit production. Interview me with one native question before drafting; the test owner answers are: direct host file/contains checks, no huma",
-          "Ask the owner with the question tool using the exact JSON below. The host executes the choice; do not call goal_start afterwards.\nGOAL_FORM_JSON:{\"questions\":[{\"header\":\"Goal\",\"question\":\"Review and launch: QA proof.txt contains the single line status ok\\nGoal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9.\\nOutcome: proof.txt exists at the project",
-          "I approve you to resume. Resume this same inspection run now through goal_inventory and goal_manage; do not create a replacement or ask a redundant resume question. Then immediately call goal_wait for 300 seconds and do not claim. This is the automated QA owner exercising the current exact lifecycle on its isolated inspection goal."
+          "Change this same goal's outcome to say qa-marker.txt exists under the revised QA semantics. Keep every criterion, constraint, non-goal and marker unchanged. Use goal_propose_amendment with the actual current lock and replacement YAML; show me the exact diff in the Composer, then stop. Do not edit the live contract, resume, claim, invent a sidebar Accept or ask me to type a command. This is an isol",
+          "Change this same goal's outcome to say qa-marker.txt exists under the revised QA semantics. Keep every criterion, constraint, non-goal and marker unchanged. Use goal_propose_amendment with the actual current lock and replacement YAML; show me the exact diff in the Composer, then stop. Do not edit the live contract, resume, claim, invent a sidebar Accept or ask me to type a command. This is an isol",
+          "Ask the owner with the question tool using this exact JSON. The host alone applies the selected amendment; do not edit goal.yaml or call an owner action afterwards.\nGOAL_FORM_JSON:{\"questions\":[{\"header\":\"Goal\",\"question\":\"Amend qa-chat-amend (run 146c0d743001)?\\n\\nFrom SHA256 bae127ddbcf589794ec61e4b743b895c479664006325fa586d8b97a05edc158b to c996dc6d1d09726cb46a454c7f1094596f68a4e2d11c3b53aab0f1",
+          "I accept the amendment get it done"
         ],
-        "forms": [
-          {
-            "id": "frm_146bb797f001ExrsKvqC2zf146",
-            "question": "Evidence standard",
-            "answer": "{\"q0\":\"Use the fixed QA choices: proof.txt = status: ok; direct host checks only, no verifier/human criterion, no budget, fresh root launch with the original mo"
-          },
-          {
-            "id": "frm_146bc174d001vve49pF2aR3YvF",
-            "question": "Goal",
-            "answer": "{\"q0\":\"Start goal now (Recommended)\"}"
-          }
-        ],
+        "forms": [],
         "toolCalls": [
           {
             "name": "shell",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 32 drwx------ 9 keatonhoskins staff 288 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-qEsDRA total 0 drwx------ 4 keatonhoskins staff 128 Oct 16 15:06 . drwxr-xr-x 149 keatonhoskins staff 4768 Oct 16"
           },
           {
-            "name": "glob",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/manager-one.txt [mbx] This session has no mailbox identity yet. No mailboxes for this directory. Claim one with"
+            "name": "goal_status",
+            "result": "{ \"slug\": \"qa-chat-amend\", \"title\": \"Deployed Composer acceptance QA\", \"outcome\": \"qa-marker.txt exists under the reviewed semantics\", \"status\": \"running\", \"runId\": \"146c0d743001\", \"sessionID\": \"ses_e"
           },
           {
             "name": "shell",
-            "result": "--- manager-one.txt status: ok --- proof.txt status: ok --- README.md # Isolated real-model goal QA Only QA marker files and goal artifacts belong here. --- qa-evidence total 352 drwxr-xr-x 12 keatonh"
+            "result": "schema: goal/v1 id: qa-chat-amend title: Deployed Composer acceptance QA intent: {verbatim: verify chat accepts an exact staged review} outcome: qa-marker.txt exists under the reviewed semantics non_g"
+          },
+          {
+            "name": "shell",
+            "result": "{ \"root\": \"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-qEsDRA\", \"location\": { \"directory\": \"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode"
           },
           {
             "name": "write",
-            "result": "Created file successfully: manager-two.txt"
-          },
-          {
-            "name": "shell",
-            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok 1 "
-          },
-          {
-            "name": "goal_progress",
-            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
-          },
-          {
-            "name": "goal_wait",
-            "result": "The goal will resume in 300s. End your turn now."
-          },
-          {
-            "name": "shell",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
-          },
-          {
-            "name": "glob",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
-          },
-          {
-            "name": "read",
-            "result": "Read file proof.txt, lines 1-1 1: status: ok"
-          },
-          {
-            "name": "read",
-            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
-          },
-          {
-            "name": "read",
-            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
-          },
-          {
-            "name": "write",
-            "result": "Created file successfully: manager-one.txt"
-          },
-          {
-            "name": "shell",
-            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+            "result": "Created file successfully: qa-marker.txt"
           },
           {
             "name": "goal_progress"
           },
           {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 70 Oct 16 15:06 qa-marker.txt ---- bytes ---- status: ok goal: qa-chat-amend title: Deployed Composer acceptance QA ---- grep ---- 1 "
+          },
+          {
             "name": "goal_progress",
-            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-chat-amend\", \"runId\": \"146c0d743001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
           },
           {
             "name": "goal_wait",
             "result": "The goal will resume in 300s. End your turn now."
-          },
-          {
-            "name": "shell",
-            "result": "total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:00 .. drwxr-xr-x 14 keatonhoskins staff 448 Oct 16 15:00 .git -rw-r--r-- 1 keatonhoskins "
-          },
-          {
-            "name": "shell",
-            "result": "total 40 drwxr-xr-x 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 4 keatonhoskins staff 128 Oct 16 15:01 .. -rw-r--r-- 1 keatonhoskins staff 1395 Oct 16 15:01 context.md -rw-r--r-- 1 keatonhoski"
-          },
-          {
-            "name": "write",
-            "result": "Created file successfully: proof.txt"
-          },
-          {
-            "name": "shell",
-            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 proof.txt --- content (xxd) --- 00000000: 7374 6174 7573 3a20 6f6b 0a status: ok. --- contains check --- CONTAINS status: ok: yes "
-          },
-          {
-            "name": "goal_progress",
-            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-interview\", \"runId\": \"146bc1828001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
-          },
-          {
-            "name": "goal_wait",
-            "result": "The goal will resume in 300s. End your turn now."
-          },
-          {
-            "name": "shell",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 32 drwx------ 9 keatonhoskins staff 288 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
-          },
-          {
-            "name": "glob",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/manager-one.txt [mbx] This session has no mailbox identity yet. No mailboxes for this directory. Claim one with"
-          },
-          {
-            "name": "shell",
-            "result": "--- manager-one.txt status: ok --- proof.txt status: ok --- README.md # Isolated real-model goal QA Only QA marker files and goal artifacts belong here. --- qa-evidence total 352 drwxr-xr-x 12 keatonh"
-          },
-          {
-            "name": "write",
-            "result": "Created file successfully: manager-two.txt"
-          },
-          {
-            "name": "shell",
-            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok 1 "
-          },
-          {
-            "name": "goal_progress",
-            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
-          },
-          {
-            "name": "goal_wait",
-            "result": "The goal will resume in 300s. End your turn now."
-          },
-          {
-            "name": "shell",
-            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok C2-MATCH "
-          },
-          {
-            "name": "goal_progress",
-            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"waiting\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
-          },
-          {
-            "name": "goal_claim",
-            "result": "Claim recorded. End your turn now; the host will verify it and either complete the goal or return a verdict."
-          },
-          {
-            "name": "shell",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
-          },
-          {
-            "name": "shell",
-            "result": "total 8 drwxr-xr-x 3 keatonhoskins staff 96 Oct 16 15:00 . drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 .. -rw-r--r-- 1 keatonhoskins staff 93 Oct 16 15:00 opencode.json ./qa-evidence/provenance."
-          },
-          {
-            "name": "shell",
-            "result": "# Isolated real-model goal QA Only QA marker files and goal artifacts belong here. ---OPENCODE--- { \"plugins\": [ \"-opencode-goal\", \"github:kryptobaseddev/opencode-goal#v0.5.2\" ] }---GITIGNORE--- .open"
-          },
-          {
-            "name": "goal_inventory",
-            "result": "{ \"goals\": [] }"
-          },
-          {
-            "name": "shell",
-            "result": "# goal/v1 contract — fill every field marked REQUIRED; delete optional blocks you do not need. # Values that contain \": \" must be wrapped in single quotes. schema: goal/v1 id: my-goal # REQUIRED: equa"
-          },
-          {
-            "name": "shell",
-            "result": "(no output)"
-          },
-          {
-            "name": "question",
-            "result": "User has answered your questions: \"How should this QA goal prove its one end state — proof.txt containing the single line `status: ok`?\"=\"Use the fixed QA choices: proof.txt = status: ok; direct host "
-          },
-          {
-            "name": "write",
-            "result": "Created file successfully: .opencode/goals/qa-interview/context.md"
-          },
-          {
-            "name": "write",
-            "result": "Created file successfully: .opencode/goals/qa-interview/decisions.jsonl"
-          },
-          {
-            "name": "write",
-            "result": "Created file successfully: .opencode/goals/qa-interview/goal.yaml"
-          },
-          {
-            "name": "goal_validate",
-            "result": "✗ goal.yaml: not valid YAML: YAML Parse error: Unexpected token (line 6 has an unquoted value containing \": \" — wrap the value in single quotes)"
-          },
-          {
-            "name": "read",
-            "result": "Read file /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/.opencode/goals/qa-interview/goal.yaml, lines 1-10 1: schema: goal/v1 2: id: qa-interview 3: title: Q"
-          },
-          {
-            "name": "edit",
-            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
-          },
-          {
-            "name": "edit",
-            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
-          },
-          {
-            "name": "goal_validate",
-            "result": "✓ goal.yaml is valid lock 44d90b887926 · 2 criteria (2 host-checked), 1 invariants"
-          },
-          {
-            "name": "goal_prepare_launch",
-            "result": "{ \"decisionId\": \"f4424bd4-5c7c-4b01-bedc-7e59701e9154\", \"slug\": \"qa-interview\", \"lock\": \"44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9\", \"fresh\": true, \"status\": \"pending\", \"transpo"
-          },
-          {
-            "name": "question",
-            "result": "User has answered your questions: \"Review and launch: QA proof.txt contains the single line status ok Goal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9f"
           },
           {
             "name": "goal_status",
-            "result": "No goal is running in this session."
+            "result": "{ \"slug\": \"qa-chat-amend\", \"title\": \"Deployed Composer acceptance QA\", \"outcome\": \"qa-marker.txt exists under the reviewed semantics\", \"status\": \"waiting\", \"reason\": \"Contract constraint: after writin"
+          },
+          {
+            "name": "goal_propose_amendment"
           },
           {
             "name": "shell",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-qEsDRA total 0 drwx------ 4 keatonhoskins staff 128 Oct 16 15:06 . drwxr-xr-x 149 keatonhoskins staff 4768 Oct 16"
           },
           {
-            "name": "glob",
-            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
+            "name": "goal_status",
+            "result": "{ \"slug\": \"qa-chat-amend\", \"title\": \"Deployed Composer acceptance QA\", \"outcome\": \"qa-marker.txt exists under the reviewed semantics\", \"status\": \"running\", \"runId\": \"146c0d743001\", \"sessionID\": \"ses_e"
           },
           {
-            "name": "read",
-            "result": "Read file proof.txt, lines 1-1 1: status: ok"
+            "name": "shell",
+            "result": "schema: goal/v1 id: qa-chat-amend title: Deployed Composer acceptance QA intent: {verbatim: verify chat accepts an exact staged review} outcome: qa-marker.txt exists under the reviewed semantics non_g"
           },
           {
-            "name": "read",
-            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
-          },
-          {
-            "name": "read",
-            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
+            "name": "shell",
+            "result": "{ \"root\": \"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-qEsDRA\", \"location\": { \"directory\": \"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode"
           },
           {
             "name": "write",
-            "result": "Created file successfully: manager-one.txt"
-          },
-          {
-            "name": "shell",
-            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+            "result": "Created file successfully: qa-marker.txt"
           },
           {
             "name": "goal_progress"
           },
           {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 70 Oct 16 15:06 qa-marker.txt ---- bytes ---- status: ok goal: qa-chat-amend title: Deployed Composer acceptance QA ---- grep ---- 1 "
+          },
+          {
             "name": "goal_progress",
-            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-chat-amend\", \"runId\": \"146c0d743001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
           },
           {
             "name": "goal_wait",
             "result": "The goal will resume in 300s. End your turn now."
           },
           {
-            "name": "goal_inventory",
-            "result": "{ \"goals\": [ { \"key\": \"live:qa-manager-one:146bc5643001\", \"slug\": \"qa-manager-one\", \"title\": \"qa-manager-one\", \"status\": \"paused\", \"archived\": false, \"terminal\": false, \"attachable\": true, \"valid\": tr"
+            "name": "goal_status",
+            "result": "{ \"slug\": \"qa-chat-amend\", \"title\": \"Deployed Composer acceptance QA\", \"outcome\": \"qa-marker.txt exists under the reviewed semantics\", \"status\": \"waiting\", \"reason\": \"Contract constraint: after writin"
           },
           {
-            "name": "goal_manage",
-            "result": "{ \"ok\": true, \"message\": \"Goal resumed: qa-manager-one — /goal status · /goal pause\" }"
+            "name": "goal_propose_amendment",
+            "result": "{ \"decisionId\": \"e7373e80-128a-4849-a7c5-c6408614170c\", \"slug\": \"qa-chat-amend\", \"runId\": \"146c0d743001\", \"lock\": \"bae127ddbcf589794ec61e4b743b895c479664006325fa586d8b97a05edc158b\", \"nextLock\": \"c996d"
+          },
+          {
+            "name": "goal_resolve_amendment",
+            "result": "{ \"ok\": true, \"decisionId\": \"e7373e80-128a-4849-a7c5-c6408614170c\", \"status\": \"succeeded\", \"ownerMessageID\": \"msg_146c13c65001qRLxVF2xXVmLxC\", \"message\": \"Amended qa-chat-amend to c996dc6d1d09726cb46a"
           },
           {
             "name": "shell",
-            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok ?? .opencode/ ?? manager-one.txt ?? manager-two.txt ?? proof.txt "
+            "result": "schema: goal/v1 id: qa-chat-amend title: Deployed Composer acceptance QA intent: {verbatim: verify chat accepts an exact staged review} outcome: qa-marker.txt exists under the revised QA semantics non"
           },
           {
             "name": "goal_status",
-            "result": "{ \"slug\": \"qa-manager-one\", \"title\": \"qa-manager-one\", \"outcome\": \"manager-one.txt contains status ok\", \"status\": \"running\", \"runId\": \"146bc5643001\", \"sessionID\": \"ses_eb943ab3effefdquBH0drbgaHk\", \"lo"
+            "result": "{ \"slug\": \"qa-chat-amend\", \"title\": \"Deployed Composer acceptance QA\", \"outcome\": \"qa-marker.txt exists under the revised QA semantics\", \"status\": \"running\", \"runId\": \"146c0d743001\", \"sessionID\": \"ses"
           },
           {
             "name": "goal_progress",
-            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-chat-amend\", \"runId\": \"146c0d743001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
           },
           {
             "name": "goal_wait",
@@ -2359,16 +2026,16 @@
           }
         ],
         "results": [
-          "Real-model chat amendment failed; retained /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-DZgL6s/qa-evidence: Error: Timed out; raw evidence retained"
+          "{\"pass\":true,\"root\":\"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-qEsDRA\",\"evidence\":\"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-qEsDRA/qa-evidence\",\"sessionID\":\"ses_eb93f2d62ffe3f2hkWtf71aSk2\",\"revision\":\"f33c458471061bda4441ccb5326ba12919ed8fe5\",\"serverPID\":30270,\"providerIsFixture\":false}"
         ]
       }
     }
   ],
   "labels": {
-    "pass": 4,
+    "pass": 5,
     "fixture": 0,
     "stale-cache": 0,
-    "partial": 1,
+    "partial": 0,
     "timeout": 0
   }
 }

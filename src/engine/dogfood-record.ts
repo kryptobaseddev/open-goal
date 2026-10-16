@@ -191,6 +191,12 @@ export type DogfoodDeps = {
   runFlow: (flow: FlowId) => Promise<FlowRun>
   store: { read: (flow: FlowId) => Promise<FlowRecord | undefined>; write: (record: FlowRecord) => Promise<void> }
   emit: { summary: (markdown: string) => Promise<void>; index: (exp: DogfoodExport) => Promise<void> }
+  /**
+   * Applied to EVERY record (reused or fresh) before it enters the export. Used to
+   * make the cited read coordinates project-local, so an independent read-only
+   * verifier can actually open them. Must not change a verdict.
+   */
+  relocate?: (record: FlowRecord) => Promise<FlowRecord>
   force?: boolean
   now?: () => number
 }
@@ -216,8 +222,9 @@ export async function runDogfood(deps: DogfoodDeps): Promise<DogfoodResult> {
     // another release/artifact set) is never reused at all.
     const reusable = stored && !deps.force && stored.label === "pass" && !stale
     if (reusable) {
-      records.push(stored)
-      results.push({ flow, label: stored.label, reused: true })
+      const record = deps.relocate ? await deps.relocate(stored) : stored
+      records.push(record)
+      results.push({ flow, label: record.label, reused: true })
       continue
     }
     const run = await deps.runFlow(flow)
@@ -238,7 +245,7 @@ export async function runDogfood(deps: DogfoodDeps): Promise<DogfoodResult> {
       raw: run.raw,
     }
     await deps.store.write(record)
-    records.push(record)
+    records.push(deps.relocate ? await deps.relocate(record) : record)
     results.push({ flow, label, reused: false })
   }
   const exp: DogfoodExport = {

@@ -15,8 +15,8 @@
 //
 // No credentials are written to the export; no production project is mutated.
 
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
-import { join, relative } from "node:path"
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
+import { basename, join, relative, resolve, sep } from "node:path"
 import { OpenCode } from "@opencode/client"
 import { Service } from "@opencode/client/service"
 import { GoalRpc } from "../src/rpc"
@@ -117,17 +117,58 @@ const writeState = (s: { qaRoot?: string }) => writeFileSync(statePath, JSON.str
 const NEEDS_ROOT: readonly FlowId[] = ["manager", "lifecycle", "completion"]
 
 /**
- * Bounded: walk the driver's evidence, read small JSON, and extract the raw
- * owner interaction + the identifiers a reader needs to find the records. Reads
- * are capped (files, size, depth) so a runaway directory cannot blow up the run.
+ * Make every cited read coordinate PROJECT-LOCAL. The drivers write their raw
+ * evidence into a temp root outside the project, and a read-only verifier is
+ * denied external paths — so a coordinate pointing there cannot be checked. This
+ * copies each such file into the project once and re-points the coordinate at the
+ * copy. It NEVER changes a label, a verdict or a record's verdict fields.
  */
-function collectEvidence(dir: string, cap = 40): { requestIds: string[]; readCoordinates: ReadCoordinate[]; raw: RawOutcome } {
+async function relocate(record: FlowRecord): Promise<FlowRecord> {
+  const destDir = join(rawDir, record.flow, "evidence")
+  const prefix = root.endsWith(sep) ? root : `${root}${sep}`
+  const coordinates: ReadCoordinate[] = []
+  for (const coordinate of record.readCoordinates) {
+    const source = resolve(root, coordinate.path)
+    if (source.startsWith(prefix) && existsSync(source)) {
+      coordinates.push(coordinate)
+      continue
+    }
+    try {
+      const body = readFileSync(source)
+      mkdirSync(destDir, { recursive: true })
+      const copy = join(destDir, `${String(coordinates.length).padStart(2, "0")}-${basename(source)}`)
+      writeFileSync(copy, body)
+      coordinates.push({ path: relative(root, copy), offset: coordinate.offset, limit: coordinate.limit })
+    } catch {
+      // Cannot relocate (the temp root is gone): keep the original coordinate
+      // rather than inventing one, and let the record stand as it is.
+      coordinates.push(coordinate)
+    }
+  }
+  return { ...record, readCoordinates: coordinates }
+}
+
+/**
+ * Bounded: walk the driver's evidence, read small JSON, and extract the raw
+ * owner interaction + the identifiers a reader needs to find the records.
+ *
+ * Every file it reads is COPIED into `destDir` inside the project, and the
+ * recorded read coordinate points at that copy. The drivers write their evidence
+ * into a temp root outside the project, which a read-only verifier is denied —
+ * so project-local copies are what make the coordinates actually checkable.
+ */
+function collectEvidence(dir: string, destDir: string, cap = 40): { requestIds: string[]; readCoordinates: ReadCoordinate[]; raw: RawOutcome } {
   const requestIds = new Set<string>()
   const readCoordinates: ReadCoordinate[] = []
   const raw: RawOutcome = { ownerMessages: [], forms: [], toolCalls: [], results: [] }
   const formQuestion = new Map<string, string>()
   const answers: Array<{ formID: string; answer: unknown }> = []
   const idRe = /"(?:requestId|requestID|sessionID)":\s*"((?:ses|req|msg)_[A-Za-z0-9]+)"/g
+  try {
+    mkdirSync(destDir, { recursive: true })
+  } catch {
+    /* fall back to source paths below */
+  }
   const walk = (d: string, depth = 0) => {
     if (depth > 6 || readCoordinates.length >= cap) return
     let entries: string[] = []
@@ -149,13 +190,22 @@ function collectEvidence(dir: string, cap = 40): { requestIds: string[]; readCoo
         continue
       }
       if (!/\.(json|jsonl|txt|log|md)$/.test(name) || st.size > 512 * 1024) continue
-      readCoordinates.push({ path: relative(root, p), offset: 0, limit: 4096 })
       let body = ""
       try {
         body = readFileSync(p, "utf8")
       } catch {
         continue
       }
+      // Copy into the project FIRST, then cite the project-local path.
+      let cited = p
+      try {
+        const copy = join(destDir, `${String(readCoordinates.length).padStart(2, "0")}-${name}`)
+        writeFileSync(copy, body)
+        cited = copy
+      } catch {
+        /* keep the source path if the copy fails */
+      }
+      readCoordinates.push({ path: relative(root, cited), offset: 0, limit: 4096 })
       for (const m of body.matchAll(idRe)) requestIds.add(m[1]!)
       // The QUESTION definitions, so an answer can be paired with its question.
       if (/^form-.*\.json$/.test(name)) {
@@ -252,7 +302,7 @@ async function runFlow(flow: FlowId, state: { qaRoot?: string }): Promise<FlowRu
     .map((l) => l.trim())
     .find((l) => /^(error|Error|✗|\{?"?success"?:false)/.test(l))
   const dir = evidenceDir ?? join(state.qaRoot ?? join(rawDir, flow), "qa-evidence")
-  const { requestIds, readCoordinates, raw } = collectEvidence(dir)
+  const { requestIds, readCoordinates, raw } = collectEvidence(dir, join(rawDir, flow, "evidence"))
   raw.results.push(...out.split("\n").filter((l) => l.trim()).slice(-20))
   return { exit, timedOut, providerError, ms: Date.now() - started, requestIds, readCoordinates, raw, ...(note ? { note } : {}) }
 }
@@ -281,6 +331,7 @@ const result = await runDogfood({
     index: async (exp) => writeFileSync(join(root, exportPaths(version, revision).index), JSON.stringify(exp, null, 2)),
   },
   force,
+  relocate,
 })
 
 for (const r of result.results) console.log(`${r.reused ? "reused" : "ran   "} ${r.flow.padEnd(10)} ${r.label}`)
