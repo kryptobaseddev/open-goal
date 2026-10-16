@@ -47,6 +47,11 @@ export function renderSystemBlock(contract: Contract, lock: string): string {
   if (contract.constraints.length) out.push(`Constraints: ${contract.constraints.join("; ")}`)
   if (contract.cleo?.tasks.length)
     out.push(`CLEO tasks this goal serves (evidence is recorded through the cleo CLI only; an AC no evidence proves stays open and is reported): ${contract.cleo.tasks.map((t) => (t.acs ? `${t.id} (${Object.entries(t.acs).map(([g, acs]) => `${g}=${(acs ?? []).join("/")}`).join(", ")})` : t.id)).join("; ")}`)
+  // v0.5.2 - a multi-task goal's run commits must cite every linked task id, or a
+  // later `cleo goal close` cannot bind the ones no commit names.
+  const linked = contract.cleo?.tasks.map((t) => t.id) ?? []
+  if (linked.length > 1)
+    out.push(`Commit citation (REQUIRED, ${linked.length} linked tasks): because this work lands on main with no PR or task branch, every RUN COMMIT message must cite ALL of these ids — ${linked.join(", ")} — e.g. \`feat(${linked.join(",")}): …\` or a trailer listing them. A commit that cites only some of them leaves the rest open with a "neither cites" blocker when the tasks are closed through the bridge.`)
   if (contract.plan.length) {
     out.push("Plan:")
     for (const s of contract.plan)

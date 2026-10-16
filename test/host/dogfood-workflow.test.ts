@@ -96,4 +96,29 @@ describe("the exact-release dogfood workflow (v0.5.1)", () => {
     expect(stale.results.every((r) => !r.reused)).toBe(true)
     expect(h.ran).toEqual([...FLOWS])
   })
+
+  test("a DIFFERENT serving engine invalidates the whole cache - a restarted server is not the same engine", async () => {
+    const h = harness()
+    await runDogfood(h.deps())
+    h.ran.length = 0
+    const other = await runDogfood({ ...h.deps(), identity: async () => ({ release, serving: { ...serving, pid: 9999 }, selections }) })
+    // nothing is reused from the engine that produced the records
+    expect(h.ran).toEqual([...FLOWS])
+    expect(other.results.every((r) => !r.reused)).toBe(true)
+    expect(other.export.flows.every((f) => f.serving.pid === 9999)).toBe(true)
+  })
+
+  test("a stale record from another engine with no fresh verdict is labelled stale-cache BY NAME, never a partial or a pass", async () => {
+    const h = harness()
+    await runDogfood(h.deps())
+    const empty = { ownerMessages: [], forms: [], toolCalls: [], results: [] }
+    const result = await runDogfood({
+      ...h.deps(),
+      runFlow: async (): Promise<FlowRun> => ({ exit: 1, ms: 1, requestIds: [], readCoordinates: [], raw: empty }),
+      identity: async () => ({ release, serving: { ...serving, pid: 9999 }, selections }),
+    })
+    expect(result.export.flows.every((f) => f.label === "stale-cache")).toBe(true)
+    expect(result.export.flows[0]!.labelReason).toContain("serving pid")
+    expect(result.export.labels["stale-cache"]).toBe(5)
+  })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   cacheKey,
+  cacheMismatch,
   classify,
   exportPaths,
   FLOWS,
@@ -99,13 +100,28 @@ describe("dogfood record and export (v0.5.1)", () => {
     expect(md).toContain("agent `build`")
   })
 
-  test("the export lives in both places, and the cache key binds the release sha and the artifact hashes", () => {
+  test("the export lives in both places, and the cache key binds the release, the artifact hashes AND the serving engine", () => {
     const paths = exportPaths("0.5.1", "a".repeat(40))
     expect(paths.summary).toBe("docs/research/real-model-dogfood/0.5.1.md")
     expect(paths.index).toBe("docs/research/real-model-dogfood/0.5.1.json")
     expect(paths.rawDir.startsWith(".opencode/dogfood/")).toBe(true)
-    expect(cacheKey(release)).toBe(cacheKey({ ...release }))
-    expect(cacheKey(release)).not.toBe(cacheKey({ ...release, sha: "b".repeat(40) }))
-    expect(cacheKey(release)).not.toBe(cacheKey({ ...release, artifacts: { "server.ts": "CHANGED" } }))
+    expect(cacheKey(release, serving)).toBe(cacheKey({ ...release }, { ...serving }))
+    expect(cacheKey(release, serving)).not.toBe(cacheKey({ ...release, sha: "b".repeat(40) }, serving))
+    expect(cacheKey(release, serving)).not.toBe(cacheKey({ ...release, artifacts: { "server.ts": "CHANGED" } }, serving))
+    // the engine is part of the key: a restarted or replaced server is a different key
+    expect(cacheKey(release, serving)).not.toBe(cacheKey(release, { ...serving, pid: 9999 }))
+    expect(cacheKey(release, serving)).not.toBe(cacheKey(release, { ...serving, location: "/elsewhere" }))
+    expect(cacheKey(release, serving)).not.toBe(cacheKey(release, { ...serving, endpoint: "http://other:1" }))
+  })
+
+  test("cacheMismatch names the exact reason a stored record cannot be reused", () => {
+    const rec = record("interview")
+    expect(cacheMismatch(rec, release, serving)).toBeUndefined()
+    expect(cacheMismatch(rec, release, { ...serving, pid: 9999 })).toContain("serving pid 4242")
+    expect(cacheMismatch(rec, release, { ...serving, pid: 9999 })).toContain("this engine is 9999")
+    expect(cacheMismatch(rec, release, { ...serving, location: "/elsewhere" })).toContain("/elsewhere")
+    expect(cacheMismatch(rec, release, { ...serving, endpoint: "http://other:1" })).toContain("endpoint")
+    expect(cacheMismatch(rec, { ...release, sha: "b".repeat(40) }, serving)).toContain("not")
+    expect(cacheMismatch(rec, { ...release, artifacts: { "server.ts": "C" } }, serving)).toContain("artifact hashes changed")
   })
 })

@@ -59,8 +59,26 @@ export type DogfoodExport = {
   labels: Record<FlowLabel, number>
 }
 
-/** The cache key that decides whether a stored per-flow record may be reused. */
-export const cacheKey = (release: ReleaseIdentity): string => createHash("sha256").update(`${release.sha}\n${JSON.stringify(release.artifacts)}`).digest("hex")
+/**
+ * The cache key that decides whether a stored per-flow record may be reused.
+ *
+ * It binds the SERVING ENGINE as well as the release: a record produced by a
+ * different pid, location or endpoint is NOT reusable, because the drivers
+ * themselves refuse to compare a live engine against a prior recorded elsewhere
+ * (the manager flow failed exactly that way with "QA serving PID changed").
+ */
+export const cacheKey = (release: ReleaseIdentity, serving: ServingIdentity): string =>
+  createHash("sha256").update(`${release.sha}\n${JSON.stringify(release.artifacts)}\n${serving.pid}\n${serving.location}\n${serving.endpoint ?? ""}`).digest("hex")
+
+/** Why a stored record cannot be reused, or undefined when it matches exactly. */
+export function cacheMismatch(stored: FlowRecord, release: ReleaseIdentity, serving: ServingIdentity): string | undefined {
+  if (stored.release.sha !== release.sha) return `the stored record was for release ${stored.release.sha}, not ${release.sha}`
+  if (JSON.stringify(stored.release.artifacts) !== JSON.stringify(release.artifacts)) return "the artifact hashes changed since the stored record"
+  if (stored.serving.pid !== serving.pid) return `the stored record was produced by serving pid ${stored.serving.pid}; this engine is ${serving.pid}`
+  if (stored.serving.location !== serving.location) return `the stored record was produced at ${stored.serving.location}; this engine serves ${serving.location}`
+  if ((stored.serving.endpoint ?? "") !== (serving.endpoint ?? "")) return `the stored record was produced at endpoint ${stored.serving.endpoint ?? "(none)"}; this engine is ${serving.endpoint ?? "(none)"}`
+  return undefined
+}
 
 /** Classify ONE flow from what actually happened. Order matters: the honest worst case wins. */
 export function classify(input: { exit: number; timedOut?: boolean; providerError?: boolean; fixture?: boolean; staleCache?: boolean; raw: RawOutcome; note?: string }): { label: FlowLabel; reason: string } {
@@ -68,9 +86,11 @@ export function classify(input: { exit: number; timedOut?: boolean; providerErro
   const suffix = input.note ? ` (${input.note.replace(/\s+/g, " ").slice(0, 200)})` : ""
   if (input.timedOut) return { label: "timeout", reason: `the flow did not finish inside its bound; no verdict was produced${suffix}` }
   if (input.providerError) return { label: "timeout", reason: `the provider failed before the flow produced a verdict${suffix}` }
+  // A stale record from another engine (or release) is the ROOT cause when it
+  // exists, so it is named BEFORE the generic incomplete-flow label.
+  if (input.staleCache) return { label: "stale-cache", reason: `a stored record could not be reused because the release, the artifact hashes or the serving engine changed${suffix}` }
   if (input.exit !== 0) return { label: "partial", reason: `the flow did not complete (exit ${input.exit}) after producing some evidence${suffix}` }
   if (input.fixture) return { label: "fixture", reason: `the flow ran against the scripted fixture provider, not a real model${suffix}` }
-  if (input.staleCache) return { label: "stale-cache", reason: `a cached record could not be reused because the release or artifact hashes changed${suffix}` }
   // A pass needs the raw interaction preserved, but not every KIND of it: a flow
   // that legitimately asked no form has no forms to preserve. Only preserving
   // NOTHING at all means the claim cannot be checked.
@@ -140,7 +160,7 @@ export function renderMarkdown(exp: DogfoodExport): string {
     out.push("")
     out.push(`### ${r.flow} - ${r.label}`)
     out.push(`- Why this label: ${r.labelReason}`)
-    out.push(`- Release SHA: \`${r.release.sha}\`; serving pid ${r.serving.pid} at \`${r.serving.location}\``)
+    out.push(`- Release SHA: \`${r.release.sha}\`; serving engine pid ${r.serving.pid} at \`${r.serving.location}\`${r.serving.endpoint ? ` (${r.serving.endpoint})` : " (no endpoint recorded)"}`)
     out.push(`- Model \`${r.selections.model}\`; agent \`${r.selections.agent}\`; duration ${r.ms}ms; started ${r.startedAt}`)
     out.push(`- Request ids: ${r.requestIds.length ? r.requestIds.map((id) => `\`${id}\``).join(", ") : "(none recorded)"}`)
     out.push(`- Bounded read coordinates: ${r.readCoordinates.length ? r.readCoordinates.map((c) => `\`${c.path}@${c.offset}+${c.limit}\``).join(", ") : "(none recorded)"}`)
@@ -185,21 +205,25 @@ export type DogfoodResult = { export: DogfoodExport; results: Array<{ flow: Flow
  */
 export async function runDogfood(deps: DogfoodDeps): Promise<DogfoodResult> {
   const { release, serving, selections } = await deps.identity()
-  const key = cacheKey(release)
+  const key = cacheKey(release, serving)
   const results: DogfoodResult["results"] = []
   const records: FlowRecord[] = []
   for (const flow of FLOWS) {
     const stored = await deps.store.read(flow)
-    // Only a verified PASS is reusable. A recorded failure is never cached as if
-    // it were an answer: the flow is re-attempted.
-    const reusable = stored && !deps.force && stored.label === "pass" && cacheKey(stored.release) === key
+    const stale = stored ? cacheMismatch(stored, release, serving) : undefined
+    // Only a verified PASS from THIS engine is reusable. A recorded failure is
+    // never cached as if it were an answer, and a record from another engine (or
+    // another release/artifact set) is never reused at all.
+    const reusable = stored && !deps.force && stored.label === "pass" && !stale
     if (reusable) {
       records.push(stored)
       results.push({ flow, label: stored.label, reused: true })
       continue
     }
     const run = await deps.runFlow(flow)
-    const { label, reason } = classify(run)
+    // If a stale record existed and the fresh attempt produced no verdict, the
+    // honest label is `stale-cache` naming the mismatch - not a silent partial.
+    const { label, reason } = classify(stale && (run.exit !== 0 || run.timedOut || run.providerError) ? { ...run, staleCache: true, note: stale } : run)
     const record: FlowRecord = {
       flow,
       release,

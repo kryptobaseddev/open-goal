@@ -190,6 +190,16 @@ describe("cleo.tasks (v0.5.0)", () => {
     expect(bad("cleo:\n  tasks: [T080, T080]\n").some((i) => i.message.includes("duplicate task"))).toBe(true)
   })
 
+  test("a MULTI-task goal renders the commit-citation requirement; a single-task goal does not", () => {
+    const multi = parseContract(`${valid}\ncleo:\n  tasks: [T123, T124]\n`)
+    const block = renderSystemBlock(multi.contract!, "a".repeat(64))
+    expect(block).toContain("Commit citation (REQUIRED, 2 linked tasks)")
+    expect(block).toContain("T123, T124")
+    expect(block).toContain("feat(T123,T124)")
+    const single = parseContract(`${valid}\ncleo:\n  tasks: [T123]\n`)
+    expect(renderSystemBlock(single.contract!, "a".repeat(64))).not.toContain("Commit citation")
+  })
+
   test("a criterion may declare a precise proves binding; a malformed one is refused and it renders", () => {
     const text = (extra: string) =>
       `schema: goal/v1\nid: t\ntitle: t\nintent:\n  verbatim: "x"\noutcome: y\nnon_goals: [z]\ncriteria:\n  - id: C1\n    statement: s\n    check: {kind: command, run: "bun test a.test.ts"}\n${extra}`
