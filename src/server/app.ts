@@ -2599,6 +2599,10 @@ export class GoalApp {
       switch (action) {
         case "pause":
           clearTimeout(this.timers.get(state.sessionID))
+          this.timers.delete(state.sessionID)
+          // T092: a paused run keeps no pending wake. Leaving state.wait set let
+          // a later resume's turn-end resurrect the stale wait and strand the run.
+          state.wait = undefined
           setStatus(state, "paused", "paused by you")
           this.store.ledger(state.slug, { type: "paused", reason: "owner" })
           this.persist(state)
@@ -2606,6 +2610,15 @@ export class GoalApp {
           return { ok: true, message: `Goal paused: ${state.title} — /goal resume · /goal abort` }
         case "resume": {
           if (state.status === "budget_limited") return { ok: false, message: "The goal used its budget. Raise budget in goal.yaml and start a new run, or abort it." }
+          // T091: a resume is idempotent — an already-running run journals no
+          // second receipt and is not admitted twice.
+          if (state.status === "running" && !state.wait) return { ok: true, message: `Goal already running: ${state.title} — /goal status · /goal pause` }
+          // T091/T092: clear the obsolete wakeup and any leftover wait before
+          // resuming. Otherwise the busy turn's end resurrects the stale wait
+          // and the run never gets its exactly-one continuation.
+          clearTimeout(this.timers.get(state.sessionID))
+          this.timers.delete(state.sessionID)
+          state.wait = undefined
           state.counters = { noProgress: 0, failures: 0 }
           state.blocker = undefined
           state.wrapup = false
@@ -2614,6 +2627,8 @@ export class GoalApp {
           this.store.ledger(state.slug, { type: "resumed", by: "owner" })
           this.persist(state)
           await this.transcript(state.sessionID, `◎ owner resumed the goal. Re-read the contract and the current repository state, then continue from the first unfinished step.`)
+          // While a turn is still busy the end-of-turn continuation admits
+          // exactly once; otherwise kick off now.
           if (!this.factsOf(state.sessionID).busy) await this.admit(state, "resume")
           return { ok: true, message: `Goal resumed: ${state.title} — /goal status · /goal pause` }
         }
