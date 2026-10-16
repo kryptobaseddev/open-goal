@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.7 — 2026-10-16
+
+- **An owner resume during a busy turn takes effect immediately and exactly once (T091)** — pausing (or resuming) left the run's previous `wait` in place, so an immediate busy resume was resurrected into `waiting` at the turn's end and never received its continuation: the run looked resumed but was stranded. Pause and resume now clear the obsolete wakeup and wait, a resume is idempotent (an already-running run journals no second receipt and is not admitted twice), and exactly one continuation is admitted when the busy turn ends. The deferral carve-outs are unchanged: a resume behind a pending native form, a cross-session target, a terminal run or worker-sent consent still defers or refuses.
+- **A waiting goal's claim or expired wait drains exactly once behind a busy turn (T092)** — a wait that expires while an owner turn is running still wakes exactly once afterwards, and a claim that ends a wait cancels the obsolete wakeup, so the old deadline does not verify or admit again.
+
 ## 0.4.6 — 2026-10-15
 
 - **The contract names the verifier's model and effort (T107)** — `verification.model` (`providerID/modelID[#variant]`) and `verification.effort` now reach the verifier child; a value that cannot be parsed falls back to the previous resolution and journals `verifier-model-fallback` with `requested`, `reason` and `used`, so a typo never blocks a run.
