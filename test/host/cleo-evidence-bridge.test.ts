@@ -183,6 +183,19 @@ describe("the goal→CLEO evidence bridge (v0.5.0)", () => {
       "T081",
     )
     expect(map).toEqual({ testsPassed: ["AC2", "AC3"], qaPassed: ["AC4"], implemented: ["AC1"] })
+    // A diff check is a guard that passes when paths are UNCHANGED, and a
+    // verifier/human verdict alone never satisfies implemented or testsPassed:
+    // those ACs stay OPEN (agreed with the CLEO maintainer).
+    expect(
+      acsByGateFromProves(
+        [
+          { check: { kind: "diff", paths: ["src"] }, proves: ["T081#AC5"] },
+          { check: { kind: "verifier", ask: "x?" }, proves: ["T081#AC6"] },
+          { check: { kind: "human", ask: "y?" }, proves: ["T081#AC7"] },
+        ],
+        "T081",
+      ),
+    ).toEqual({})
     expect(acsByGateFromProves([], "T081")).toEqual({})
   })
 })

@@ -220,21 +220,35 @@ export function suggestLinkedTasks(subjects: string[]): string[] {
 /**
  * Map a contract's per-criterion `proves: ["T123#AC2"]` bindings to the gate whose
  * evidence demonstrates each AC. The gate follows the criterion's OWN check, not
- * its position: a command check that runs tests demonstrates `testsPassed`, a
- * typecheck/lint command demonstrates `qaPassed`, anything else is the
- * implementation itself (`implemented`). Pure.
+ * its position (agreed with the CLEO maintainer, mbx 01M532QTTHFWRWT62HEMK278M8):
+ *
+ *  - `command` running tests           → `testsPassed`
+ *  - `command` running typecheck/lint  → `qaPassed` (CLEO records it through its own
+ *                                        tool runner at head, never from our exit code)
+ *  - `file` / `contains` / `absent`    → `implemented`
+ *  - `diff`                            → NO gate: it passes when paths are UNCHANGED,
+ *                                        so it is a guard that proves nothing was built
+ *  - `verifier` / `human`              → NO gate: a verdict alone never satisfies
+ *                                        implemented or testsPassed
+ *
+ * An AC whose criterion maps to no gate stays OPEN and is reported. Pure.
  */
 export function acsByGateFromProves(
-  criteria: ReadonlyArray<{ check: { kind: string; run?: string; path?: string }; proves?: string[] }>,
+  criteria: ReadonlyArray<{ check: { kind: string; run?: string; [key: string]: unknown }; proves?: string[] }>,
   task: string,
 ): Partial<Record<CleoGate, string[]>> {
+  const gateFor = (check: { kind: string; run?: string }): CleoGate | undefined => {
+    if (check.kind === "command") return /\btypecheck\b|\blint\b/.test(String(check.run ?? "")) ? "qaPassed" : "testsPassed"
+    if (check.kind === "file" || check.kind === "contains" || check.kind === "absent") return "implemented"
+    return undefined
+  }
   const map: Partial<Record<CleoGate, string[]>> = {}
   for (const criterion of criteria) {
+    const gate = gateFor(criterion.check)
+    if (!gate) continue
     for (const ref of criterion.proves ?? []) {
       const [refTask, ac] = ref.split("#")
       if (refTask !== task || !ac) continue
-      const run = String(criterion.check.run ?? "")
-      const gate: CleoGate = criterion.check.kind === "command" ? (/\btypecheck\b|\blint\b/.test(run) ? "qaPassed" : "testsPassed") : "implemented"
       map[gate] = [...(map[gate] ?? []), ac]
     }
   }
