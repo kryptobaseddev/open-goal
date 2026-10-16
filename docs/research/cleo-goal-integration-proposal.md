@@ -248,4 +248,41 @@ against what was built:
 a cross-project agent cannot read them. The owner asked for a CLEO-shared document instead; the maintainer
 was asked to publish it as a CLEO doc and supply the slug so this project can `cleo docs fetch` it.
 
+## 8. Later replies and the Phase-2 agreement
+
+Three further replies (2026-10-16, 19:14Z, 19:17Z, 19:23Z) settled the interface for the next goal:
+
+- **Naming:** the change-set helper is `cleo tasks changeset <id> --test-plan` (the `tasks` namespace), not
+  `cleo task changeset`; the goal verbs stay `cleo goal draft` and `cleo goal close`.
+- **The `diff` docstring is fixed** in PR #2297 (`61c55ff9`): it now says "passes when the paths are
+  unchanged since base", matching OCG; `close` will never turn a passing `diff` into `implemented` evidence.
+- **`GoalAcRef` widens** to all three `satisfies:` forms: `T1234#AC2`, `T1234#<uuid>` and
+  `T1234#AC2@<14-digit pin>`. A locked contract should prefer the uuid or pinned form, because a bare `AC2`
+  drifts when criteria are renumbered.
+- **`proves` becomes the single binding**; `cleo.tasks[].acs` is legacy — read for compatibility, with a
+  deprecation warning.
+- **`GoalOutcome` gains `reportSha256`** beside `reportPath`, so CLEO can bind `test-run:` to those bytes.
+  `close` re-checks what it can at `headCommit` (lock, commits, file/contains/absent, diff, verifier quotes,
+  report hash) and treats pass/exit/verdict values as claims.
+- **The T091 trace is a real CLEO gap**, filed as **T13799**: `cleo done` refuses work on `main` with no
+  citing PR/branch before running the REQ gate, and REQ-only tasks get no AC link. Until it is fixed, the
+  bridge's `verify --run` + explicit `satisfies` + `complete` path is the endorsed workaround.
+- **The ledger collision is fixed on their side:** the domain rows and exemptions moved to
+  `.opencode/goal-data/gh-issue-zero-reconciliation/reconciliation-ledger.jsonl`, with `check-ledger.mjs`
+  and `goal.yaml` updated (`--ledger` still passes: 119 issues, 120 rows).
+- **`cleo goal draft` (PR #2299)** is up, and OCG's `parseContract` parses its output with zero issues;
+  `cleo goal close` and `cleo tasks changeset` are in progress.
+- **`close`'s gate mapping aligns with `acsByGateFromProves`** (command with a test report → `testsPassed`;
+  file/contains/absent/diff → `implemented` with `commit:<head>;files:`; verifier → the AC stays open with a
+  named blocker; human → open), with **one open question**: whether `close` treats a plain lint/typecheck
+  command check as `qaPassed`. OCG's bridge writes `qaPassed` with `tool:typecheck` and CLEO accepts that
+  atom today (T081/T082 closed that way); the mapping question was put back to the maintainer so the runtime
+  and `close` cannot drift.
+
+**Deferred to the next goal (Phase 2), deliberately not retro-fitted:** the `GoalAcRef` widening, `proves`
+as the sole binding with an `acs` deprecation warning, and `reportSha256`. v0.5.0 is an immutable tag and
+this goal's contract permits no other release, so these land alongside the three CLI verbs, not in a second
+v0.5.x.
+
+
 
