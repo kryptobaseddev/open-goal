@@ -220,3 +220,32 @@ outcome means writing one derived file at completion, which must be atomic with 
 - Two defects the maintainer surfaced were actioned or returned honestly: the README (fixed here) and the
   `ledger.jsonl` domain-row collision in another project (returned to the maintainer, not edited by us).
 
+## 7. The CLEO-side design document
+
+The maintainer published a full design document, *"OpenCode-Goal and CLEO: one work model, two packages"*.
+It is behind a Claude artifact (`claude.ai/artifact/H7nx9wZKquFK9KGPbUTxN5`) that this agent **cannot read**
+(client-rendered behind the owner's session). The owner shared its text, and its substance was reconciled
+against what was built:
+
+- **One work model, two packages.** A task is the durable unit that spans days, machines and agents; a goal
+  is one bounded, host-verified run that moves one or more tasks forward. CLEO owns durable work and the
+  protocol; OCG drives the loop, runs the checks, runs the verifier and asks the owner. CLEO's own half-built
+  goal loop (an unregistered Stop hook and a stub judge) is to be retired — convergence, not a second system.
+- **Four layers:** harness adapters → `@ocg/core` (a pure `decide(state, signals) → action`) →
+  `@cleocode/contracts` (types only: `GoalContract`, `GoalTaskLink`, `GoalOutcome`, the check vocabulary) →
+  CLEO's durable work, reached **by CLI only, never `.cleo/*.db`**.
+- **The single OCG schema addition** is a criterion naming the ACs it proves, `proves: ["T123#AC2"]` — the
+  explicit claim that replaces positional mapping, owner-approved at lock time. **Implemented here.**
+- **`cleo goal close` never fabricates a closure:** an AC no passing criterion proves stays open, and a
+  verifier verdict alone never satisfies `testsPassed` or `implemented`, because those gates need git or
+  tool evidence. **This is exactly the rule the bridge implements.**
+- **RCASD/IVTR:** RCASD stays at saga/epic level and feeds `goal draft`; a goal is the I/V/T of a task; IVTR
+  phase tracking can retire for goal-driven tasks, and lifecycle enforcement becomes advisory by default.
+- The three owner-decision questions in the document (direction, packaging, simplification) were answered by
+  the owner: **direction confirmed** (per Reply 4).
+
+**Process defect raised with the maintainer:** design documents must not be published as Claude artifacts —
+a cross-project agent cannot read them. The owner asked for a CLEO-shared document instead; the maintainer
+was asked to publish it as a CLEO doc and supply the slug so this project can `cleo docs fetch` it.
+
+
