@@ -311,6 +311,12 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
   // falls back with a recorded reason, so a bad value never blocks a launch.
   const verifierModel = str(verificationRaw.model)
   const verifierEffort = str(verificationRaw.effort)
+  // T100: an optional exact-run execution workspace (root-relative). A plain
+  // directory inside the project — no absolute path, no "..", no glob. The host
+  // additionally requires it to be a git work tree before the run starts.
+  const workspace = str(raw.workspace)
+  if (workspace && (workspace.startsWith("/") || workspace.split("/").includes("..") || /[*?[\]{}]/.test(workspace)))
+    err("workspace", `"${workspace}" must be a plain folder inside the project (no absolute path, ".." or glob)`)
 
   const scopeRaw = isRecord(raw.scope) ? raw.scope : {}
   const stopRaw = isRecord(raw.stop) ? raw.stop : {}
@@ -341,6 +347,7 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
     constraints: strings(raw.constraints),
     criteria,
     invariants,
+    ...(workspace ? { workspace } : {}),
     protect: strings(raw.protect),
     assumptions,
     plan,

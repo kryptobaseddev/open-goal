@@ -41,7 +41,7 @@ const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
       .finally(() => clearTimeout(timer))
   })
 import { ascendingId, runId as newRunId } from "../util/ids"
-import { fingerprint, gitDigest, headCommit } from "../util/git"
+import { fingerprint, gitDigest, headCommit, topLevel } from "../util/git"
 import { runHostCheck, verifyClaim, type VerifierVerdict } from "../verify/pipeline"
 import { runShell } from "../util/shell"
 import { captureArtifactHashes, type RuntimeProvenance } from "../verify/artifact"
@@ -345,6 +345,15 @@ export class GoalApp {
     let f = this.facts.get(sessionID)
     if (!f) this.facts.set(sessionID, (f = { busy: false, forms: new Set(), deferred: [] }))
     return f
+  }
+
+  /** T100: the run's exact execution root. With a contract `workspace` the host
+   *  checks, the protect/diff base and the fingerprint resolve here; otherwise
+   *  this is the project root (today's behaviour). `.opencode/goals/**` always
+   *  resolves at the project root. */
+  private executionRoot(contract: Contract | undefined): string {
+    const ws = contract?.workspace?.trim()
+    return ws && ws !== "." ? resolve(this.root, ws) : this.root
   }
 
   /** T069: /goal commands issued while the session is mid-turn (or holding a
@@ -1621,12 +1630,18 @@ export class GoalApp {
       // failure (exit 126/127 or a zsh:/bash: diagnostic) — never a tool's
       // stderr, so `grep missing-file` stays a valid red baseline.
       const commandChecks = [...contract.criteria, ...contract.invariants].filter((c) => c.check.kind === "command")
+      // T100: resolve the exact-run execution workspace. Checks, the protect base
+      // and the fingerprint all depend on git, so a workspace that is not itself a
+      // git work-tree root inside the project refuses the start.
+      const exec = this.executionRoot(contract)
+      if (exec !== this.root && canonical(topLevel(exec) ?? "") !== canonical(exec))
+        return `Refused to start "${slug}": workspace "${contract.workspace}" is not a git work-tree root inside the project. Use a linked worktree (e.g. .worktrees/<slug>) or omit workspace. Fix the contract and /goal start again.`
       const rehearsal: Array<{ id: string; pass: boolean; unrunnable: boolean; ms: number; detail: string }> = []
       this.launchActivity(options.decisionId, { phase: "rehearsal", since: Date.now(), detail: `Rehearsing ${commandChecks.length} command checks before run creation.`, completed: 0, total: commandChecks.length })
       for (const c of commandChecks) {
         const started = Date.now()
         this.launchActivity(options.decisionId, { phase: "check", since: started, detail: `Rehearsing ${c.id} (${rehearsal.length + 1}/${commandChecks.length}); no run yet.`, checkId: c.id, completed: rehearsal.length, total: commandChecks.length })
-        const result = await runHostCheck(c.check, this.root, headCommit(this.root))
+        const result = await runHostCheck(c.check, exec, headCommit(exec))
         if (this.disposed) return "Launch admission interrupted by host reload; no run created. Inspect the receipt and prepare a new review."
         const last = Array.isArray(result.raw) ? (result.raw as unknown[]).at(-1) as { exit?: number; stderr?: string } | undefined : undefined
         const unrunnable = Number(last?.exit) === 126 || Number(last?.exit) === 127 || /\b(zsh|bash|sh|dash):(\d+:)?\s.*(permission denied|command not found|no such file or directory)/i.test(String(last?.stderr ?? ""))
@@ -1643,9 +1658,9 @@ export class GoalApp {
         const current = this.load(slug, true)
         if ("error" in current || current.lock !== options.expectedLock) return "Refused: contract changed during launch rehearsal; no run created. Prepare a new review."
       }
-      const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(this.root) })
+      const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(exec) })
       if (options.handoff) state.handoff = options.handoff
-      state.fingerprint = fingerprint(this.root)
+      state.fingerprint = fingerprint(exec)
       if (rehearsal.length) {
         this.store.evidence(slug, state.runId, "rehearsal", { at: Date.now(), results: rehearsal })
         this.store.ledger(slug, { type: "rehearsal", turn: 0, baseline: rehearsal.map((r) => ({ id: r.id, pass: r.pass })) })
@@ -2044,7 +2059,7 @@ export class GoalApp {
     }
 
     // Progress is authoritative state change, not activity (R3).
-    const fp = fingerprint(this.root)
+    const fp = fingerprint(this.executionRoot(contract))
     const changed = fp !== undefined && fp !== state.fingerprint
     state.fingerprint = fp
     // T108: recording progress with goal_progress is the supported way for an
@@ -2120,7 +2135,7 @@ export class GoalApp {
     let transitioned = false
     for (const c of [...contract.criteria, ...contract.invariants]) {
       if (c.check.kind !== "command" || !c.check.live) continue
-      const r = await runHostCheck({ ...c.check, runs: 1 }, this.root, state.base.commit)
+      const r = await runHostCheck({ ...c.check, runs: 1 }, this.executionRoot(contract), state.base.commit)
       const prev = state.criteria[c.id]
       const status = r.pass ? "pass" : "fail"
       if (prev?.status !== status) transitioned = true
@@ -2196,7 +2211,7 @@ export class GoalApp {
     if (!isTerminal(state.status)) this.store.evidence(state.slug, state.runId, "engine-provenance", runtime)
     const checkContext = JSON.stringify({ slug: state.slug, runId: state.runId, sessionID: state.sessionID, lock: state.lock, serverPID: process.pid })
     const outcome = await verifyClaim(contract, state, {
-      root: this.root,
+      root: this.executionRoot(contract),
       contractText: text,
       shell: (command, cwd, timeout) => runShell(command, cwd, timeout, { OCGOAL_CHECK_CONTEXT: checkContext }),
       verifier: (input) => this.runVerifier(input),
@@ -2623,7 +2638,7 @@ export class GoalApp {
           state.blocker = undefined
           state.wrapup = false
           setStatus(state, "running")
-          state.fingerprint = fingerprint(this.root)
+          state.fingerprint = fingerprint(this.executionRoot(contract))
           this.store.ledger(state.slug, { type: "resumed", by: "owner" })
           this.persist(state)
           await this.transcript(state.sessionID, `◎ owner resumed the goal. Re-read the contract and the current repository state, then continue from the first unfinished step.`)

@@ -95,6 +95,10 @@ export type Contract = {
   constraints: string[]
   criteria: Criterion[]
   invariants: Criterion[]
+  /** T100: the exact-run execution workspace (root-relative). Host checks, the
+   *  protect/diff base and the fingerprint resolve here; default is the project
+   *  root. `.opencode/goals/**` still resolves at the project root. */
+  workspace?: string
   protect: string[]
   assumptions: Assumption[]
   plan: Step[]

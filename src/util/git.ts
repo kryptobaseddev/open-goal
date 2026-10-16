@@ -11,6 +11,14 @@ function git(cwd: string, args: string[]): { ok: boolean; out: string } {
 
 export const isRepo = (cwd: string) => git(cwd, ["rev-parse", "--is-inside-work-tree"]).out.trim() === "true"
 
+/** T100: the working-tree root for `cwd` (the linked worktree's own root when
+ *  cwd is inside one). Used to require a bound workspace to BE a work-tree root
+ *  rather than any subdirectory of the project. */
+export const topLevel = (cwd: string): string | undefined => {
+  const r = git(cwd, ["rev-parse", "--show-toplevel"])
+  return r.ok ? r.out.trim() : undefined
+}
+
 export const headCommit = (cwd: string): string | undefined => {
   const r = git(cwd, ["rev-parse", "HEAD"])
   return r.ok ? r.out.trim() : undefined
