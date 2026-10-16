@@ -71,11 +71,20 @@ if (!endpoint) throw Error("No configured test host; refusing to start or change
 const client = OpenCode.make({ baseUrl: endpoint.url, headers: Service.headers(endpoint) })
 const info: any = await client.server.info()
 const serving: ServingIdentity = { pid: Number(info.pid), location: root, endpoint: endpoint.url }
-const source: any = await client.session.get({ sessionID: process.env.OPENCODE_SESSION_ID! } as any)
+// The host runs this check without OPENCODE_SESSION_ID in the environment, so
+// RESOLVE a source session rather than assuming one: prefer the env var, else the
+// first session in this project that carries a model and an agent. The drivers
+// need the same id, so it is passed through to them below.
+const asList = (l: any): any[] => (Array.isArray(l) ? l : (l?.data ?? l?.sessions ?? []))
+const sessionList = await client.session.list({ location: root }).then(asList).catch(() => [] as any[])
+const envSession = typeof process.env.OPENCODE_SESSION_ID === "string" && process.env.OPENCODE_SESSION_ID.startsWith("ses") ? process.env.OPENCODE_SESSION_ID : undefined
+const sourceSessionID: string | undefined = envSession ?? sessionList.find((s: any) => s?.model?.id && s?.agent)?.id
+if (!sourceSessionID) throw Error("No source session with a model/agent is available; refusing to guess the selections")
+const source: any = await client.session.get({ sessionID: sourceSessionID } as any)
 if (!source?.model || !source?.agent) throw Error("Source model/agent unavailable; no silent provider fallback")
 const selections: Selections = { model: `${source.model.providerID}/${source.model.id}`, agent: String(source.agent) }
 const rpc: any = (client as any).rpc(GoalRpc)
-const provenance: any = await rpc.provenance({ sessionID: process.env.OPENCODE_SESSION_ID! }, { location: root }).catch(() => undefined)
+const provenance: any = await rpc.provenance({ sessionID: sourceSessionID }, { location: root }).catch(() => undefined)
 
 const rawDir = join(root, exportPaths(version, revision).rawDir)
 mkdirSync(rawDir, { recursive: true })
@@ -201,7 +210,7 @@ async function runFlow(flow: FlowId, state: { qaRoot?: string }): Promise<FlowRu
   const emptyRaw = (): RawOutcome => ({ ownerMessages: [], forms: [], toolCalls: [], results: [] })
   if (NEEDS_ROOT.includes(flow) && !state.qaRoot)
     return { exit: 1, ms: 0, requestIds: [], readCoordinates: [], raw: emptyRaw(), note: `${flow} needs the shared QA root the interview flow creates, and there is none yet` }
-  const env: Record<string, string> = { ...(process.env as Record<string, string>), OCGOAL_GIT_SPEC: `github:kryptobaseddev/opencode-goal#${ref}` }
+  const env: Record<string, string> = { ...(process.env as Record<string, string>), OCGOAL_GIT_SPEC: `github:kryptobaseddev/opencode-goal#${ref}`, OPENCODE_SESSION_ID: sourceSessionID! }
   if (flow === "interview") {
     // ALWAYS a fresh isolated project: the dependents resume the root this run
     // creates. (Passing QA_RESUME_ROOT here means "retry an existing root", which
