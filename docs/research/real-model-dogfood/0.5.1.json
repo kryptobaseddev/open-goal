@@ -61,7 +61,7 @@
     }
   },
   "serving": {
-    "pid": 24041,
+    "pid": 30270,
     "location": "/Users/keatonhoskins/projects/opencode-goal",
     "endpoint": "http://127.0.0.1:49374"
   },
@@ -69,7 +69,7 @@
     "model": "deepseek/deepseek-flash",
     "agent": "build"
   },
-  "generatedAt": "2026-10-16T20:45:20.915Z",
+  "generatedAt": "2026-10-16T21:24:58.701Z",
   "flows": [
     {
       "flow": "interview",
@@ -393,7 +393,7 @@
         }
       },
       "serving": {
-        "pid": 24041,
+        "pid": 30270,
         "location": "/Users/keatonhoskins/projects/opencode-goal",
         "endpoint": "http://127.0.0.1:49374"
       },
@@ -618,9 +618,9 @@
         }
       ],
       "label": "partial",
-      "labelReason": "the flow did not complete (exit 1) after producing some evidence (error: First real goal did not remain held for manager QA)",
-      "ms": 127886,
-      "startedAt": "2026-10-16T20:44:37.010Z",
+      "labelReason": "the flow did not complete (exit 1) after producing some evidence (error: QA serving PID changed)",
+      "ms": 40,
+      "startedAt": "2026-10-16T21:24:58.699Z",
       "raw": {
         "ownerMessages": [
           "The automated QA owner's manager inspection is finished. Your existing marker is ready. Complete this SAME waiting inspection goal now: read its marker, call goal_claim with evidence for every criterion, then END YOUR TURN so the installed host runs its declared checks. Do not wait again, request manual verification, fabricate passes, create a replacement goal, edit the locked contract, or change ",
@@ -920,15 +920,15 @@
           }
         ],
         "results": [
-          "18 | const rpc: any = (client as any).rpc(GoalRpc)",
-          "19 | const run = async (slug: string) => JSON.parse(await readFile(join(root, `.opencode/goals/${slug}/run.json`), \"utf8\"))",
-          "20 | const until = async (predicate: () => Promise<any>, why: string) => {",
-          "21 |   const end = Date.now() + 120000",
-          "22 |   while (Date.now() < end) { const value = await predicate().catch(() => undefined); if (value) return value; await Bun.sleep(200) }",
-          "23 |   throw Error(why)",
-          "             ^",
-          "error: First real goal did not remain held for manager QA",
-          "      at <anonymous> (/Users/keatonhoskins/projects/opencode-goal/scripts/real-model-manager-dogfood.ts:23:9)",
+          "12 | const evidence = join(root, \"qa-evidence\"), prior = JSON.parse(await readFile(join(evidence, \"context.json\"), \"utf8\"))",
+          "13 | const endpoint = await Service.discover()",
+          "14 | if (!endpoint || endpoint.url !== prior.endpoint) throw Error(\"QA endpoint changed; no unscoped fallback\")",
+          "15 | const client = OpenCode.make({ baseUrl: endpoint.url, headers: { ...Service.headers(endpoint), \"x-opencode-directory\": root } })",
+          "16 | const info: any = await client.server.info()",
+          "17 | if (info.pid !== prior.serverPID) throw Error(\"QA serving PID changed\")",
+          "                                             ^",
+          "error: QA serving PID changed",
+          "      at /Users/keatonhoskins/projects/opencode-goal/scripts/real-model-manager-dogfood.ts:17:41",
           "Bun v1.4.2 (macOS arm64)"
         ]
       }
