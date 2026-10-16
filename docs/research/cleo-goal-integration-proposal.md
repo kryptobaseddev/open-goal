@@ -284,6 +284,14 @@ as the sole binding with an `acs` deprecation warning, and `reportSha256`. v0.5.
 this goal's contract permits no other release, so these land alongside the three CLI verbs, not in a second
 v0.5.x.
 
+**Added 2026-10-16 (maintainer, mbx `01M538QHVCGEAGYRWTNKV8DQ2D`) — a close-wiring requirement.** When a
+goal's work lands on `main` with no PR or task branch, `cleo goal close` will complete tasks through
+`cleo done --commit <headCommit>` (CLEO PR #2305). CLEO accepts that commit for a task only if the commit
+message cites the task id (word-bounded `T123`) or the diff touches the task's declared files. So **a
+multi-task goal's run commit must cite every id in `cleo.tasks`** (e.g. `feat(T123,T124): …` plus a trailer
+listing them), or the uncited tasks stay open with a "neither cites" blocker. OCG will render this
+requirement into the contract the worker sees, so a multi-task goal states it up front.
+
 ## 9. The cross-project doc, and a real mapping bug found in review
 
 - **The design document is now a CLEO doc** — slug `ocg-cleo-integration`, type `research`, attached to
