@@ -1,0 +1,2374 @@
+{
+  "schema": "dogfood-export/v1",
+  "release": {
+    "version": "0.5.2",
+    "ref": "v0.5.2",
+    "sha": "f33c458471061bda4441ccb5326ba12919ed8fe5",
+    "artifacts": {
+      "dist/tui.d.ts": "224fd1ce257b3a09626eb96ebdf9362acb9932673f098491174e88ad147a94f8",
+      "dist/tui.js": "e1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d",
+      "package.json": "0a23096c9e750010395fccb0a708205484dea89613d06c27bb6c0b6dcbf0ea2e",
+      "rpc.ts": "d972832a46c22b9eef689be61bd033d6782897d9754b605f454a41b6ffd31713",
+      "server.ts": "252686b0b1bd871225b7c89bf7f9c710ecd5379f60e9095efd60d69595ea4cad",
+      "skills/write-goal/SKILL.md": "536f59f34f374cb44a5bc3ca39d83949e73a95b72ce2d6e5265d3cab73879359",
+      "skills/write-goal/assets/goal.template.yaml": "d1e5dfcce58c1e858c362b340e3dad7fa86703fdc1859ce22fae8c171f97ae29",
+      "skills/write-goal/evals/README.md": "67e9810f757a0c0a7f35909bbc039b140243912327c441670a7a4cac74a33edb",
+      "skills/write-goal/evals/trigger-eval-2026-10-03.json": "3dadb8ed359e71c5d3868faae49ee8497342e2691dba363fa7d8cb17069de448",
+      "skills/write-goal/evals/trigger_queries.json": "c13280153b7f8d16b771f30db07c16fb33927405319df278f51daeee0620189d",
+      "skills/write-goal/references/examples.md": "9bde4788c544cae35ce9303718c18f41e2e6197abeb8d79f19333ba1c9812c03",
+      "skills/write-goal/references/goal-schema.md": "5ac3871a05831a83a81cc349fc4996a84d5006c55839be745acbf96b3e1c2867",
+      "skills/write-goal/references/interview.md": "393dcfd49bde72398f1523ca6df223438244bc77df89f284da26a234324ff750",
+      "src/contract/parse.ts": "9e41ae64f3cce8bad351dffdc77332ddf46ebb35ee3eafd0132ccbdba6448148",
+      "src/contract/render.ts": "3e69477aae2284adffc8869fbdb26b1532ce8073a14d28c06577671d6caad713",
+      "src/contract/types.ts": "94d8226c9a99c7db44f0c3196cff9ec438b1c5cbfeb44444e4d285863c69e7c0",
+      "src/engine/amendment.ts": "4dd1c232e8a9ad8617322649c1203458e80618084982dad7da1ffb479370bdea",
+      "src/engine/amendments.ts": "156217ab9993d76254bf52baf18a8bc42a436561bae54fac5444d474ff52ab37",
+      "src/engine/cleo-bridge.ts": "9dc6be1ce5042e709976c263e0e884e63aca593baa251be8dd04b80acfd839c9",
+      "src/engine/cleo-link.ts": "21fa9af4079a440fb72081802f4e0568ae5a6259515ef824814d9bffa2bb9b4f",
+      "src/engine/decisions.ts": "5ac3e059ccdb34babbcfa2516ee100464176e5c014fed9cdbb969ca932236bd8",
+      "src/engine/dogfood-record.ts": "17791f5b3e8361edeb9f8a82866b95396fea532813626274c9a93e96f33bc7a1",
+      "src/engine/inventory.ts": "b80b41953f237167012dd01678174fc17e2d9822eefede37bcb7ba7030cb3163",
+      "src/engine/launches.ts": "1766ad42fa1e5a46d2c1bf8ebfb337cf92972bde24a0781246ebfa752948cea9",
+      "src/engine/owner-intent.ts": "b1cb2fee62da09d911dedc076b52529a673dfc5a04369bb9985c3e0ffac0adb1",
+      "src/engine/owner-reviews.ts": "7a5e3aa177c3d87abc377ae5d6d41967771c08e11de8fa29923648cc8112088c",
+      "src/engine/policy.ts": "73272007b7f92e64a33f927f0fae7ebf1078f244600884fca63f18206a7d5a80",
+      "src/engine/registry.ts": "a34d2cc7dbd44d38608d058937a4e4f717dddb70b393f7aafd778b1b99986df5",
+      "src/engine/similarity.ts": "330fe8f07bcecee6a21694f7f86ec6013147339f0a579f3fb3c73d9906dd2548",
+      "src/engine/state.ts": "b317eb037fe3cf12836e8bc734803c5fa6304514c526288f22cc982db59ac0bb",
+      "src/engine/store.ts": "3d102f78d6b50ced4e1669c66c117233a9165bec3212b752f5187a5b4de3cdc2",
+      "src/rpc.ts": "35b6b5c7d3573dcdabeae3d472e48903aa612d8b7d4da7d932b1f563fb9daf5c",
+      "src/server/app.ts": "056b9a0fb38b77012f4644b7ef3f01c57d2533947880789a307b01d8cdc4ea75",
+      "src/server/help.ts": "d29a6aa4a5fc890a3f9a8a90b11ce591a5b1ffbe8dd8f1143495aefbd06cb1b4",
+      "src/server/index.ts": "b9e69dc7a68c32f9dccfc375ab5524c15059b56586e715563a69a205e0dffdab",
+      "src/server/intent.ts": "7b68e265f3c3d50d950d82294e9ce0bddecee4af7fb675510459bb170c0dbac6",
+      "src/server/messages.ts": "f38c59d9e0c71869d9871767b2a2ebb8ea31a576cad23194ccb6539f2aaa6d1e",
+      "src/summary/audit.ts": "1d6a61790e50c9ed34c6d940df65a87ad27622f0fcea2fd7e8960e24cff8ab2f",
+      "src/summary/build.ts": "57817db9f16947b5203816fc2ff6219b5f5e26a44a8a953e04f06727e6273f25",
+      "src/tui/dashboard.ts": "1c2fe74bba8e281bafdd3d3962caef13c0f559d3fdff1a6c0fb1bf54d18d8493",
+      "src/tui/decision-form.ts": "c118914e39e589d7ec08c799b060dd25dac6645f20b3f214bab181e6ae57de9d",
+      "src/tui/format.ts": "96dde5f9a2ba96a2e1842acb297312980022005efa290565499c50b684c3a334",
+      "src/tui/index.tsx": "189b542cfee618af63f2f74a2ada67a94c11dbb5511a3f03f6071735e9dc211d",
+      "src/tui/manager.ts": "8829b787fe59376f10dd59196eebe0e188f5fe699ca33b73c5e6feed7e27afb2",
+      "src/tui/navigation.ts": "649ef2e64c9ad0a1200aebb79ceeb6ae2099d8036da481ba8fadd5823af10d49",
+      "src/tui/pointer-select.ts": "6849490e432c5a9f21c38f6bdc708131e1dde96c7aea8dd9be1107883f4630d6",
+      "src/tui/tracer.ts": "a33934c2e9e4fbc4d218690f02dd61fd80fa0fc1bbdfea4c4b4cc125e9e30276",
+      "src/util/git.ts": "84b7439e829da7a34db82a4bf4debdbc0702a660b41874459d72ca60d4f2a0ab",
+      "src/util/ids.ts": "1d29f082a4ea11f1d9d8a9781210957476bc3d4cf60f19d6ca0c708cfe8197c0",
+      "src/util/shell.ts": "021c3bd13e85d1ce2abc18e94cb4c2eb6a85bdc76891c76ab6a34031c7c77e1c",
+      "src/verify/artifact.ts": "36b47b0725799462931e419b11b836b6dece4a3c04b05a538820b0d435b50435",
+      "src/verify/pipeline.ts": "bd5c33dabda7e1a7a6724d6534e2e1feff0fa564cb2e1fd021acf90f9bed50c5",
+      "tui.tsx": "38b55244787c0ae6db3b9a9dbf36f3e2153f9a68b3ded261fd004ec0f33b9d82"
+    }
+  },
+  "serving": {
+    "pid": 30270,
+    "location": "/Users/keatonhoskins/projects/opencode-goal",
+    "endpoint": "http://127.0.0.1:49374"
+  },
+  "selections": {
+    "model": "deepseek/deepseek-flash",
+    "agent": "build"
+  },
+  "generatedAt": "2026-10-16T22:05:29.981Z",
+  "flows": [
+    {
+      "flow": "interview",
+      "release": {
+        "version": "0.5.2",
+        "ref": "v0.5.2",
+        "sha": "f33c458471061bda4441ccb5326ba12919ed8fe5",
+        "artifacts": {
+          "dist/tui.d.ts": "224fd1ce257b3a09626eb96ebdf9362acb9932673f098491174e88ad147a94f8",
+          "dist/tui.js": "e1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d",
+          "package.json": "0a23096c9e750010395fccb0a708205484dea89613d06c27bb6c0b6dcbf0ea2e",
+          "rpc.ts": "d972832a46c22b9eef689be61bd033d6782897d9754b605f454a41b6ffd31713",
+          "server.ts": "252686b0b1bd871225b7c89bf7f9c710ecd5379f60e9095efd60d69595ea4cad",
+          "skills/write-goal/SKILL.md": "536f59f34f374cb44a5bc3ca39d83949e73a95b72ce2d6e5265d3cab73879359",
+          "skills/write-goal/assets/goal.template.yaml": "d1e5dfcce58c1e858c362b340e3dad7fa86703fdc1859ce22fae8c171f97ae29",
+          "skills/write-goal/evals/README.md": "67e9810f757a0c0a7f35909bbc039b140243912327c441670a7a4cac74a33edb",
+          "skills/write-goal/evals/trigger-eval-2026-10-03.json": "3dadb8ed359e71c5d3868faae49ee8497342e2691dba363fa7d8cb17069de448",
+          "skills/write-goal/evals/trigger_queries.json": "c13280153b7f8d16b771f30db07c16fb33927405319df278f51daeee0620189d",
+          "skills/write-goal/references/examples.md": "9bde4788c544cae35ce9303718c18f41e2e6197abeb8d79f19333ba1c9812c03",
+          "skills/write-goal/references/goal-schema.md": "5ac3871a05831a83a81cc349fc4996a84d5006c55839be745acbf96b3e1c2867",
+          "skills/write-goal/references/interview.md": "393dcfd49bde72398f1523ca6df223438244bc77df89f284da26a234324ff750",
+          "src/contract/parse.ts": "9e41ae64f3cce8bad351dffdc77332ddf46ebb35ee3eafd0132ccbdba6448148",
+          "src/contract/render.ts": "3e69477aae2284adffc8869fbdb26b1532ce8073a14d28c06577671d6caad713",
+          "src/contract/types.ts": "94d8226c9a99c7db44f0c3196cff9ec438b1c5cbfeb44444e4d285863c69e7c0",
+          "src/engine/amendment.ts": "4dd1c232e8a9ad8617322649c1203458e80618084982dad7da1ffb479370bdea",
+          "src/engine/amendments.ts": "156217ab9993d76254bf52baf18a8bc42a436561bae54fac5444d474ff52ab37",
+          "src/engine/cleo-bridge.ts": "9dc6be1ce5042e709976c263e0e884e63aca593baa251be8dd04b80acfd839c9",
+          "src/engine/cleo-link.ts": "21fa9af4079a440fb72081802f4e0568ae5a6259515ef824814d9bffa2bb9b4f",
+          "src/engine/decisions.ts": "5ac3e059ccdb34babbcfa2516ee100464176e5c014fed9cdbb969ca932236bd8",
+          "src/engine/dogfood-record.ts": "17791f5b3e8361edeb9f8a82866b95396fea532813626274c9a93e96f33bc7a1",
+          "src/engine/inventory.ts": "b80b41953f237167012dd01678174fc17e2d9822eefede37bcb7ba7030cb3163",
+          "src/engine/launches.ts": "1766ad42fa1e5a46d2c1bf8ebfb337cf92972bde24a0781246ebfa752948cea9",
+          "src/engine/owner-intent.ts": "b1cb2fee62da09d911dedc076b52529a673dfc5a04369bb9985c3e0ffac0adb1",
+          "src/engine/owner-reviews.ts": "7a5e3aa177c3d87abc377ae5d6d41967771c08e11de8fa29923648cc8112088c",
+          "src/engine/policy.ts": "73272007b7f92e64a33f927f0fae7ebf1078f244600884fca63f18206a7d5a80",
+          "src/engine/registry.ts": "a34d2cc7dbd44d38608d058937a4e4f717dddb70b393f7aafd778b1b99986df5",
+          "src/engine/similarity.ts": "330fe8f07bcecee6a21694f7f86ec6013147339f0a579f3fb3c73d9906dd2548",
+          "src/engine/state.ts": "b317eb037fe3cf12836e8bc734803c5fa6304514c526288f22cc982db59ac0bb",
+          "src/engine/store.ts": "3d102f78d6b50ced4e1669c66c117233a9165bec3212b752f5187a5b4de3cdc2",
+          "src/rpc.ts": "35b6b5c7d3573dcdabeae3d472e48903aa612d8b7d4da7d932b1f563fb9daf5c",
+          "src/server/app.ts": "056b9a0fb38b77012f4644b7ef3f01c57d2533947880789a307b01d8cdc4ea75",
+          "src/server/help.ts": "d29a6aa4a5fc890a3f9a8a90b11ce591a5b1ffbe8dd8f1143495aefbd06cb1b4",
+          "src/server/index.ts": "b9e69dc7a68c32f9dccfc375ab5524c15059b56586e715563a69a205e0dffdab",
+          "src/server/intent.ts": "7b68e265f3c3d50d950d82294e9ce0bddecee4af7fb675510459bb170c0dbac6",
+          "src/server/messages.ts": "f38c59d9e0c71869d9871767b2a2ebb8ea31a576cad23194ccb6539f2aaa6d1e",
+          "src/summary/audit.ts": "1d6a61790e50c9ed34c6d940df65a87ad27622f0fcea2fd7e8960e24cff8ab2f",
+          "src/summary/build.ts": "57817db9f16947b5203816fc2ff6219b5f5e26a44a8a953e04f06727e6273f25",
+          "src/tui/dashboard.ts": "1c2fe74bba8e281bafdd3d3962caef13c0f559d3fdff1a6c0fb1bf54d18d8493",
+          "src/tui/decision-form.ts": "c118914e39e589d7ec08c799b060dd25dac6645f20b3f214bab181e6ae57de9d",
+          "src/tui/format.ts": "96dde5f9a2ba96a2e1842acb297312980022005efa290565499c50b684c3a334",
+          "src/tui/index.tsx": "189b542cfee618af63f2f74a2ada67a94c11dbb5511a3f03f6071735e9dc211d",
+          "src/tui/manager.ts": "8829b787fe59376f10dd59196eebe0e188f5fe699ca33b73c5e6feed7e27afb2",
+          "src/tui/navigation.ts": "649ef2e64c9ad0a1200aebb79ceeb6ae2099d8036da481ba8fadd5823af10d49",
+          "src/tui/pointer-select.ts": "6849490e432c5a9f21c38f6bdc708131e1dde96c7aea8dd9be1107883f4630d6",
+          "src/tui/tracer.ts": "a33934c2e9e4fbc4d218690f02dd61fd80fa0fc1bbdfea4c4b4cc125e9e30276",
+          "src/util/git.ts": "84b7439e829da7a34db82a4bf4debdbc0702a660b41874459d72ca60d4f2a0ab",
+          "src/util/ids.ts": "1d29f082a4ea11f1d9d8a9781210957476bc3d4cf60f19d6ca0c708cfe8197c0",
+          "src/util/shell.ts": "021c3bd13e85d1ce2abc18e94cb4c2eb6a85bdc76891c76ab6a34031c7c77e1c",
+          "src/verify/artifact.ts": "36b47b0725799462931e419b11b836b6dece4a3c04b05a538820b0d435b50435",
+          "src/verify/pipeline.ts": "bd5c33dabda7e1a7a6724d6534e2e1feff0fa564cb2e1fd021acf90f9bed50c5",
+          "tui.tsx": "38b55244787c0ae6db3b9a9dbf36f3e2153f9a68b3ded261fd004ec0f33b9d82"
+        }
+      },
+      "serving": {
+        "pid": 30270,
+        "location": "/Users/keatonhoskins/projects/opencode-goal",
+        "endpoint": "http://127.0.0.1:49374"
+      },
+      "selections": {
+        "model": "deepseek/deepseek-flash",
+        "agent": "build"
+      },
+      "requestIds": [
+        "msg_146bc1947001E7iiHuPRqPlLUB",
+        "msg_146bc1990001OqJ0FdfV2nGtBQ",
+        "msg_146bc22fd001AN90Eb74t42WdB",
+        "msg_146bc2d330010W6Nh26SPvsUnh",
+        "msg_146bc346b001l4vPZYKBnyNLRr",
+        "msg_146bc3ee1001onVUULXUaibtnN",
+        "msg_146bc47ae001aOWXNjAgq25yEj",
+        "msg_146bc513d002Qw3hqMXN6xb3IK",
+        "ses_eb944dfebffeFPklfEPbNMS9Bm",
+        "msg_146bb27720015qQRSzG8r99QKA",
+        "msg_146bb2791001LmjfoWIEJfoqvG",
+        "msg_146bb3785001gfFRjTz3GFIamB"
+      ],
+      "readCoordinates": [
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/fresh-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bb797f001ExrsKvqC2zf146.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/author-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/context.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bc174d001vve49pF2aR3YvF.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/answers.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/run.json",
+          "offset": 0,
+          "limit": 4096
+        }
+      ],
+      "label": "pass",
+      "labelReason": "a real model completed the flow and its raw interaction was preserved (2 owner messages, 2 forms, 24 tool calls)",
+      "ms": 78871,
+      "startedAt": "2026-10-16T22:01:49.190Z",
+      "raw": {
+        "ownerMessages": [
+          "Goal entry — interpret the owner's intent, not merely the first word.\nOwner's original words: \"Create a goal for this isolated QA project: use slug qa-interview. Write proof.txt with exactly status: ok on one line. This is a bounded QA test, not a request to edit production. Interview me with one native question before drafting; the test owner answers are: direct host file/contains checks, no huma",
+          "Ask the owner with the question tool using the exact JSON below. The host executes the choice; do not call goal_start afterwards.\nGOAL_FORM_JSON:{\"questions\":[{\"header\":\"Goal\",\"question\":\"Review and launch: QA proof.txt contains the single line status ok\\nGoal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9.\\nOutcome: proof.txt exists at the project"
+        ],
+        "forms": [
+          {
+            "id": "frm_146bb797f001ExrsKvqC2zf146",
+            "question": "Evidence standard",
+            "answer": "{\"q0\":\"Use the fixed QA choices: proof.txt = status: ok; direct host checks only, no verifier/human criterion, no budget, fresh root launch with the original mo"
+          },
+          {
+            "id": "frm_146bc174d001vve49pF2aR3YvF",
+            "question": "Goal",
+            "answer": "{\"q0\":\"Start goal now (Recommended)\"}"
+          }
+        ],
+        "toolCalls": [
+          {
+            "name": "shell",
+            "result": "total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:00 .. drwxr-xr-x 14 keatonhoskins staff 448 Oct 16 15:00 .git -rw-r--r-- 1 keatonhoskins "
+          },
+          {
+            "name": "shell",
+            "result": "total 40 drwxr-xr-x 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 4 keatonhoskins staff 128 Oct 16 15:01 .. -rw-r--r-- 1 keatonhoskins staff 1395 Oct 16 15:01 context.md -rw-r--r-- 1 keatonhoski"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: proof.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 proof.txt --- content (xxd) --- 00000000: 7374 6174 7573 3a20 6f6b 0a status: ok. --- contains check --- CONTAINS status: ok: yes "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-interview\", \"runId\": \"146bc1828001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "shell",
+            "result": "total 8 drwxr-xr-x 3 keatonhoskins staff 96 Oct 16 15:00 . drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 .. -rw-r--r-- 1 keatonhoskins staff 93 Oct 16 15:00 opencode.json ./qa-evidence/provenance."
+          },
+          {
+            "name": "shell",
+            "result": "# Isolated real-model goal QA Only QA marker files and goal artifacts belong here. ---OPENCODE--- { \"plugins\": [ \"-opencode-goal\", \"github:kryptobaseddev/opencode-goal#v0.5.2\" ] }---GITIGNORE--- .open"
+          },
+          {
+            "name": "goal_inventory",
+            "result": "{ \"goals\": [] }"
+          },
+          {
+            "name": "shell",
+            "result": "# goal/v1 contract — fill every field marked REQUIRED; delete optional blocks you do not need. # Values that contain \": \" must be wrapped in single quotes. schema: goal/v1 id: my-goal # REQUIRED: equa"
+          },
+          {
+            "name": "shell",
+            "result": "(no output)"
+          },
+          {
+            "name": "question",
+            "result": "User has answered your questions: \"How should this QA goal prove its one end state — proof.txt containing the single line `status: ok`?\"=\"Use the fixed QA choices: proof.txt = status: ok; direct host "
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/context.md"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/decisions.jsonl"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/goal.yaml"
+          },
+          {
+            "name": "goal_validate",
+            "result": "✗ goal.yaml: not valid YAML: YAML Parse error: Unexpected token (line 6 has an unquoted value containing \": \" — wrap the value in single quotes)"
+          },
+          {
+            "name": "read",
+            "result": "Read file /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/.opencode/goals/qa-interview/goal.yaml, lines 1-10 1: schema: goal/v1 2: id: qa-interview 3: title: Q"
+          },
+          {
+            "name": "edit",
+            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
+          },
+          {
+            "name": "edit",
+            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
+          },
+          {
+            "name": "goal_validate",
+            "result": "✓ goal.yaml is valid lock 44d90b887926 · 2 criteria (2 host-checked), 1 invariants"
+          },
+          {
+            "name": "goal_prepare_launch",
+            "result": "{ \"decisionId\": \"f4424bd4-5c7c-4b01-bedc-7e59701e9154\", \"slug\": \"qa-interview\", \"lock\": \"44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9\", \"fresh\": true, \"status\": \"pending\", \"transpo"
+          },
+          {
+            "name": "question",
+            "result": "User has answered your questions: \"Review and launch: QA proof.txt contains the single line status ok Goal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9f"
+          },
+          {
+            "name": "goal_status",
+            "result": "No goal is running in this session."
+          }
+        ],
+        "results": [
+          "{\"pass\":true,\"root\":\"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s\",\"evidence\":\"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence\",\"authorID\":\"ses_eb944dfebffeFPklfEPbNMS9Bm\",\"freshID\":\"ses_eb943e80bffePxupPhv6QuK8PL\",\"serverPID\":30270,\"revision\":\"f33c458471061bda4441ccb5326ba12919ed8fe5\",\"automatedQATestOwner\":true,\"providerIsFixture\":false}"
+        ]
+      }
+    },
+    {
+      "flow": "manager",
+      "release": {
+        "version": "0.5.2",
+        "ref": "v0.5.2",
+        "sha": "f33c458471061bda4441ccb5326ba12919ed8fe5",
+        "artifacts": {
+          "dist/tui.d.ts": "224fd1ce257b3a09626eb96ebdf9362acb9932673f098491174e88ad147a94f8",
+          "dist/tui.js": "e1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d",
+          "package.json": "0a23096c9e750010395fccb0a708205484dea89613d06c27bb6c0b6dcbf0ea2e",
+          "rpc.ts": "d972832a46c22b9eef689be61bd033d6782897d9754b605f454a41b6ffd31713",
+          "server.ts": "252686b0b1bd871225b7c89bf7f9c710ecd5379f60e9095efd60d69595ea4cad",
+          "skills/write-goal/SKILL.md": "536f59f34f374cb44a5bc3ca39d83949e73a95b72ce2d6e5265d3cab73879359",
+          "skills/write-goal/assets/goal.template.yaml": "d1e5dfcce58c1e858c362b340e3dad7fa86703fdc1859ce22fae8c171f97ae29",
+          "skills/write-goal/evals/README.md": "67e9810f757a0c0a7f35909bbc039b140243912327c441670a7a4cac74a33edb",
+          "skills/write-goal/evals/trigger-eval-2026-10-03.json": "3dadb8ed359e71c5d3868faae49ee8497342e2691dba363fa7d8cb17069de448",
+          "skills/write-goal/evals/trigger_queries.json": "c13280153b7f8d16b771f30db07c16fb33927405319df278f51daeee0620189d",
+          "skills/write-goal/references/examples.md": "9bde4788c544cae35ce9303718c18f41e2e6197abeb8d79f19333ba1c9812c03",
+          "skills/write-goal/references/goal-schema.md": "5ac3871a05831a83a81cc349fc4996a84d5006c55839be745acbf96b3e1c2867",
+          "skills/write-goal/references/interview.md": "393dcfd49bde72398f1523ca6df223438244bc77df89f284da26a234324ff750",
+          "src/contract/parse.ts": "9e41ae64f3cce8bad351dffdc77332ddf46ebb35ee3eafd0132ccbdba6448148",
+          "src/contract/render.ts": "3e69477aae2284adffc8869fbdb26b1532ce8073a14d28c06577671d6caad713",
+          "src/contract/types.ts": "94d8226c9a99c7db44f0c3196cff9ec438b1c5cbfeb44444e4d285863c69e7c0",
+          "src/engine/amendment.ts": "4dd1c232e8a9ad8617322649c1203458e80618084982dad7da1ffb479370bdea",
+          "src/engine/amendments.ts": "156217ab9993d76254bf52baf18a8bc42a436561bae54fac5444d474ff52ab37",
+          "src/engine/cleo-bridge.ts": "9dc6be1ce5042e709976c263e0e884e63aca593baa251be8dd04b80acfd839c9",
+          "src/engine/cleo-link.ts": "21fa9af4079a440fb72081802f4e0568ae5a6259515ef824814d9bffa2bb9b4f",
+          "src/engine/decisions.ts": "5ac3e059ccdb34babbcfa2516ee100464176e5c014fed9cdbb969ca932236bd8",
+          "src/engine/dogfood-record.ts": "17791f5b3e8361edeb9f8a82866b95396fea532813626274c9a93e96f33bc7a1",
+          "src/engine/inventory.ts": "b80b41953f237167012dd01678174fc17e2d9822eefede37bcb7ba7030cb3163",
+          "src/engine/launches.ts": "1766ad42fa1e5a46d2c1bf8ebfb337cf92972bde24a0781246ebfa752948cea9",
+          "src/engine/owner-intent.ts": "b1cb2fee62da09d911dedc076b52529a673dfc5a04369bb9985c3e0ffac0adb1",
+          "src/engine/owner-reviews.ts": "7a5e3aa177c3d87abc377ae5d6d41967771c08e11de8fa29923648cc8112088c",
+          "src/engine/policy.ts": "73272007b7f92e64a33f927f0fae7ebf1078f244600884fca63f18206a7d5a80",
+          "src/engine/registry.ts": "a34d2cc7dbd44d38608d058937a4e4f717dddb70b393f7aafd778b1b99986df5",
+          "src/engine/similarity.ts": "330fe8f07bcecee6a21694f7f86ec6013147339f0a579f3fb3c73d9906dd2548",
+          "src/engine/state.ts": "b317eb037fe3cf12836e8bc734803c5fa6304514c526288f22cc982db59ac0bb",
+          "src/engine/store.ts": "3d102f78d6b50ced4e1669c66c117233a9165bec3212b752f5187a5b4de3cdc2",
+          "src/rpc.ts": "35b6b5c7d3573dcdabeae3d472e48903aa612d8b7d4da7d932b1f563fb9daf5c",
+          "src/server/app.ts": "056b9a0fb38b77012f4644b7ef3f01c57d2533947880789a307b01d8cdc4ea75",
+          "src/server/help.ts": "d29a6aa4a5fc890a3f9a8a90b11ce591a5b1ffbe8dd8f1143495aefbd06cb1b4",
+          "src/server/index.ts": "b9e69dc7a68c32f9dccfc375ab5524c15059b56586e715563a69a205e0dffdab",
+          "src/server/intent.ts": "7b68e265f3c3d50d950d82294e9ce0bddecee4af7fb675510459bb170c0dbac6",
+          "src/server/messages.ts": "f38c59d9e0c71869d9871767b2a2ebb8ea31a576cad23194ccb6539f2aaa6d1e",
+          "src/summary/audit.ts": "1d6a61790e50c9ed34c6d940df65a87ad27622f0fcea2fd7e8960e24cff8ab2f",
+          "src/summary/build.ts": "57817db9f16947b5203816fc2ff6219b5f5e26a44a8a953e04f06727e6273f25",
+          "src/tui/dashboard.ts": "1c2fe74bba8e281bafdd3d3962caef13c0f559d3fdff1a6c0fb1bf54d18d8493",
+          "src/tui/decision-form.ts": "c118914e39e589d7ec08c799b060dd25dac6645f20b3f214bab181e6ae57de9d",
+          "src/tui/format.ts": "96dde5f9a2ba96a2e1842acb297312980022005efa290565499c50b684c3a334",
+          "src/tui/index.tsx": "189b542cfee618af63f2f74a2ada67a94c11dbb5511a3f03f6071735e9dc211d",
+          "src/tui/manager.ts": "8829b787fe59376f10dd59196eebe0e188f5fe699ca33b73c5e6feed7e27afb2",
+          "src/tui/navigation.ts": "649ef2e64c9ad0a1200aebb79ceeb6ae2099d8036da481ba8fadd5823af10d49",
+          "src/tui/pointer-select.ts": "6849490e432c5a9f21c38f6bdc708131e1dde96c7aea8dd9be1107883f4630d6",
+          "src/tui/tracer.ts": "a33934c2e9e4fbc4d218690f02dd61fd80fa0fc1bbdfea4c4b4cc125e9e30276",
+          "src/util/git.ts": "84b7439e829da7a34db82a4bf4debdbc0702a660b41874459d72ca60d4f2a0ab",
+          "src/util/ids.ts": "1d29f082a4ea11f1d9d8a9781210957476bc3d4cf60f19d6ca0c708cfe8197c0",
+          "src/util/shell.ts": "021c3bd13e85d1ce2abc18e94cb4c2eb6a85bdc76891c76ab6a34031c7c77e1c",
+          "src/verify/artifact.ts": "36b47b0725799462931e419b11b836b6dece4a3c04b05a538820b0d435b50435",
+          "src/verify/pipeline.ts": "bd5c33dabda7e1a7a6724d6534e2e1feff0fa564cb2e1fd021acf90f9bed50c5",
+          "tui.tsx": "38b55244787c0ae6db3b9a9dbf36f3e2153f9a68b3ded261fd004ec0f33b9d82"
+        }
+      },
+      "serving": {
+        "pid": 30270,
+        "location": "/Users/keatonhoskins/projects/opencode-goal",
+        "endpoint": "http://127.0.0.1:49374"
+      },
+      "selections": {
+        "model": "deepseek/deepseek-flash",
+        "agent": "build"
+      },
+      "requestIds": [
+        "ses_eb943ab3effefdquBH0drbgaHk",
+        "ses_eb943ae5dffekm8WSbbjxlhHlR",
+        "ses_eb943aaeaffeNH0zpK7M8UA89a",
+        "msg_146bc99d1001ke1G6JweAk8JTl",
+        "msg_146bc99ea001jEEPsG0CLA8AuK",
+        "msg_146bca396001m62etEiFWFKNDT",
+        "msg_146bcab5a0010GsNouF5PwU47U",
+        "msg_146bcb43f001slgzsMIb1MRGCK",
+        "msg_146bcbb3d001XJuL40Sw6NtCI0",
+        "msg_146bcc7b80013T8v8pQSz8mpEV",
+        "msg_146bccf42001Dw8qcm8s1cfnUt",
+        "msg_146bcd606001V5K8LHQkr8I9ZO"
+      ],
+      "readCoordinates": [
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/second-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/host.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/first-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/pty-result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/render-tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        }
+      ],
+      "label": "pass",
+      "labelReason": "a real model completed the flow and its raw interaction was preserved (0 owner messages, 0 forms, 17 tool calls)",
+      "ms": 43304,
+      "startedAt": "2026-10-16T22:02:32.494Z",
+      "raw": {
+        "ownerMessages": [],
+        "forms": [],
+        "toolCalls": [
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 32 drwx------ 9 keatonhoskins staff 288 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/manager-one.txt [mbx] This session has no mailbox identity yet. No mailboxes for this directory. Claim one with"
+          },
+          {
+            "name": "shell",
+            "result": "--- manager-one.txt status: ok --- proof.txt status: ok --- README.md # Isolated real-model goal QA Only QA marker files and goal artifacts belong here. --- qa-evidence total 352 drwxr-xr-x 12 keatonh"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-two.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok 1 "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
+          },
+          {
+            "name": "read",
+            "result": "Read file proof.txt, lines 1-1 1: status: ok"
+          },
+          {
+            "name": "read",
+            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
+          },
+          {
+            "name": "read",
+            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-one.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+          },
+          {
+            "name": "goal_progress"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          }
+        ],
+        "results": [
+          "ASSERT two-rendered-cards PASS",
+          "ASSERT goal-less-native-manager PASS",
+          "ASSERT expand-before-jump PASS",
+          "ASSERT explicit-session-jump PASS",
+          "ASSERT selected-action-isolated PASS",
+          "ASSERT narrow-focus-and-bounds PASS",
+          "ASSERT visible-close-to-sidebar PASS",
+          "ASSERT f9-reopen-selected-focus PASS",
+          "{\"pass\":true,\"evidence\":\"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty\",\"revision\":\"f33c458471061bda4441ccb5326ba12919ed8fe5\",\"serverPID\":30270,\"providerIsFixture\":false}"
+        ]
+      }
+    },
+    {
+      "flow": "lifecycle",
+      "release": {
+        "version": "0.5.2",
+        "ref": "v0.5.2",
+        "sha": "f33c458471061bda4441ccb5326ba12919ed8fe5",
+        "artifacts": {
+          "dist/tui.d.ts": "224fd1ce257b3a09626eb96ebdf9362acb9932673f098491174e88ad147a94f8",
+          "dist/tui.js": "e1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d",
+          "package.json": "0a23096c9e750010395fccb0a708205484dea89613d06c27bb6c0b6dcbf0ea2e",
+          "rpc.ts": "d972832a46c22b9eef689be61bd033d6782897d9754b605f454a41b6ffd31713",
+          "server.ts": "252686b0b1bd871225b7c89bf7f9c710ecd5379f60e9095efd60d69595ea4cad",
+          "skills/write-goal/SKILL.md": "536f59f34f374cb44a5bc3ca39d83949e73a95b72ce2d6e5265d3cab73879359",
+          "skills/write-goal/assets/goal.template.yaml": "d1e5dfcce58c1e858c362b340e3dad7fa86703fdc1859ce22fae8c171f97ae29",
+          "skills/write-goal/evals/README.md": "67e9810f757a0c0a7f35909bbc039b140243912327c441670a7a4cac74a33edb",
+          "skills/write-goal/evals/trigger-eval-2026-10-03.json": "3dadb8ed359e71c5d3868faae49ee8497342e2691dba363fa7d8cb17069de448",
+          "skills/write-goal/evals/trigger_queries.json": "c13280153b7f8d16b771f30db07c16fb33927405319df278f51daeee0620189d",
+          "skills/write-goal/references/examples.md": "9bde4788c544cae35ce9303718c18f41e2e6197abeb8d79f19333ba1c9812c03",
+          "skills/write-goal/references/goal-schema.md": "5ac3871a05831a83a81cc349fc4996a84d5006c55839be745acbf96b3e1c2867",
+          "skills/write-goal/references/interview.md": "393dcfd49bde72398f1523ca6df223438244bc77df89f284da26a234324ff750",
+          "src/contract/parse.ts": "9e41ae64f3cce8bad351dffdc77332ddf46ebb35ee3eafd0132ccbdba6448148",
+          "src/contract/render.ts": "3e69477aae2284adffc8869fbdb26b1532ce8073a14d28c06577671d6caad713",
+          "src/contract/types.ts": "94d8226c9a99c7db44f0c3196cff9ec438b1c5cbfeb44444e4d285863c69e7c0",
+          "src/engine/amendment.ts": "4dd1c232e8a9ad8617322649c1203458e80618084982dad7da1ffb479370bdea",
+          "src/engine/amendments.ts": "156217ab9993d76254bf52baf18a8bc42a436561bae54fac5444d474ff52ab37",
+          "src/engine/cleo-bridge.ts": "9dc6be1ce5042e709976c263e0e884e63aca593baa251be8dd04b80acfd839c9",
+          "src/engine/cleo-link.ts": "21fa9af4079a440fb72081802f4e0568ae5a6259515ef824814d9bffa2bb9b4f",
+          "src/engine/decisions.ts": "5ac3e059ccdb34babbcfa2516ee100464176e5c014fed9cdbb969ca932236bd8",
+          "src/engine/dogfood-record.ts": "17791f5b3e8361edeb9f8a82866b95396fea532813626274c9a93e96f33bc7a1",
+          "src/engine/inventory.ts": "b80b41953f237167012dd01678174fc17e2d9822eefede37bcb7ba7030cb3163",
+          "src/engine/launches.ts": "1766ad42fa1e5a46d2c1bf8ebfb337cf92972bde24a0781246ebfa752948cea9",
+          "src/engine/owner-intent.ts": "b1cb2fee62da09d911dedc076b52529a673dfc5a04369bb9985c3e0ffac0adb1",
+          "src/engine/owner-reviews.ts": "7a5e3aa177c3d87abc377ae5d6d41967771c08e11de8fa29923648cc8112088c",
+          "src/engine/policy.ts": "73272007b7f92e64a33f927f0fae7ebf1078f244600884fca63f18206a7d5a80",
+          "src/engine/registry.ts": "a34d2cc7dbd44d38608d058937a4e4f717dddb70b393f7aafd778b1b99986df5",
+          "src/engine/similarity.ts": "330fe8f07bcecee6a21694f7f86ec6013147339f0a579f3fb3c73d9906dd2548",
+          "src/engine/state.ts": "b317eb037fe3cf12836e8bc734803c5fa6304514c526288f22cc982db59ac0bb",
+          "src/engine/store.ts": "3d102f78d6b50ced4e1669c66c117233a9165bec3212b752f5187a5b4de3cdc2",
+          "src/rpc.ts": "35b6b5c7d3573dcdabeae3d472e48903aa612d8b7d4da7d932b1f563fb9daf5c",
+          "src/server/app.ts": "056b9a0fb38b77012f4644b7ef3f01c57d2533947880789a307b01d8cdc4ea75",
+          "src/server/help.ts": "d29a6aa4a5fc890a3f9a8a90b11ce591a5b1ffbe8dd8f1143495aefbd06cb1b4",
+          "src/server/index.ts": "b9e69dc7a68c32f9dccfc375ab5524c15059b56586e715563a69a205e0dffdab",
+          "src/server/intent.ts": "7b68e265f3c3d50d950d82294e9ce0bddecee4af7fb675510459bb170c0dbac6",
+          "src/server/messages.ts": "f38c59d9e0c71869d9871767b2a2ebb8ea31a576cad23194ccb6539f2aaa6d1e",
+          "src/summary/audit.ts": "1d6a61790e50c9ed34c6d940df65a87ad27622f0fcea2fd7e8960e24cff8ab2f",
+          "src/summary/build.ts": "57817db9f16947b5203816fc2ff6219b5f5e26a44a8a953e04f06727e6273f25",
+          "src/tui/dashboard.ts": "1c2fe74bba8e281bafdd3d3962caef13c0f559d3fdff1a6c0fb1bf54d18d8493",
+          "src/tui/decision-form.ts": "c118914e39e589d7ec08c799b060dd25dac6645f20b3f214bab181e6ae57de9d",
+          "src/tui/format.ts": "96dde5f9a2ba96a2e1842acb297312980022005efa290565499c50b684c3a334",
+          "src/tui/index.tsx": "189b542cfee618af63f2f74a2ada67a94c11dbb5511a3f03f6071735e9dc211d",
+          "src/tui/manager.ts": "8829b787fe59376f10dd59196eebe0e188f5fe699ca33b73c5e6feed7e27afb2",
+          "src/tui/navigation.ts": "649ef2e64c9ad0a1200aebb79ceeb6ae2099d8036da481ba8fadd5823af10d49",
+          "src/tui/pointer-select.ts": "6849490e432c5a9f21c38f6bdc708131e1dde96c7aea8dd9be1107883f4630d6",
+          "src/tui/tracer.ts": "a33934c2e9e4fbc4d218690f02dd61fd80fa0fc1bbdfea4c4b4cc125e9e30276",
+          "src/util/git.ts": "84b7439e829da7a34db82a4bf4debdbc0702a660b41874459d72ca60d4f2a0ab",
+          "src/util/ids.ts": "1d29f082a4ea11f1d9d8a9781210957476bc3d4cf60f19d6ca0c708cfe8197c0",
+          "src/util/shell.ts": "021c3bd13e85d1ce2abc18e94cb4c2eb6a85bdc76891c76ab6a34031c7c77e1c",
+          "src/verify/artifact.ts": "36b47b0725799462931e419b11b836b6dece4a3c04b05a538820b0d435b50435",
+          "src/verify/pipeline.ts": "bd5c33dabda7e1a7a6724d6534e2e1feff0fa564cb2e1fd021acf90f9bed50c5",
+          "tui.tsx": "38b55244787c0ae6db3b9a9dbf36f3e2153f9a68b3ded261fd004ec0f33b9d82"
+        }
+      },
+      "serving": {
+        "pid": 30270,
+        "location": "/Users/keatonhoskins/projects/opencode-goal",
+        "endpoint": "http://127.0.0.1:49374"
+      },
+      "selections": {
+        "model": "deepseek/deepseek-flash",
+        "agent": "build"
+      },
+      "requestIds": [
+        "ses_eb943ab3effefdquBH0drbgaHk",
+        "ses_eb943ae5dffekm8WSbbjxlhHlR",
+        "ses_eb943aaeaffeNH0zpK7M8UA89a",
+        "msg_146bc99d1001ke1G6JweAk8JTl",
+        "msg_146bc99ea001jEEPsG0CLA8AuK",
+        "msg_146bca396001m62etEiFWFKNDT",
+        "msg_146bcab5a0010GsNouF5PwU47U",
+        "msg_146bcb43f001slgzsMIb1MRGCK",
+        "msg_146bcbb3d001XJuL40Sw6NtCI0",
+        "msg_146bcc7b80013T8v8pQSz8mpEV",
+        "msg_146bccf42001Dw8qcm8s1cfnUt",
+        "msg_146bcd606001V5K8LHQkr8I9ZO"
+      ],
+      "readCoordinates": [
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/second-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/host.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/first-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/pty-result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/render-tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/fresh-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bb797f001ExrsKvqC2zf146.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-ledger.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/author-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/context.json",
+          "offset": 0,
+          "limit": 4096
+        }
+      ],
+      "label": "pass",
+      "labelReason": "a real model completed the flow and its raw interaction was preserved (3 owner messages, 2 forms, 57 tool calls)",
+      "ms": 12729,
+      "startedAt": "2026-10-16T22:02:45.224Z",
+      "raw": {
+        "ownerMessages": [
+          "Goal entry — interpret the owner's intent, not merely the first word.\nOwner's original words: \"Create a goal for this isolated QA project: use slug qa-interview. Write proof.txt with exactly status: ok on one line. This is a bounded QA test, not a request to edit production. Interview me with one native question before drafting; the test owner answers are: direct host file/contains checks, no huma",
+          "Ask the owner with the question tool using the exact JSON below. The host executes the choice; do not call goal_start afterwards.\nGOAL_FORM_JSON:{\"questions\":[{\"header\":\"Goal\",\"question\":\"Review and launch: QA proof.txt contains the single line status ok\\nGoal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9.\\nOutcome: proof.txt exists at the project",
+          "I approve you to resume. Resume this same inspection run now through goal_inventory and goal_manage; do not create a replacement or ask a redundant resume question. Then immediately call goal_wait for 300 seconds and do not claim. This is the automated QA owner exercising the current exact lifecycle on its isolated inspection goal."
+        ],
+        "forms": [
+          {
+            "id": "frm_146bb797f001ExrsKvqC2zf146",
+            "question": "Evidence standard",
+            "answer": "{\"q0\":\"Use the fixed QA choices: proof.txt = status: ok; direct host checks only, no verifier/human criterion, no budget, fresh root launch with the original mo"
+          },
+          {
+            "id": "frm_146bc174d001vve49pF2aR3YvF",
+            "question": "Goal",
+            "answer": "{\"q0\":\"Start goal now (Recommended)\"}"
+          }
+        ],
+        "toolCalls": [
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 32 drwx------ 9 keatonhoskins staff 288 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/manager-one.txt [mbx] This session has no mailbox identity yet. No mailboxes for this directory. Claim one with"
+          },
+          {
+            "name": "shell",
+            "result": "--- manager-one.txt status: ok --- proof.txt status: ok --- README.md # Isolated real-model goal QA Only QA marker files and goal artifacts belong here. --- qa-evidence total 352 drwxr-xr-x 12 keatonh"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-two.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok 1 "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
+          },
+          {
+            "name": "read",
+            "result": "Read file proof.txt, lines 1-1 1: status: ok"
+          },
+          {
+            "name": "read",
+            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
+          },
+          {
+            "name": "read",
+            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-one.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+          },
+          {
+            "name": "goal_progress"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:00 .. drwxr-xr-x 14 keatonhoskins staff 448 Oct 16 15:00 .git -rw-r--r-- 1 keatonhoskins "
+          },
+          {
+            "name": "shell",
+            "result": "total 40 drwxr-xr-x 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 4 keatonhoskins staff 128 Oct 16 15:01 .. -rw-r--r-- 1 keatonhoskins staff 1395 Oct 16 15:01 context.md -rw-r--r-- 1 keatonhoski"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: proof.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 proof.txt --- content (xxd) --- 00000000: 7374 6174 7573 3a20 6f6b 0a status: ok. --- contains check --- CONTAINS status: ok: yes "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-interview\", \"runId\": \"146bc1828001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "shell",
+            "result": "total 8 drwxr-xr-x 3 keatonhoskins staff 96 Oct 16 15:00 . drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 .. -rw-r--r-- 1 keatonhoskins staff 93 Oct 16 15:00 opencode.json ./qa-evidence/provenance."
+          },
+          {
+            "name": "shell",
+            "result": "# Isolated real-model goal QA Only QA marker files and goal artifacts belong here. ---OPENCODE--- { \"plugins\": [ \"-opencode-goal\", \"github:kryptobaseddev/opencode-goal#v0.5.2\" ] }---GITIGNORE--- .open"
+          },
+          {
+            "name": "goal_inventory",
+            "result": "{ \"goals\": [] }"
+          },
+          {
+            "name": "shell",
+            "result": "# goal/v1 contract — fill every field marked REQUIRED; delete optional blocks you do not need. # Values that contain \": \" must be wrapped in single quotes. schema: goal/v1 id: my-goal # REQUIRED: equa"
+          },
+          {
+            "name": "shell",
+            "result": "(no output)"
+          },
+          {
+            "name": "question",
+            "result": "User has answered your questions: \"How should this QA goal prove its one end state — proof.txt containing the single line `status: ok`?\"=\"Use the fixed QA choices: proof.txt = status: ok; direct host "
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/context.md"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/decisions.jsonl"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/goal.yaml"
+          },
+          {
+            "name": "goal_validate",
+            "result": "✗ goal.yaml: not valid YAML: YAML Parse error: Unexpected token (line 6 has an unquoted value containing \": \" — wrap the value in single quotes)"
+          },
+          {
+            "name": "read",
+            "result": "Read file /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/.opencode/goals/qa-interview/goal.yaml, lines 1-10 1: schema: goal/v1 2: id: qa-interview 3: title: Q"
+          },
+          {
+            "name": "edit",
+            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
+          },
+          {
+            "name": "edit",
+            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
+          },
+          {
+            "name": "goal_validate",
+            "result": "✓ goal.yaml is valid lock 44d90b887926 · 2 criteria (2 host-checked), 1 invariants"
+          },
+          {
+            "name": "goal_prepare_launch",
+            "result": "{ \"decisionId\": \"f4424bd4-5c7c-4b01-bedc-7e59701e9154\", \"slug\": \"qa-interview\", \"lock\": \"44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9\", \"fresh\": true, \"status\": \"pending\", \"transpo"
+          },
+          {
+            "name": "question",
+            "result": "User has answered your questions: \"Review and launch: QA proof.txt contains the single line status ok Goal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9f"
+          },
+          {
+            "name": "goal_status",
+            "result": "No goal is running in this session."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
+          },
+          {
+            "name": "read",
+            "result": "Read file proof.txt, lines 1-1 1: status: ok"
+          },
+          {
+            "name": "read",
+            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
+          },
+          {
+            "name": "read",
+            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-one.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+          },
+          {
+            "name": "goal_progress"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "goal_inventory",
+            "result": "{ \"goals\": [ { \"key\": \"live:qa-manager-one:146bc5643001\", \"slug\": \"qa-manager-one\", \"title\": \"qa-manager-one\", \"status\": \"paused\", \"archived\": false, \"terminal\": false, \"attachable\": true, \"valid\": tr"
+          },
+          {
+            "name": "goal_manage",
+            "result": "{ \"ok\": true, \"message\": \"Goal resumed: qa-manager-one — /goal status · /goal pause\" }"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok ?? .opencode/ ?? manager-one.txt ?? manager-two.txt ?? proof.txt "
+          },
+          {
+            "name": "goal_status",
+            "result": "{ \"slug\": \"qa-manager-one\", \"title\": \"qa-manager-one\", \"outcome\": \"manager-one.txt contains status ok\", \"status\": \"running\", \"runId\": \"146bc5643001\", \"sessionID\": \"ses_eb943ab3effefdquBH0drbgaHk\", \"lo"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          }
+        ],
+        "results": [
+          "{\"pass\":true,\"evidence\":\"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence\",\"sessionID\":\"ses_eb943ab3effefdquBH0drbgaHk\",\"runId\":\"146bc5643001\",\"revision\":\"f33c458471061bda4441ccb5326ba12919ed8fe5\",\"serverPID\":30270,\"providerIsFixture\":false}"
+        ]
+      }
+    },
+    {
+      "flow": "completion",
+      "release": {
+        "version": "0.5.2",
+        "ref": "v0.5.2",
+        "sha": "f33c458471061bda4441ccb5326ba12919ed8fe5",
+        "artifacts": {
+          "dist/tui.d.ts": "224fd1ce257b3a09626eb96ebdf9362acb9932673f098491174e88ad147a94f8",
+          "dist/tui.js": "e1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d",
+          "package.json": "0a23096c9e750010395fccb0a708205484dea89613d06c27bb6c0b6dcbf0ea2e",
+          "rpc.ts": "d972832a46c22b9eef689be61bd033d6782897d9754b605f454a41b6ffd31713",
+          "server.ts": "252686b0b1bd871225b7c89bf7f9c710ecd5379f60e9095efd60d69595ea4cad",
+          "skills/write-goal/SKILL.md": "536f59f34f374cb44a5bc3ca39d83949e73a95b72ce2d6e5265d3cab73879359",
+          "skills/write-goal/assets/goal.template.yaml": "d1e5dfcce58c1e858c362b340e3dad7fa86703fdc1859ce22fae8c171f97ae29",
+          "skills/write-goal/evals/README.md": "67e9810f757a0c0a7f35909bbc039b140243912327c441670a7a4cac74a33edb",
+          "skills/write-goal/evals/trigger-eval-2026-10-03.json": "3dadb8ed359e71c5d3868faae49ee8497342e2691dba363fa7d8cb17069de448",
+          "skills/write-goal/evals/trigger_queries.json": "c13280153b7f8d16b771f30db07c16fb33927405319df278f51daeee0620189d",
+          "skills/write-goal/references/examples.md": "9bde4788c544cae35ce9303718c18f41e2e6197abeb8d79f19333ba1c9812c03",
+          "skills/write-goal/references/goal-schema.md": "5ac3871a05831a83a81cc349fc4996a84d5006c55839be745acbf96b3e1c2867",
+          "skills/write-goal/references/interview.md": "393dcfd49bde72398f1523ca6df223438244bc77df89f284da26a234324ff750",
+          "src/contract/parse.ts": "9e41ae64f3cce8bad351dffdc77332ddf46ebb35ee3eafd0132ccbdba6448148",
+          "src/contract/render.ts": "3e69477aae2284adffc8869fbdb26b1532ce8073a14d28c06577671d6caad713",
+          "src/contract/types.ts": "94d8226c9a99c7db44f0c3196cff9ec438b1c5cbfeb44444e4d285863c69e7c0",
+          "src/engine/amendment.ts": "4dd1c232e8a9ad8617322649c1203458e80618084982dad7da1ffb479370bdea",
+          "src/engine/amendments.ts": "156217ab9993d76254bf52baf18a8bc42a436561bae54fac5444d474ff52ab37",
+          "src/engine/cleo-bridge.ts": "9dc6be1ce5042e709976c263e0e884e63aca593baa251be8dd04b80acfd839c9",
+          "src/engine/cleo-link.ts": "21fa9af4079a440fb72081802f4e0568ae5a6259515ef824814d9bffa2bb9b4f",
+          "src/engine/decisions.ts": "5ac3e059ccdb34babbcfa2516ee100464176e5c014fed9cdbb969ca932236bd8",
+          "src/engine/dogfood-record.ts": "17791f5b3e8361edeb9f8a82866b95396fea532813626274c9a93e96f33bc7a1",
+          "src/engine/inventory.ts": "b80b41953f237167012dd01678174fc17e2d9822eefede37bcb7ba7030cb3163",
+          "src/engine/launches.ts": "1766ad42fa1e5a46d2c1bf8ebfb337cf92972bde24a0781246ebfa752948cea9",
+          "src/engine/owner-intent.ts": "b1cb2fee62da09d911dedc076b52529a673dfc5a04369bb9985c3e0ffac0adb1",
+          "src/engine/owner-reviews.ts": "7a5e3aa177c3d87abc377ae5d6d41967771c08e11de8fa29923648cc8112088c",
+          "src/engine/policy.ts": "73272007b7f92e64a33f927f0fae7ebf1078f244600884fca63f18206a7d5a80",
+          "src/engine/registry.ts": "a34d2cc7dbd44d38608d058937a4e4f717dddb70b393f7aafd778b1b99986df5",
+          "src/engine/similarity.ts": "330fe8f07bcecee6a21694f7f86ec6013147339f0a579f3fb3c73d9906dd2548",
+          "src/engine/state.ts": "b317eb037fe3cf12836e8bc734803c5fa6304514c526288f22cc982db59ac0bb",
+          "src/engine/store.ts": "3d102f78d6b50ced4e1669c66c117233a9165bec3212b752f5187a5b4de3cdc2",
+          "src/rpc.ts": "35b6b5c7d3573dcdabeae3d472e48903aa612d8b7d4da7d932b1f563fb9daf5c",
+          "src/server/app.ts": "056b9a0fb38b77012f4644b7ef3f01c57d2533947880789a307b01d8cdc4ea75",
+          "src/server/help.ts": "d29a6aa4a5fc890a3f9a8a90b11ce591a5b1ffbe8dd8f1143495aefbd06cb1b4",
+          "src/server/index.ts": "b9e69dc7a68c32f9dccfc375ab5524c15059b56586e715563a69a205e0dffdab",
+          "src/server/intent.ts": "7b68e265f3c3d50d950d82294e9ce0bddecee4af7fb675510459bb170c0dbac6",
+          "src/server/messages.ts": "f38c59d9e0c71869d9871767b2a2ebb8ea31a576cad23194ccb6539f2aaa6d1e",
+          "src/summary/audit.ts": "1d6a61790e50c9ed34c6d940df65a87ad27622f0fcea2fd7e8960e24cff8ab2f",
+          "src/summary/build.ts": "57817db9f16947b5203816fc2ff6219b5f5e26a44a8a953e04f06727e6273f25",
+          "src/tui/dashboard.ts": "1c2fe74bba8e281bafdd3d3962caef13c0f559d3fdff1a6c0fb1bf54d18d8493",
+          "src/tui/decision-form.ts": "c118914e39e589d7ec08c799b060dd25dac6645f20b3f214bab181e6ae57de9d",
+          "src/tui/format.ts": "96dde5f9a2ba96a2e1842acb297312980022005efa290565499c50b684c3a334",
+          "src/tui/index.tsx": "189b542cfee618af63f2f74a2ada67a94c11dbb5511a3f03f6071735e9dc211d",
+          "src/tui/manager.ts": "8829b787fe59376f10dd59196eebe0e188f5fe699ca33b73c5e6feed7e27afb2",
+          "src/tui/navigation.ts": "649ef2e64c9ad0a1200aebb79ceeb6ae2099d8036da481ba8fadd5823af10d49",
+          "src/tui/pointer-select.ts": "6849490e432c5a9f21c38f6bdc708131e1dde96c7aea8dd9be1107883f4630d6",
+          "src/tui/tracer.ts": "a33934c2e9e4fbc4d218690f02dd61fd80fa0fc1bbdfea4c4b4cc125e9e30276",
+          "src/util/git.ts": "84b7439e829da7a34db82a4bf4debdbc0702a660b41874459d72ca60d4f2a0ab",
+          "src/util/ids.ts": "1d29f082a4ea11f1d9d8a9781210957476bc3d4cf60f19d6ca0c708cfe8197c0",
+          "src/util/shell.ts": "021c3bd13e85d1ce2abc18e94cb4c2eb6a85bdc76891c76ab6a34031c7c77e1c",
+          "src/verify/artifact.ts": "36b47b0725799462931e419b11b836b6dece4a3c04b05a538820b0d435b50435",
+          "src/verify/pipeline.ts": "bd5c33dabda7e1a7a6724d6534e2e1feff0fa564cb2e1fd021acf90f9bed50c5",
+          "tui.tsx": "38b55244787c0ae6db3b9a9dbf36f3e2153f9a68b3ded261fd004ec0f33b9d82"
+        }
+      },
+      "serving": {
+        "pid": 30270,
+        "location": "/Users/keatonhoskins/projects/opencode-goal",
+        "endpoint": "http://127.0.0.1:49374"
+      },
+      "selections": {
+        "model": "deepseek/deepseek-flash",
+        "agent": "build"
+      },
+      "requestIds": [
+        "ses_eb943ab3effefdquBH0drbgaHk",
+        "ses_eb943ae5dffekm8WSbbjxlhHlR",
+        "ses_eb943aaeaffeNH0zpK7M8UA89a",
+        "msg_146bc99d1001ke1G6JweAk8JTl",
+        "msg_146bc99ea001jEEPsG0CLA8AuK",
+        "msg_146bca396001m62etEiFWFKNDT",
+        "msg_146bcab5a0010GsNouF5PwU47U",
+        "msg_146bcb43f001slgzsMIb1MRGCK",
+        "msg_146bcbb3d001XJuL40Sw6NtCI0",
+        "msg_146bcc7b80013T8v8pQSz8mpEV",
+        "msg_146bccf42001Dw8qcm8s1cfnUt",
+        "msg_146bcd606001V5K8LHQkr8I9ZO"
+      ],
+      "readCoordinates": [
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/second-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/host.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/first-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/pty-result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/render-tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/fresh-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bb797f001ExrsKvqC2zf146.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-ledger.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/completion-ledger.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/completion-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/author-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-result.json",
+          "offset": 0,
+          "limit": 4096
+        }
+      ],
+      "label": "pass",
+      "labelReason": "a real model completed the flow and its raw interaction was preserved (5 owner messages, 2 forms, 67 tool calls)",
+      "ms": 8700,
+      "startedAt": "2026-10-16T22:02:53.924Z",
+      "raw": {
+        "ownerMessages": [
+          "The automated QA owner's manager inspection is finished. Your existing marker is ready. Complete this SAME waiting inspection goal now: read its marker, call goal_claim with evidence for every criterion, then END YOUR TURN so the installed host runs its declared checks. Do not wait again, request manual verification, fabricate passes, create a replacement goal, edit the locked contract, or change ",
+          "◎ goal-decision (kind=complete, slug=qa-manager-two) — the goal engine needs the OWNER's decision now.\nDecision: Goal complete: qa-manager-two. The loop has stopped. What next? — start the write-goal interview for the next goal · /goal archive · install CLEO — no .cleo workspace in this project yet\nAsk the owner NOW with the question tool using the EXACT JSON below. Keep the question's nonce, targ",
+          "Goal entry — interpret the owner's intent, not merely the first word.\nOwner's original words: \"Create a goal for this isolated QA project: use slug qa-interview. Write proof.txt with exactly status: ok on one line. This is a bounded QA test, not a request to edit production. Interview me with one native question before drafting; the test owner answers are: direct host file/contains checks, no huma",
+          "Ask the owner with the question tool using the exact JSON below. The host executes the choice; do not call goal_start afterwards.\nGOAL_FORM_JSON:{\"questions\":[{\"header\":\"Goal\",\"question\":\"Review and launch: QA proof.txt contains the single line status ok\\nGoal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9.\\nOutcome: proof.txt exists at the project",
+          "I approve you to resume. Resume this same inspection run now through goal_inventory and goal_manage; do not create a replacement or ask a redundant resume question. Then immediately call goal_wait for 300 seconds and do not claim. This is the automated QA owner exercising the current exact lifecycle on its isolated inspection goal."
+        ],
+        "forms": [
+          {
+            "id": "frm_146bb797f001ExrsKvqC2zf146",
+            "question": "Evidence standard",
+            "answer": "{\"q0\":\"Use the fixed QA choices: proof.txt = status: ok; direct host checks only, no verifier/human criterion, no budget, fresh root launch with the original mo"
+          },
+          {
+            "id": "frm_146bc174d001vve49pF2aR3YvF",
+            "question": "Goal",
+            "answer": "{\"q0\":\"Start goal now (Recommended)\"}"
+          }
+        ],
+        "toolCalls": [
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 32 drwx------ 9 keatonhoskins staff 288 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/manager-one.txt [mbx] This session has no mailbox identity yet. No mailboxes for this directory. Claim one with"
+          },
+          {
+            "name": "shell",
+            "result": "--- manager-one.txt status: ok --- proof.txt status: ok --- README.md # Isolated real-model goal QA Only QA marker files and goal artifacts belong here. --- qa-evidence total 352 drwxr-xr-x 12 keatonh"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-two.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok 1 "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
+          },
+          {
+            "name": "read",
+            "result": "Read file proof.txt, lines 1-1 1: status: ok"
+          },
+          {
+            "name": "read",
+            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
+          },
+          {
+            "name": "read",
+            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-one.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+          },
+          {
+            "name": "goal_progress"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:00 .. drwxr-xr-x 14 keatonhoskins staff 448 Oct 16 15:00 .git -rw-r--r-- 1 keatonhoskins "
+          },
+          {
+            "name": "shell",
+            "result": "total 40 drwxr-xr-x 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 4 keatonhoskins staff 128 Oct 16 15:01 .. -rw-r--r-- 1 keatonhoskins staff 1395 Oct 16 15:01 context.md -rw-r--r-- 1 keatonhoski"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: proof.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 proof.txt --- content (xxd) --- 00000000: 7374 6174 7573 3a20 6f6b 0a status: ok. --- contains check --- CONTAINS status: ok: yes "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-interview\", \"runId\": \"146bc1828001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 32 drwx------ 9 keatonhoskins staff 288 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/manager-one.txt [mbx] This session has no mailbox identity yet. No mailboxes for this directory. Claim one with"
+          },
+          {
+            "name": "shell",
+            "result": "--- manager-one.txt status: ok --- proof.txt status: ok --- README.md # Isolated real-model goal QA Only QA marker files and goal artifacts belong here. --- qa-evidence total 352 drwxr-xr-x 12 keatonh"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-two.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok 1 "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok C2-MATCH "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"waiting\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_claim",
+            "result": "Claim recorded. End your turn now; the host will verify it and either complete the goal or return a verdict."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "shell",
+            "result": "total 8 drwxr-xr-x 3 keatonhoskins staff 96 Oct 16 15:00 . drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 .. -rw-r--r-- 1 keatonhoskins staff 93 Oct 16 15:00 opencode.json ./qa-evidence/provenance."
+          },
+          {
+            "name": "shell",
+            "result": "# Isolated real-model goal QA Only QA marker files and goal artifacts belong here. ---OPENCODE--- { \"plugins\": [ \"-opencode-goal\", \"github:kryptobaseddev/opencode-goal#v0.5.2\" ] }---GITIGNORE--- .open"
+          },
+          {
+            "name": "goal_inventory",
+            "result": "{ \"goals\": [] }"
+          },
+          {
+            "name": "shell",
+            "result": "# goal/v1 contract — fill every field marked REQUIRED; delete optional blocks you do not need. # Values that contain \": \" must be wrapped in single quotes. schema: goal/v1 id: my-goal # REQUIRED: equa"
+          },
+          {
+            "name": "shell",
+            "result": "(no output)"
+          },
+          {
+            "name": "question",
+            "result": "User has answered your questions: \"How should this QA goal prove its one end state — proof.txt containing the single line `status: ok`?\"=\"Use the fixed QA choices: proof.txt = status: ok; direct host "
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/context.md"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/decisions.jsonl"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/goal.yaml"
+          },
+          {
+            "name": "goal_validate",
+            "result": "✗ goal.yaml: not valid YAML: YAML Parse error: Unexpected token (line 6 has an unquoted value containing \": \" — wrap the value in single quotes)"
+          },
+          {
+            "name": "read",
+            "result": "Read file /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/.opencode/goals/qa-interview/goal.yaml, lines 1-10 1: schema: goal/v1 2: id: qa-interview 3: title: Q"
+          },
+          {
+            "name": "edit",
+            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
+          },
+          {
+            "name": "edit",
+            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
+          },
+          {
+            "name": "goal_validate",
+            "result": "✓ goal.yaml is valid lock 44d90b887926 · 2 criteria (2 host-checked), 1 invariants"
+          },
+          {
+            "name": "goal_prepare_launch",
+            "result": "{ \"decisionId\": \"f4424bd4-5c7c-4b01-bedc-7e59701e9154\", \"slug\": \"qa-interview\", \"lock\": \"44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9\", \"fresh\": true, \"status\": \"pending\", \"transpo"
+          },
+          {
+            "name": "question",
+            "result": "User has answered your questions: \"Review and launch: QA proof.txt contains the single line status ok Goal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9f"
+          },
+          {
+            "name": "goal_status",
+            "result": "No goal is running in this session."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
+          },
+          {
+            "name": "read",
+            "result": "Read file proof.txt, lines 1-1 1: status: ok"
+          },
+          {
+            "name": "read",
+            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
+          },
+          {
+            "name": "read",
+            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-one.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+          },
+          {
+            "name": "goal_progress"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "goal_inventory",
+            "result": "{ \"goals\": [ { \"key\": \"live:qa-manager-one:146bc5643001\", \"slug\": \"qa-manager-one\", \"title\": \"qa-manager-one\", \"status\": \"paused\", \"archived\": false, \"terminal\": false, \"attachable\": true, \"valid\": tr"
+          },
+          {
+            "name": "goal_manage",
+            "result": "{ \"ok\": true, \"message\": \"Goal resumed: qa-manager-one — /goal status · /goal pause\" }"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok ?? .opencode/ ?? manager-one.txt ?? manager-two.txt ?? proof.txt "
+          },
+          {
+            "name": "goal_status",
+            "result": "{ \"slug\": \"qa-manager-one\", \"title\": \"qa-manager-one\", \"outcome\": \"manager-one.txt contains status ok\", \"status\": \"running\", \"runId\": \"146bc5643001\", \"sessionID\": \"ses_eb943ab3effefdquBH0drbgaHk\", \"lo"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          }
+        ],
+        "results": [
+          "{\"pass\":true,\"evidence\":\"/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence\",\"sessionID\":\"ses_eb943aaeaffeNH0zpK7M8UA89a\",\"runId\":\"146bc9921001\",\"revision\":\"f33c458471061bda4441ccb5326ba12919ed8fe5\",\"serverPID\":30270,\"providerIsFixture\":false}"
+        ]
+      }
+    },
+    {
+      "flow": "amendment",
+      "release": {
+        "version": "0.5.2",
+        "ref": "v0.5.2",
+        "sha": "f33c458471061bda4441ccb5326ba12919ed8fe5",
+        "artifacts": {
+          "dist/tui.d.ts": "224fd1ce257b3a09626eb96ebdf9362acb9932673f098491174e88ad147a94f8",
+          "dist/tui.js": "e1fe104e6f64ddc35fc44e115efb23a68b1873c7660b2d6b945a62eeeb4e201d",
+          "package.json": "0a23096c9e750010395fccb0a708205484dea89613d06c27bb6c0b6dcbf0ea2e",
+          "rpc.ts": "d972832a46c22b9eef689be61bd033d6782897d9754b605f454a41b6ffd31713",
+          "server.ts": "252686b0b1bd871225b7c89bf7f9c710ecd5379f60e9095efd60d69595ea4cad",
+          "skills/write-goal/SKILL.md": "536f59f34f374cb44a5bc3ca39d83949e73a95b72ce2d6e5265d3cab73879359",
+          "skills/write-goal/assets/goal.template.yaml": "d1e5dfcce58c1e858c362b340e3dad7fa86703fdc1859ce22fae8c171f97ae29",
+          "skills/write-goal/evals/README.md": "67e9810f757a0c0a7f35909bbc039b140243912327c441670a7a4cac74a33edb",
+          "skills/write-goal/evals/trigger-eval-2026-10-03.json": "3dadb8ed359e71c5d3868faae49ee8497342e2691dba363fa7d8cb17069de448",
+          "skills/write-goal/evals/trigger_queries.json": "c13280153b7f8d16b771f30db07c16fb33927405319df278f51daeee0620189d",
+          "skills/write-goal/references/examples.md": "9bde4788c544cae35ce9303718c18f41e2e6197abeb8d79f19333ba1c9812c03",
+          "skills/write-goal/references/goal-schema.md": "5ac3871a05831a83a81cc349fc4996a84d5006c55839be745acbf96b3e1c2867",
+          "skills/write-goal/references/interview.md": "393dcfd49bde72398f1523ca6df223438244bc77df89f284da26a234324ff750",
+          "src/contract/parse.ts": "9e41ae64f3cce8bad351dffdc77332ddf46ebb35ee3eafd0132ccbdba6448148",
+          "src/contract/render.ts": "3e69477aae2284adffc8869fbdb26b1532ce8073a14d28c06577671d6caad713",
+          "src/contract/types.ts": "94d8226c9a99c7db44f0c3196cff9ec438b1c5cbfeb44444e4d285863c69e7c0",
+          "src/engine/amendment.ts": "4dd1c232e8a9ad8617322649c1203458e80618084982dad7da1ffb479370bdea",
+          "src/engine/amendments.ts": "156217ab9993d76254bf52baf18a8bc42a436561bae54fac5444d474ff52ab37",
+          "src/engine/cleo-bridge.ts": "9dc6be1ce5042e709976c263e0e884e63aca593baa251be8dd04b80acfd839c9",
+          "src/engine/cleo-link.ts": "21fa9af4079a440fb72081802f4e0568ae5a6259515ef824814d9bffa2bb9b4f",
+          "src/engine/decisions.ts": "5ac3e059ccdb34babbcfa2516ee100464176e5c014fed9cdbb969ca932236bd8",
+          "src/engine/dogfood-record.ts": "17791f5b3e8361edeb9f8a82866b95396fea532813626274c9a93e96f33bc7a1",
+          "src/engine/inventory.ts": "b80b41953f237167012dd01678174fc17e2d9822eefede37bcb7ba7030cb3163",
+          "src/engine/launches.ts": "1766ad42fa1e5a46d2c1bf8ebfb337cf92972bde24a0781246ebfa752948cea9",
+          "src/engine/owner-intent.ts": "b1cb2fee62da09d911dedc076b52529a673dfc5a04369bb9985c3e0ffac0adb1",
+          "src/engine/owner-reviews.ts": "7a5e3aa177c3d87abc377ae5d6d41967771c08e11de8fa29923648cc8112088c",
+          "src/engine/policy.ts": "73272007b7f92e64a33f927f0fae7ebf1078f244600884fca63f18206a7d5a80",
+          "src/engine/registry.ts": "a34d2cc7dbd44d38608d058937a4e4f717dddb70b393f7aafd778b1b99986df5",
+          "src/engine/similarity.ts": "330fe8f07bcecee6a21694f7f86ec6013147339f0a579f3fb3c73d9906dd2548",
+          "src/engine/state.ts": "b317eb037fe3cf12836e8bc734803c5fa6304514c526288f22cc982db59ac0bb",
+          "src/engine/store.ts": "3d102f78d6b50ced4e1669c66c117233a9165bec3212b752f5187a5b4de3cdc2",
+          "src/rpc.ts": "35b6b5c7d3573dcdabeae3d472e48903aa612d8b7d4da7d932b1f563fb9daf5c",
+          "src/server/app.ts": "056b9a0fb38b77012f4644b7ef3f01c57d2533947880789a307b01d8cdc4ea75",
+          "src/server/help.ts": "d29a6aa4a5fc890a3f9a8a90b11ce591a5b1ffbe8dd8f1143495aefbd06cb1b4",
+          "src/server/index.ts": "b9e69dc7a68c32f9dccfc375ab5524c15059b56586e715563a69a205e0dffdab",
+          "src/server/intent.ts": "7b68e265f3c3d50d950d82294e9ce0bddecee4af7fb675510459bb170c0dbac6",
+          "src/server/messages.ts": "f38c59d9e0c71869d9871767b2a2ebb8ea31a576cad23194ccb6539f2aaa6d1e",
+          "src/summary/audit.ts": "1d6a61790e50c9ed34c6d940df65a87ad27622f0fcea2fd7e8960e24cff8ab2f",
+          "src/summary/build.ts": "57817db9f16947b5203816fc2ff6219b5f5e26a44a8a953e04f06727e6273f25",
+          "src/tui/dashboard.ts": "1c2fe74bba8e281bafdd3d3962caef13c0f559d3fdff1a6c0fb1bf54d18d8493",
+          "src/tui/decision-form.ts": "c118914e39e589d7ec08c799b060dd25dac6645f20b3f214bab181e6ae57de9d",
+          "src/tui/format.ts": "96dde5f9a2ba96a2e1842acb297312980022005efa290565499c50b684c3a334",
+          "src/tui/index.tsx": "189b542cfee618af63f2f74a2ada67a94c11dbb5511a3f03f6071735e9dc211d",
+          "src/tui/manager.ts": "8829b787fe59376f10dd59196eebe0e188f5fe699ca33b73c5e6feed7e27afb2",
+          "src/tui/navigation.ts": "649ef2e64c9ad0a1200aebb79ceeb6ae2099d8036da481ba8fadd5823af10d49",
+          "src/tui/pointer-select.ts": "6849490e432c5a9f21c38f6bdc708131e1dde96c7aea8dd9be1107883f4630d6",
+          "src/tui/tracer.ts": "a33934c2e9e4fbc4d218690f02dd61fd80fa0fc1bbdfea4c4b4cc125e9e30276",
+          "src/util/git.ts": "84b7439e829da7a34db82a4bf4debdbc0702a660b41874459d72ca60d4f2a0ab",
+          "src/util/ids.ts": "1d29f082a4ea11f1d9d8a9781210957476bc3d4cf60f19d6ca0c708cfe8197c0",
+          "src/util/shell.ts": "021c3bd13e85d1ce2abc18e94cb4c2eb6a85bdc76891c76ab6a34031c7c77e1c",
+          "src/verify/artifact.ts": "36b47b0725799462931e419b11b836b6dece4a3c04b05a538820b0d435b50435",
+          "src/verify/pipeline.ts": "bd5c33dabda7e1a7a6724d6534e2e1feff0fa564cb2e1fd021acf90f9bed50c5",
+          "tui.tsx": "38b55244787c0ae6db3b9a9dbf36f3e2153f9a68b3ded261fd004ec0f33b9d82"
+        }
+      },
+      "serving": {
+        "pid": 30270,
+        "location": "/Users/keatonhoskins/projects/opencode-goal",
+        "endpoint": "http://127.0.0.1:49374"
+      },
+      "selections": {
+        "model": "deepseek/deepseek-flash",
+        "agent": "build"
+      },
+      "requestIds": [
+        "ses_eb943ab3effefdquBH0drbgaHk",
+        "ses_eb943ae5dffekm8WSbbjxlhHlR",
+        "ses_eb943aaeaffeNH0zpK7M8UA89a",
+        "msg_146bc99d1001ke1G6JweAk8JTl",
+        "msg_146bc99ea001jEEPsG0CLA8AuK",
+        "msg_146bca396001m62etEiFWFKNDT",
+        "msg_146bcab5a0010GsNouF5PwU47U",
+        "msg_146bcb43f001slgzsMIb1MRGCK",
+        "msg_146bcbb3d001XJuL40Sw6NtCI0",
+        "msg_146bcc7b80013T8v8pQSz8mpEV",
+        "msg_146bccf42001Dw8qcm8s1cfnUt",
+        "msg_146bcd606001V5K8LHQkr8I9ZO"
+      ],
+      "readCoordinates": [
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/second-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/host.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/first-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/expand-before-jump.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/selected-action-isolated.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/two-rendered-cards.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/explicit-session-jump.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/pty-result.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/goal-less-native-manager.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/narrow-focus-and-bounds.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/f9-reopen-selected-focus.state.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/render-tree.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/manager-pty/visible-close-to-sidebar.screen.txt",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-provenance.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/fresh-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/form-frm_146bb797f001ExrsKvqC2zf146.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-ledger.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/completion-ledger.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/completion-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/author-transcript.json",
+          "offset": 0,
+          "limit": 4096
+        },
+        {
+          "path": "../../../../private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/qa-evidence/lifecycle-result.json",
+          "offset": 0,
+          "limit": 4096
+        }
+      ],
+      "label": "partial",
+      "labelReason": "the flow did not complete (exit 1) after producing some evidence",
+      "ms": 156055,
+      "startedAt": "2026-10-16T22:05:29.980Z",
+      "raw": {
+        "ownerMessages": [
+          "The automated QA owner's manager inspection is finished. Your existing marker is ready. Complete this SAME waiting inspection goal now: read its marker, call goal_claim with evidence for every criterion, then END YOUR TURN so the installed host runs its declared checks. Do not wait again, request manual verification, fabricate passes, create a replacement goal, edit the locked contract, or change ",
+          "◎ goal-decision (kind=complete, slug=qa-manager-two) — the goal engine needs the OWNER's decision now.\nDecision: Goal complete: qa-manager-two. The loop has stopped. What next? — start the write-goal interview for the next goal · /goal archive · install CLEO — no .cleo workspace in this project yet\nAsk the owner NOW with the question tool using the EXACT JSON below. Keep the question's nonce, targ",
+          "Goal entry — interpret the owner's intent, not merely the first word.\nOwner's original words: \"Create a goal for this isolated QA project: use slug qa-interview. Write proof.txt with exactly status: ok on one line. This is a bounded QA test, not a request to edit production. Interview me with one native question before drafting; the test owner answers are: direct host file/contains checks, no huma",
+          "Ask the owner with the question tool using the exact JSON below. The host executes the choice; do not call goal_start afterwards.\nGOAL_FORM_JSON:{\"questions\":[{\"header\":\"Goal\",\"question\":\"Review and launch: QA proof.txt contains the single line status ok\\nGoal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9.\\nOutcome: proof.txt exists at the project",
+          "I approve you to resume. Resume this same inspection run now through goal_inventory and goal_manage; do not create a replacement or ask a redundant resume question. Then immediately call goal_wait for 300 seconds and do not claim. This is the automated QA owner exercising the current exact lifecycle on its isolated inspection goal."
+        ],
+        "forms": [
+          {
+            "id": "frm_146bb797f001ExrsKvqC2zf146",
+            "question": "Evidence standard",
+            "answer": "{\"q0\":\"Use the fixed QA choices: proof.txt = status: ok; direct host checks only, no verifier/human criterion, no budget, fresh root launch with the original mo"
+          },
+          {
+            "id": "frm_146bc174d001vve49pF2aR3YvF",
+            "question": "Goal",
+            "answer": "{\"q0\":\"Start goal now (Recommended)\"}"
+          }
+        ],
+        "toolCalls": [
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 32 drwx------ 9 keatonhoskins staff 288 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/manager-one.txt [mbx] This session has no mailbox identity yet. No mailboxes for this directory. Claim one with"
+          },
+          {
+            "name": "shell",
+            "result": "--- manager-one.txt status: ok --- proof.txt status: ok --- README.md # Isolated real-model goal QA Only QA marker files and goal artifacts belong here. --- qa-evidence total 352 drwxr-xr-x 12 keatonh"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-two.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok 1 "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
+          },
+          {
+            "name": "read",
+            "result": "Read file proof.txt, lines 1-1 1: status: ok"
+          },
+          {
+            "name": "read",
+            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
+          },
+          {
+            "name": "read",
+            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-one.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+          },
+          {
+            "name": "goal_progress"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:00 .. drwxr-xr-x 14 keatonhoskins staff 448 Oct 16 15:00 .git -rw-r--r-- 1 keatonhoskins "
+          },
+          {
+            "name": "shell",
+            "result": "total 40 drwxr-xr-x 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 4 keatonhoskins staff 128 Oct 16 15:01 .. -rw-r--r-- 1 keatonhoskins staff 1395 Oct 16 15:01 context.md -rw-r--r-- 1 keatonhoski"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: proof.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 proof.txt --- content (xxd) --- 00000000: 7374 6174 7573 3a20 6f6b 0a status: ok. --- contains check --- CONTAINS status: ok: yes "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-interview\", \"runId\": \"146bc1828001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 32 drwx------ 9 keatonhoskins staff 288 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/manager-one.txt [mbx] This session has no mailbox identity yet. No mailboxes for this directory. Claim one with"
+          },
+          {
+            "name": "shell",
+            "result": "--- manager-one.txt status: ok --- proof.txt status: ok --- README.md # Isolated real-model goal QA Only QA marker files and goal artifacts belong here. --- qa-evidence total 352 drwxr-xr-x 12 keatonh"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-two.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok 1 "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:02 manager-two.txt status: ok C2-MATCH "
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"waiting\", \"slug\": \"qa-manager-two\", \"runId\": \"146bc9921001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_claim",
+            "result": "Claim recorded. End your turn now; the host will verify it and either complete the goal or return a verdict."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 16 drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "shell",
+            "result": "total 8 drwxr-xr-x 3 keatonhoskins staff 96 Oct 16 15:00 . drwx------ 7 keatonhoskins staff 224 Oct 16 15:00 .. -rw-r--r-- 1 keatonhoskins staff 93 Oct 16 15:00 opencode.json ./qa-evidence/provenance."
+          },
+          {
+            "name": "shell",
+            "result": "# Isolated real-model goal QA Only QA marker files and goal artifacts belong here. ---OPENCODE--- { \"plugins\": [ \"-opencode-goal\", \"github:kryptobaseddev/opencode-goal#v0.5.2\" ] }---GITIGNORE--- .open"
+          },
+          {
+            "name": "goal_inventory",
+            "result": "{ \"goals\": [] }"
+          },
+          {
+            "name": "shell",
+            "result": "# goal/v1 contract — fill every field marked REQUIRED; delete optional blocks you do not need. # Values that contain \": \" must be wrapped in single quotes. schema: goal/v1 id: my-goal # REQUIRED: equa"
+          },
+          {
+            "name": "shell",
+            "result": "(no output)"
+          },
+          {
+            "name": "question",
+            "result": "User has answered your questions: \"How should this QA goal prove its one end state — proof.txt containing the single line `status: ok`?\"=\"Use the fixed QA choices: proof.txt = status: ok; direct host "
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/context.md"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/decisions.jsonl"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: .opencode/goals/qa-interview/goal.yaml"
+          },
+          {
+            "name": "goal_validate",
+            "result": "✗ goal.yaml: not valid YAML: YAML Parse error: Unexpected token (line 6 has an unquoted value containing \": \" — wrap the value in single quotes)"
+          },
+          {
+            "name": "read",
+            "result": "Read file /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/.opencode/goals/qa-interview/goal.yaml, lines 1-10 1: schema: goal/v1 2: id: qa-interview 3: title: Q"
+          },
+          {
+            "name": "edit",
+            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
+          },
+          {
+            "name": "edit",
+            "result": "Edited .opencode/goals/qa-interview/goal.yaml (1 replacement)"
+          },
+          {
+            "name": "goal_validate",
+            "result": "✓ goal.yaml is valid lock 44d90b887926 · 2 criteria (2 host-checked), 1 invariants"
+          },
+          {
+            "name": "goal_prepare_launch",
+            "result": "{ \"decisionId\": \"f4424bd4-5c7c-4b01-bedc-7e59701e9154\", \"slug\": \"qa-interview\", \"lock\": \"44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9\", \"fresh\": true, \"status\": \"pending\", \"transpo"
+          },
+          {
+            "name": "question",
+            "result": "User has answered your questions: \"Review and launch: QA proof.txt contains the single line status ok Goal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9f"
+          },
+          {
+            "name": "goal_status",
+            "result": "No goal is running in this session."
+          },
+          {
+            "name": "shell",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s total 24 drwx------ 8 keatonhoskins staff 256 Oct 16 15:01 . drwxr-xr-x 147 keatonhoskins staff 4704 Oct 16 15:"
+          },
+          {
+            "name": "glob",
+            "result": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/proof.txt /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s/README.md /p"
+          },
+          {
+            "name": "read",
+            "result": "Read file proof.txt, lines 1-1 1: status: ok"
+          },
+          {
+            "name": "read",
+            "result": "Read file README.md, lines 1-2 1: # Isolated real-model goal QA 2: Only QA marker files and goal artifacts belong here."
+          },
+          {
+            "name": "read",
+            "result": "Read file .opencode/goals/qa-manager-one/goal.yaml, lines 1-15 1: schema: goal/v1 2: id: qa-manager-one 3: title: qa-manager-one 4: intent: {verbatim: \"Hold this isolated real-model manager inspection"
+          },
+          {
+            "name": "write",
+            "result": "Created file successfully: manager-one.txt"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok "
+          },
+          {
+            "name": "goal_progress"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          },
+          {
+            "name": "goal_inventory",
+            "result": "{ \"goals\": [ { \"key\": \"live:qa-manager-one:146bc5643001\", \"slug\": \"qa-manager-one\", \"title\": \"qa-manager-one\", \"status\": \"paused\", \"archived\": false, \"terminal\": false, \"attachable\": true, \"valid\": tr"
+          },
+          {
+            "name": "goal_manage",
+            "result": "{ \"ok\": true, \"message\": \"Goal resumed: qa-manager-one — /goal status · /goal pause\" }"
+          },
+          {
+            "name": "shell",
+            "result": "-rw-r--r-- 1 keatonhoskins staff 11 Oct 16 15:01 manager-one.txt status: ok ?? .opencode/ ?? manager-one.txt ?? manager-two.txt ?? proof.txt "
+          },
+          {
+            "name": "goal_status",
+            "result": "{ \"slug\": \"qa-manager-one\", \"title\": \"qa-manager-one\", \"outcome\": \"manager-one.txt contains status ok\", \"status\": \"running\", \"runId\": \"146bc5643001\", \"sessionID\": \"ses_eb943ab3effefdquBH0drbgaHk\", \"lo"
+          },
+          {
+            "name": "goal_progress",
+            "result": "{ \"ok\": true, \"recorded\": true, \"status\": \"running\", \"slug\": \"qa-manager-one\", \"runId\": \"146bc5643001\", \"message\": \"Recorded. Plan progress does not approve completion criteria.\" }"
+          },
+          {
+            "name": "goal_wait",
+            "result": "The goal will resume in 300s. End your turn now."
+          }
+        ],
+        "results": [
+          "Real-model chat amendment failed; retained /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-DZgL6s/qa-evidence: Error: Timed out; raw evidence retained"
+        ]
+      }
+    }
+  ],
+  "labels": {
+    "pass": 4,
+    "fixture": 0,
+    "stale-cache": 0,
+    "partial": 1,
+    "timeout": 0
+  }
+}
