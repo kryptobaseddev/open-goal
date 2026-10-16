@@ -4,7 +4,11 @@ import { createHash } from "node:crypto"
 import {
   AMEND_CLASSES,
   CHECK_KINDS,
+  CLEO_GATES,
   type AmendClass,
+  type CleoGate,
+  type CleoTaskLink,
+  type GoalAcRef,
   HOST_KINDS,
   PRIORITIES,
   SCHEMA,
@@ -173,7 +177,11 @@ function parseCriteria(raw: unknown, path: string, prefix: "C" | "I", issues: Is
     if (prefix === "I" && check && !(HOST_KINDS as readonly string[]).includes(check.kind))
       issues.push({ level: "error", path: `${at}.check.kind`, message: "invariants must be host-checkable (command, file, contains, absent or diff)" })
     if (!check) return []
-    return [{ id, statement, essential: prefix === "I" ? true : item.essential !== false, check }]
+    // v0.5.0 — the optional, precise per-criterion CLEO binding (T123#AC2).
+    const provesRaw = strings(item.proves)
+    for (const ref of provesRaw) if (!/^T\d+#AC\d+$/.test(ref)) issues.push({ level: "error", path: `${at}.proves`, message: `AC reference must look like T123#AC2 (got "${ref}")` })
+    const proves = provesRaw.filter((ref) => /^T\d+#AC\d+$/.test(ref))
+    return [{ id, statement, essential: prefix === "I" ? true : item.essential !== false, check, ...(proves.length ? { proves: proves as GoalAcRef[] } : {}) }]
   })
 }
 
@@ -333,6 +341,38 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
   if (rawPriority && !PRIORITIES.includes(rawPriority as Priority))
     err("priority", `priority must be one of low, medium, high (or omitted) — got "${rawPriority}"`)
 
+  // v0.5.0 — the optional CLEO linkage. `cleo.tasks` is a list whose entries are
+  // either a bare task id (link for reporting) or `{id, acs}` declaring which
+  // gate's evidence proves which AC alias. Absent ⇒ no CLEO behaviour change.
+  const cleoTasks: CleoTaskLink[] = []
+  if (raw.cleo !== undefined) {
+    if (!isRecord(raw.cleo)) err("cleo", "cleo must be a mapping with a tasks list")
+    else {
+      const tasksRaw = raw.cleo.tasks
+      if (tasksRaw !== undefined && !Array.isArray(tasksRaw)) err("cleo.tasks", "tasks must be a list of task ids")
+      const seen = new Set<string>()
+      for (const [index, entry] of (Array.isArray(tasksRaw) ? tasksRaw : []).entries()) {
+        const at = `cleo.tasks[${index}]`
+        const taskId = str(typeof entry === "string" ? entry : isRecord(entry) ? entry.id : "")
+        if (!/^[A-Z]{1,4}\d+$/.test(taskId)) { err(at, `task id must look like T123 (got "${taskId}")`); continue }
+        if (seen.has(taskId)) { err(at, `duplicate task ${taskId}`); continue }
+        seen.add(taskId)
+        const acsRaw = isRecord(entry) && isRecord((entry as Record<string, unknown>).acs) ? (entry as Record<string, unknown>).acs as Record<string, unknown> : undefined
+        const acs: Partial<Record<CleoGate, string[]>> = {}
+        if (acsRaw) {
+          for (const [gate, value] of Object.entries(acsRaw)) {
+            if (!(CLEO_GATES as readonly string[]).includes(gate)) { err(`${at}.acs.${gate}`, `unknown gate "${gate}"; allowed: ${CLEO_GATES.join(", ")}`); continue }
+            const aliases = strings(value).map((a) => a.toUpperCase())
+            if (!aliases.length) { err(`${at}.acs.${gate}`, "list at least one AC alias (AC1, AC2, …)"); continue }
+            for (const alias of aliases) if (!/^AC\d+$/.test(alias)) err(`${at}.acs.${gate}`, `AC alias must look like AC1 (got "${alias}")`)
+            acs[gate as CleoGate] = aliases
+          }
+        }
+        cleoTasks.push({ id: taskId, ...(Object.keys(acs).length ? { acs } : {}) })
+      }
+    }
+  }
+
   const contract: Contract = {
     schema: SCHEMA,
     id,
@@ -348,6 +388,7 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
     criteria,
     invariants,
     ...(workspace ? { workspace } : {}),
+  ...(cleoTasks.length ? { cleo: { tasks: cleoTasks } } : {}),
     protect: strings(raw.protect),
     assumptions,
     plan,

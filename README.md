@@ -2,7 +2,7 @@
 
 Persistent, host-verified goal mode for [OpenCode 2](https://opencode.ai). Describe what you want, let the bundled **write-goal** interview turn it into a structured contract, and the plugin keeps the session working until the host — not the model — proves every criterion.
 
-> **Status: pre-release (`v0.1.0-alpha.1`).** Engine, verification and TUI are built and tested end to end against OpenCode 2.0.22 with a scripted model; real-model runs are next. See [docs/HANDOFF.md](docs/HANDOFF.md).
+> **Status: released (`v0.5.0`).** Engine, verification and TUI are built and tested end to end against OpenCode 2.0.22 with a scripted model, and each release is proven from its own installed git tag. CLEO integrates as an optional first-class citizen (`/goal cleo`). See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Why another goal plugin
 
@@ -22,7 +22,7 @@ Most goal loops let the model declare itself done. Research and user reports say
 Requires OpenCode **2.0.22 or later** (OpenCode 1.x plugins and this plugin are not compatible). No npm package — OpenCode installs it from GitHub:
 
 ```bash
-opencode plugin add "github:kryptobaseddev/opencode-goal#v0.1.0-alpha.1"
+opencode plugin add "github:kryptobaseddev/opencode-goal#v0.5.0"
 opencode reload
 opencode plugin list        # opencode-goal should be listed
 ```
@@ -86,13 +86,14 @@ Check kinds: `command` (exit code / output expectations, timeout, repeated runs,
 | `/goal approve C3` · `/goal reject C3 <why>` | sign off on a `human` criterion |
 | `/goal abort` | stop the run for good (ledger and evidence stay) |
 | `/goal validate <slug>` · `/goal list [all]` | check a contract · list live (+archived) goals; a machine-level registry also lists goals across projects |
+| `/goal cleo` · `/goal cleo install\|init\|sync` | probe the CLEO CLI and this project's `.cleo` workspace (initialized / uninitialized / CLI absent); `install`/`init` run the exact documented command **only on your explicit choice** (never silent, never sudo); `sync [<slug>] T123[@sha] …` records genuine per-gate CLEO evidence and completes the linked tasks through the CLI |
 | `/goal help` | the agent-forward guide: commands, tool split, storage, mid-run rules |
 
 The same actions are in the command palette under **Goal**.
 
 ## What the model gets
 
-Tools (only `goal_*`, visible by name): `goal_status`, `goal_progress` (step + one-line note + next action), `goal_claim` (evidence per criterion, then end the turn), `goal_block` (stable key; three in a row stops the goal), `goal_flag` (a criterion is contradictory, impossible or unsafe), `goal_wait` (resume after N seconds without spending tokens), `goal_validate`, `goal_start` (only right after you chose **Start goal now**). The verifier alone has `goal_verdict`.
+Tools (only `goal_*`, visible by name): `goal_status`, `goal_progress` (step + one-line note + next action), `goal_claim` (evidence per criterion, then end the turn), `goal_block` (stable key; three in a row stops the goal), `goal_flag` (a criterion is contradictory, impossible or unsafe), `goal_wait` (resume after N seconds without spending tokens), `goal_validate`, `goal_inventory` (every contract in this project: drafts, live/stopped/complete, archives), `goal_manage` (pause/resume/verify/attach/abort/archive on an exact target), `goal_recover_divergence` (a disk contract that differs from its lock), `goal_propose_amendment` · `goal_resolve_amendment` · `goal_review` (staged contract changes and owner reviews), `goal_start` (only right after you chose **Start goal now**). The verifier alone has `goal_verdict`.
 
 While a goal runs the model cannot edit the contract, files under `.opencode/goals/`, or protected paths, and questions to you are deferred (configurable per goal).
 
@@ -105,7 +106,7 @@ While a goal runs the model cannot edit the contract, files under `.opencode/goa
 Use the object form in your OpenCode config to change defaults:
 
 ```jsonc
-{ "plugins": [{ "package": "github:kryptobaseddev/opencode-goal#v0.1.0-alpha.1", "options": { "stallTurns": 4, "cooldownMs": 3000 } }] }
+{ "plugins": [{ "package": "github:kryptobaseddev/opencode-goal#v0.5.0", "options": { "stallTurns": 4, "cooldownMs": 3000 } }] }
 ```
 
 `backstopTurns` (200, only when the contract has no turn budget) · `cooldownMs` (1500) · `stallTurns` (3) · `recoveryAt` (2) · `blockerRepeats` (3) · `maxPromptFailures` (3) · `verifierAgent` ("goal-verifier") · `verifierTimeoutMs` (240000) · `liveChecks` (true) · `launchApprovalMs` (600000).

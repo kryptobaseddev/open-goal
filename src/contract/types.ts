@@ -30,7 +30,17 @@ export type Criterion = {
   statement: string
   essential: boolean
   check: Check
+  /**
+   * v0.5.0 — the CLEO acceptance criteria this criterion's evidence demonstrates,
+   * `T<id>#AC<n>` (the same form as a `satisfies:` atom). This is the PRECISE,
+   * non-positional binding: when the criterion passes, the bridge links its
+   * evidence to exactly these ACs. Absent ⇒ the criterion proves no CLEO AC.
+   */
+  proves?: GoalAcRef[]
 }
+
+/** A CLEO acceptance-criterion reference, `T<digits>#AC<n>`. */
+export type GoalAcRef = `T${number}#AC${number}`
 
 export type Assumption = {
   id: string
@@ -79,6 +89,16 @@ export type Autonomy = {
 
 export type VerificationMode = "host" | "host+verifier" | "strict"
 
+/** v0.5.0 — the optional CLEO linkage block. Absent ⇒ no CLEO behaviour change. */
+export const CLEO_GATES = ["implemented", "testsPassed", "qaPassed"] as const
+export type CleoGate = (typeof CLEO_GATES)[number]
+/**
+ * A task the goal serves. The bare id links the task for reporting; `acs` is the
+ * DECLARED, non-positional claim of which gate's evidence proves which AC alias.
+ * An AC that is not declared (and has no typed gate) is left open and reported.
+ */
+export type CleoTaskLink = { id: string; acs?: Partial<Record<CleoGate, string[]>> }
+
 export type Contract = {
   schema: typeof SCHEMA
   id: string
@@ -99,6 +119,8 @@ export type Contract = {
    *  protect/diff base and the fingerprint resolve here; default is the project
    *  root. `.opencode/goals/**` still resolves at the project root. */
   workspace?: string
+  /** v0.5.0 — the tasks this goal serves (absent ⇒ no CLEO behaviour change). */
+  cleo?: { tasks: CleoTaskLink[] }
   protect: string[]
   assumptions: Assumption[]
   plan: Step[]

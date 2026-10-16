@@ -2,7 +2,7 @@
 // session.execution.* events, injects the contract into every request, and runs
 // verification. Spike findings referenced as S1-S9 live in docs/spikes.md.
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { Plugin } from "@opencode/plugin"
@@ -23,7 +23,9 @@ import { DecisionStore, decisionChoices, type DecisionKind, type DecisionRequest
 import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
 import { goalHelp } from "./help"
-import { cleoFacts, cleoLinkEvent, type Runner } from "../engine/cleo-link"
+import { cleoFacts, cleoHealth, cleoHealthReport, cleoLinkEvent, CLEO_INIT_COMMAND, CLEO_INSTALL_COMMAND, type Runner } from "../engine/cleo-link"
+import { bridgeReport, acsByGateFromProves, junitToVitestJson, runBridge, suggestLinkedTasks, type CleoRun, type TaskOutcome } from "../engine/cleo-bridge"
+import type { CleoTaskLink } from "../contract/types"
 import { buildPostGoalSummary } from "../summary/build"
 import { completionAudit } from "../summary/audit"
 import { M, renderMessage, type EngineMessage } from "./messages"
@@ -1669,10 +1671,15 @@ export class GoalApp {
       await Bun.write(join(this.store.dir(slug), "evidence", state.runId, "contract.yaml"), text)
       this.runs.set(sessionID, state)
       this.store.ledger(slug, { type: "start", runId: state.runId, sessionID, source, lock, commit: state.base.commit, ...(options.decisionId ? { decisionId: options.decisionId } : {}) })
-      // T027: record the CLEO project linkage when present (CLI-only; absent
-      // CLEO changes nothing — no event, no field).
-      const link = cleoLinkEvent(await cleoFacts(this.root, defaultRunner))
-      if (link) this.store.ledger(slug, link)
+      // T027 / v0.5.0: record the CLEO linkage and health (CLI-only). A project
+      // with no CLEO CLI records nothing and behaves EXACTLY as before; a project
+      // with the CLI gets an honest state, and nothing is ever installed here.
+      const health = await cleoHealth(this.root, defaultRunner)
+      if (health.state !== "cli-absent") {
+        const link = cleoLinkEvent(await cleoFacts(this.root, defaultRunner))
+        if (link) this.store.ledger(slug, link)
+        this.store.ledger(slug, { type: "cleo-health", state: health.state, ...(health.cli.version ? { version: health.cli.version } : {}), ...(health.projectId ? { projectId: health.projectId } : {}) })
+      }
       this.persist(state)
       this.noticeM(sessionID, M.goalStarted(contract.title))
       if (!this.factsOf(sessionID).busy) await this.admit(state, "kickoff")
@@ -2244,6 +2251,15 @@ export class GoalApp {
       // pushes the final `updated` event, so a live TUI converges even if it
       // never sees another transition.
       this.persist(state)
+      // v0.5.0: automatic at goal completion — a contract that names CLEO tasks
+      // records genuine per-gate evidence and completes them through the cleo CLI
+      // only. A refusal is journalled and shown verbatim; a closure is never faked.
+      const linkedCleo = contract.cleo?.tasks ?? []
+      if (linkedCleo.length) {
+        const outcomes = await this.runCleoBridge(linkedCleo.map((t) => t.id), new Map(linkedCleo.map((t) => [t.id, this.cleoLinkFor(contract, t)] as const)))
+        this.store.ledger(state.slug, { type: "cleo-bridge", results: outcomes.map((o) => ({ task: o.task, completed: o.completed, blocker: o.blocker ?? null, openAcs: o.openAcs })) })
+        await this.transcript(state.sessionID, `◎ CLEO bridge — ${bridgeReport(outcomes)}`)
+      }
       const summary = await this.summarize(state, contract)
       this.noticeM(state.sessionID, M.complete(contract.title, summary ? summary.caveats.length + summary.scopeAudit.length : 0))
       this.decide(state.sessionID, state.slug, "complete", M.completeDecision(contract.title, Boolean(await cleoFacts(this.root, defaultRunner)), summary?.scopeAudit.length ?? 0))
@@ -2805,6 +2821,60 @@ export class GoalApp {
     )
   }
 
+  /** Run git and return stdout; never throws (empty string on failure). */
+  private async gitText(args: string[]): Promise<string> {
+    try {
+      const child = Bun.spawn(["git", ...args], { cwd: this.root, stdout: "pipe", stderr: "ignore" })
+      const [out] = await Promise.all([new Response(child.stdout).text(), child.exited])
+      return out
+    } catch {
+      return ""
+    }
+  }
+
+  /** The cleo CLI as a subprocess — the engine NEVER opens .cleo or its database. */
+  private cleoRun: CleoRun = async (argv) => {
+    const { stdout, exit } = await defaultRunner("cleo", argv, 120_000)
+    return { stdout, exit }
+  }
+
+  /** Run a task's changed test files and emit the vitest-shaped JSON `test-run:` parses. */
+  private async scopedCleoReport(testFiles: string[]): Promise<{ reportPath: string; passed: boolean; total: number; failed: number } | undefined> {
+    if (!testFiles.length) return undefined
+    const dir = join(this.root, ".opencode", "cleo-reports")
+    try { mkdirSync(dir, { recursive: true }) } catch { return undefined }
+    const stamp = String(Date.now())
+    const xml = join(dir, `bun-${stamp}.xml`)
+    const json = join(dir, `report-${stamp}.json`)
+    const quote = (s: string) => `'${s.replace(/'/g, "'\\''")}'`
+    const command = `bun test ${testFiles.map(quote).join(" ")} --reporter=junit --reporter-outfile=${quote(xml)}`
+    await runShell(command, this.root, 1800)
+    let report
+    try { report = junitToVitestJson(readFileSync(xml, "utf8"), Date.now()) } catch { return undefined }
+    try { writeFileSync(json, JSON.stringify(report, null, 2)) } catch { return undefined }
+    return { reportPath: relative(this.root, json), passed: report.success, total: report.numTotalTests, failed: report.numFailedTests }
+  }
+
+  /**
+   * The goal→CLEO evidence bridge. The orchestration lives in the shipped
+   * `runBridge` so the engine, the `/goal cleo sync` command and the CLI all
+   * share one code path. The engine supplies the runners; the bridge stays
+   * CLI-only and never opens `.cleo`.
+   */
+  private async runCleoBridge(tasks: string[], links: Map<string, CleoTaskLink>, commitByTask: Record<string, string> = {}): Promise<TaskOutcome[]> {
+    return runBridge({ tasks, links, runCleo: this.cleoRun, git: (args: string[]) => this.gitText(args), report: (testFiles: string[]) => this.scopedCleoReport(testFiles), commitByTask })
+  }
+
+  /**
+   * The link for a task: prefer the PRECISE per-criterion `proves` binding over
+   * the older per-gate `acs` map. Nothing is inferred from position.
+   */
+  private cleoLinkFor(contract: Contract | undefined, task: CleoTaskLink): CleoTaskLink {
+    const fromProves = acsByGateFromProves([...(contract?.criteria ?? []), ...(contract?.invariants ?? [])], task.id)
+    const acs = Object.keys(fromProves).length ? fromProves : task.acs
+    return { id: task.id, ...(acs ? { acs } : {}) }
+  }
+
   private async registerCommand() {
     this.registrations.push(
       await this.ctx.command.transform((editor: any) => {
@@ -2941,6 +3011,44 @@ export class GoalApp {
       case "decompose": {
         const result = await this.ownerAct(sessionID, sub as any, arg)
         return say(result.message, result.ok ? "success" : "error")
+      }
+      case "cleo": {
+        const parts = arg.trim().split(/\s+/).filter(Boolean)
+        const what = (parts[0] ?? "").toLowerCase()
+        const health = await cleoHealth(this.root, defaultRunner)
+        if (!what) return say(cleoHealthReport(health))
+        if (what === "install" || what === "init") {
+          if (health.state === "initialized") return say(`CLEO is already initialized in this project — there is nothing to ${what}. /goal cleo re-checks.`)
+          if (what === "init" && health.state === "cli-absent") return say(`Cannot initialize: the cleo CLI is not on PATH. Run /goal cleo install first, or install it yourself: ${CLEO_INSTALL_COMMAND}`, "warning")
+          const command = what === "install" ? CLEO_INSTALL_COMMAND : CLEO_INIT_COMMAND
+          const result = await runShell(command, this.root, 600)
+          const after = await cleoHealth(this.root, defaultRunner)
+          const detail = (result.stderr || result.stdout).trim().split("\n").slice(-6).join("\n")
+          return say([`Ran on your explicit choice: ${command}`, `exit ${result.exit}${result.timedOut ? " (timed out)" : ""}`, after.detail, detail].filter(Boolean).join("\n"), result.exit === 0 ? "success" : "error")
+        }
+        if (what === "sync") {
+          const rest = parts.slice(1)
+          // T### links a task; T###@<sha> supplies the implementing commit for a
+          // legacy task no commit message names (the case that defeated the
+          // manual pass).
+          const refs = rest.filter((p) => /^[A-Z]{1,4}\d+(?:@[0-9a-f]{4,40})?$/.test(p))
+          const taskIds = refs.map((r) => r.split("@")[0]!)
+          const commitByTask: Record<string, string> = {}
+          for (const r of refs) { const [id, sha] = r.split("@"); if (id && sha) commitByTask[id] = sha }
+          const slugHint = rest.find((p) => !refs.includes(p))
+          const state = slugHint ? [...this.runs.values()].find((r) => r.slug === slugHint && !isTerminal(r.status)) ?? this.store.readRun(slugHint) : this.runs.get(sessionID)
+          const contract = state ? this.contractOf(state) : undefined
+          const links = new Map((contract?.cleo?.tasks ?? []).map((t) => [t.id, this.cleoLinkFor(contract, t)] as const))
+          const tasks = taskIds.length ? taskIds : [...links.keys()]
+          if (!tasks.length) {
+            const subjects = (await this.gitText(["log", "--format=%s", "-n", "200"])).split("\n").filter(Boolean)
+            const suggestions = suggestLinkedTasks(subjects)
+            return say([`Which CLEO tasks? /goal cleo sync <slug> T123[ @sha] … — or name them in the goal's cleo.tasks block.`, suggestions.length ? `This project's commits reference: ${suggestions.join(", ")}` : "No commit here references a CLEO task id."].join("\n"), "warning")
+          }
+          const outcomes = await this.runCleoBridge(tasks, links, commitByTask)
+          return say(bridgeReport(outcomes), outcomes.every((o) => o.completed) ? "success" : "error")
+        }
+        return say("Usage: /goal cleo [install|init|sync [<slug>] [T### …]]", "warning")
       }
       case "help":
         return say(goalHelp({ version: (this.ctx.options as any)?.version ?? "v0.2.0" }), "info")

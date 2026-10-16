@@ -10,7 +10,17 @@ test("dialog choices settle only the exact pending native question, using its of
   expect(decisionFormAnswer([form("unrelated", "other question"), form("exact", question)], question, "Abort selected goal")).toEqual({ formID: "exact", answer: { q0: "native-value" } })
 })
 
-test("the real TUI dialog forwards its choice into the native form, not a second independent RPC action", async () => {
+// T090 (a668c27) deliberately made the Composer's core form the SOLE decision
+// surface: a native form notification no longer synthesizes an answer and the
+// TUI never fires a second independent RPC action (see src/tui/index.tsx — "a
+// notification never synthesizes an answer or remembers a second popup
+// choice"). This test previously asserted the pre-T090 behaviour (the TUI
+// forwarding its own reply) and went stale when that design landed. It now
+// pins the shipped contract: the engine owns the reply, and the TUI emits
+// neither a reply nor an action from the decision/form notification path, so a
+// decision can never double-execute. The engine-level forwarding property
+// itself stays covered by the protected host oracle ask-tool-decisions.
+test("the real TUI dialog never synthesizes a reply or a second independent RPC action", async () => {
   ensureSolidTransformPlugin()
   const plugin = (await import("../../src/tui/index")).default
   const handlers = new Map<string, any>(), replies: any[] = [], acts: any[] = []
@@ -30,12 +40,14 @@ test("the real TUI dialog forwards its choice into the native form, not a second
     expect(replies).toEqual([]) // dialog can arrive before its question
     forms = [{ id: "frm_unrelated", fields: [{ key: "q0", title: "other", options: [{ label: "Abort", value: "Abort" }] }] },
       { id: "frm_exact", fields: [{ key: "q0", title: question, options: [{ label: "Abort", value: "Abort" }] }] }]
+    // The exact question has a pending native form — and the TUI still answers nothing:
+    // the engine's Composer form is the only reply path.
     listen({ details: { type: "form.asked" } })
     await Bun.sleep(10)
-    expect(replies).toEqual([{ sessionID: "ses_owner", formID: "frm_exact", answer: { q0: "Abort" } }])
+    expect(replies).toEqual([])
     listen({ details: { type: "server.connected" } })
     await Bun.sleep(10)
-    expect(replies).toHaveLength(1)
+    expect(replies).toEqual([])
     expect(acts).toEqual([])
   } finally { stop() }
 })

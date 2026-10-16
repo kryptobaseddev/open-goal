@@ -155,3 +155,48 @@ criteria:
     expect(contract!.criteria[0]!.check.kind).toBe("command")
   })
 })
+
+// v0.5.0 — the optional CLEO linkage block. A contract without it must behave
+// exactly as before, and the block NEVER carries a positional AC mapping: an AC
+// is stated explicitly against the gate whose evidence proves it.
+describe("cleo.tasks (v0.5.0)", () => {
+  const withCleo = (yaml: string) => parseContract(`${valid}\n${yaml}`, { slug: "checkout-latency" })
+
+  test("absent: no cleo field, byte-for-byte the old behaviour", () => {
+    const { contract, issues } = parseContract(valid, { slug: "checkout-latency" })
+    expect(issues.filter((i) => i.level === "error")).toEqual([])
+    expect(contract!.cleo).toBeUndefined()
+    expect(renderSystemBlock(contract!, "a".repeat(64))).not.toContain("CLEO tasks this goal serves")
+  })
+
+  test("a bare list of task ids links them for reporting with no AC claim", () => {
+    const { contract, issues } = withCleo("cleo:\n  tasks: [T080, T082]\n")
+    expect(issues.filter((i) => i.level === "error")).toEqual([])
+    expect(contract!.cleo).toEqual({ tasks: [{ id: "T080" }, { id: "T082" }] })
+  })
+
+  test("an explicit gate→AC map is parsed verbatim (never positionally inferred)", () => {
+    const { contract, issues } = withCleo("cleo:\n  tasks:\n    - id: T081\n      acs:\n        testsPassed: [AC2, AC3]\n        qaPassed: [AC4]\n")
+    expect(issues.filter((i) => i.level === "error")).toEqual([])
+    expect(contract!.cleo).toEqual({ tasks: [{ id: "T081", acs: { testsPassed: ["AC2", "AC3"], qaPassed: ["AC4"] } }] })
+    expect(renderSystemBlock(contract!, "a".repeat(64))).toContain("CLEO tasks this goal serves")
+    expect(renderSystemBlock(contract!, "a".repeat(64))).toContain("testsPassed=AC2/AC3")
+  })
+
+  test("a malformed task id, an unknown gate and a duplicate are each refused", () => {
+    const bad = (yaml: string) => parseContract(`${valid}\n${yaml}`).issues.filter((i) => i.level === "error")
+    expect(bad('cleo:\n  tasks: ["not-a-task"]\n').some((i) => i.path === "cleo.tasks[0]")).toBe(true)
+    expect(bad("cleo:\n  tasks:\n    - id: T081\n      acs:\n        vibes: [AC1]\n").some((i) => i.message.includes("unknown gate"))).toBe(true)
+    expect(bad("cleo:\n  tasks: [T080, T080]\n").some((i) => i.message.includes("duplicate task"))).toBe(true)
+  })
+
+  test("a criterion may declare a precise proves binding; a malformed one is refused and it renders", () => {
+    const text = (extra: string) =>
+      `schema: goal/v1\nid: t\ntitle: t\nintent:\n  verbatim: "x"\noutcome: y\nnon_goals: [z]\ncriteria:\n  - id: C1\n    statement: s\n    check: {kind: command, run: "bun test a.test.ts"}\n${extra}`
+    const ok = parseContract(text('    proves: ["T081#AC2", "T082#AC4"]\n'))
+    expect(ok.issues.filter((i) => i.level === "error")).toEqual([])
+    expect(ok.contract!.criteria[0]!.proves).toEqual(["T081#AC2", "T082#AC4"])
+    expect(renderSystemBlock(ok.contract!, "a".repeat(64))).toContain("proves CLEO: T081#AC2, T082#AC4")
+    expect(parseContract(text('    proves: ["AC2"]\n')).issues.some((i) => i.level === "error" && i.path === "criteria[0].proves")).toBe(true)
+  })
+})

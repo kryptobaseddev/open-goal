@@ -22,7 +22,7 @@ const describeCheck = (check: Check): string => {
   }
 }
 
-const line = (c: Criterion) => `- ${c.id}${c.essential ? "" : " (optional)"}: ${c.statement}\n    proof: ${describeCheck(c.check)}`
+const line = (c: Criterion) => `- ${c.id}${c.essential ? "" : " (optional)"}: ${c.statement}\n    proof: ${describeCheck(c.check)}${c.proves?.length ? `\n    proves CLEO: ${c.proves.join(", ")}` : ""}`
 
 export function renderSystemBlock(contract: Contract, lock: string): string {
   const out: string[] = []
@@ -45,6 +45,8 @@ export function renderSystemBlock(contract: Contract, lock: string): string {
     out.push(`Scope: in ${contract.scope.in.join(", ") || "(unspecified)"}; out ${contract.scope.out.join(", ") || "(unspecified)"}`)
   out.push(`Non-goals: ${contract.non_goals.join("; ")}`)
   if (contract.constraints.length) out.push(`Constraints: ${contract.constraints.join("; ")}`)
+  if (contract.cleo?.tasks.length)
+    out.push(`CLEO tasks this goal serves (evidence is recorded through the cleo CLI only; an AC no evidence proves stays open and is reported): ${contract.cleo.tasks.map((t) => (t.acs ? `${t.id} (${Object.entries(t.acs).map(([g, acs]) => `${g}=${(acs ?? []).join("/")}`).join(", ")})` : t.id)).join("; ")}`)
   if (contract.plan.length) {
     out.push("Plan:")
     for (const s of contract.plan)
