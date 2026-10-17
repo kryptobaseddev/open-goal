@@ -93,11 +93,14 @@ describe("end-state copy (T071)", () => {
       expect(summary.text).toContain("The loop has stopped")
       expect(summary.text).toContain(`.opencode/goals/${state.slug}/`)
       expect(summary.text).toContain("Follow-ups")
-      // the digest the TUI dialog shows keeps the stopped line within its
-      // screen-fit budget (it sits near the top)
-      const digest = dialogDigest(summary.headline, summary.text)
-      expect(digest).toContain("The loop has stopped")
-      expect(digest).toContain(`.opencode/goals/${state.slug}/`)
+      // the digest the TUI dialog shows keeps the stopped state within its
+      // screen-fit budget (it sits on the first line) and always ends with
+      // concrete next actions
+      const digest = summary.digest
+      expect(digest).toContain("loop stopped")
+      expect(digest).toContain("NEXT")
+      expect(digest.split("\n").length).toBeLessThanOrEqual(14)
+      expect(dialogDigest(summary.headline, summary.text)).toContain("The loop has stopped")
     }
     state.status = "complete"
   })

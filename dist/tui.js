@@ -61,7 +61,7 @@ var GoalRpc = {
     handoff: { schema: { type: "object", properties: { fromSessionID: { type: "string" }, toSessionID: { type: "string" }, slug: { type: "string" }, runId: { type: "string" }, fallback: { type: "string" } }, required: ["fromSessionID", "toSessionID", "slug", "runId"], additionalProperties: false } },
     updated: { schema: { type: "object", properties: { sessionID: { type: "string" }, view: anyObject }, required: ["sessionID"], additionalProperties: true } },
     notice: { schema: { type: "object", properties: { sessionID: { type: "string" }, level: { type: "string" }, text: { type: "string" }, attention: { type: "string" } }, required: ["text"], additionalProperties: true } },
-    summary: { schema: { type: "object", properties: { sessionID: { type: "string" }, slug: { type: "string" }, status: { type: "string" }, headline: { type: "string" }, text: { type: "string" } }, required: ["sessionID", "text"], additionalProperties: true } },
+    summary: { schema: { type: "object", properties: { sessionID: { type: "string" }, slug: { type: "string" }, status: { type: "string" }, headline: { type: "string" }, title: { type: "string" }, digest: { type: "string" }, text: { type: "string" } }, required: ["sessionID", "text"], additionalProperties: true } },
     decision: {
       schema: {
         type: "object",
@@ -740,14 +740,19 @@ var tui_default = {
     });
     const openDecisions = new Map;
     const pendingSummaries = new Map;
+    const summaryTitle = (data) => {
+      const label = String(data.status ?? "summary").replace(/_/g, " ");
+      return data.status === "complete" ? `\u2713 Goal complete \u2014 ${data.title ?? label}` : `Goal ${label}`;
+    };
+    const summaryBody = (data) => String(data.digest ?? dialogDigest(String(data.headline ?? "summary"), String(data.text ?? "")));
     const flushSummary = (sessionID) => {
       const queued = pendingSummaries.get(sessionID);
       pendingSummaries.delete(sessionID);
       if (!queued)
         return;
       context.ui.dialog.alert({
-        title: `Goal summary \u2014 ${queued.status}`,
-        message: dialogDigest(queued.headline, queued.text)
+        title: summaryTitle(queued),
+        message: summaryBody(queued)
       });
     };
     const offSummary = rpc.events.on("summary", (event) => {
@@ -768,7 +773,9 @@ var tui_default = {
         pendingSummaries.set(data.sessionID, {
           headline: String(data.headline ?? "summary"),
           text: String(data.text ?? data.headline ?? ""),
-          status: String(data.status ?? "")
+          status: String(data.status ?? ""),
+          title: data.title ? String(data.title) : undefined,
+          digest: data.digest ? String(data.digest) : undefined
         });
         context.ui.toast.show({
           title: "Goal summary queued",
@@ -781,8 +788,8 @@ var tui_default = {
         return;
       }
       context.ui.dialog.alert({
-        title: `Goal summary \u2014 ${data.status ?? ""}`,
-        message: dialogDigest(String(data.headline ?? "summary"), String(data.text ?? data.headline ?? ""))
+        title: summaryTitle(data),
+        message: summaryBody(data)
       });
     });
     const offData = context.data.listen(({
@@ -1746,7 +1753,7 @@ var tui_default = {
           mode: "global",
           commands: [{
             id: "goal.attach",
-            title: "Goal: manage or attach a project goal",
+            title: "Goal: Manage goals",
             group: "Goal",
             palette: true,
             enabled: () => true,
@@ -1756,7 +1763,7 @@ var tui_default = {
             }
           }, {
             id: "goal.panel",
-            title: "Goal: toggle dashboard",
+            title: "Goal: Toggle dashboard",
             group: "Goal",
             palette: true,
             bind: "f9",
@@ -1764,7 +1771,7 @@ var tui_default = {
             run: () => togglePanel()
           }, {
             id: "goal.dashboard.tab",
-            title: "Goal: next dashboard tab",
+            title: "Goal: Next dashboard tab",
             group: "Goal",
             palette: true,
             bind: "tab",
@@ -1779,7 +1786,7 @@ var tui_default = {
             }
           }, {
             id: "goal.status",
-            title: "Goal: show status",
+            title: "Goal: Show status",
             group: "Goal",
             palette: true,
             enabled: hasGoal,
@@ -1793,28 +1800,28 @@ var tui_default = {
             }
           }, {
             id: "goal.pause",
-            title: "Goal: pause",
+            title: "Goal: Pause",
             group: "Goal",
             palette: true,
             enabled: hasGoal,
             run: () => act("pause")
           }, {
             id: "goal.resume",
-            title: "Goal: resume",
+            title: "Goal: Resume",
             group: "Goal",
             palette: true,
             enabled: hasGoal,
             run: () => act("resume")
           }, {
             id: "goal.verify",
-            title: "Goal: verify now",
+            title: "Goal: Verify now",
             group: "Goal",
             palette: true,
             enabled: hasGoal,
             run: () => act("verify")
           }, {
             id: "goal.approve",
-            title: "Goal: open native review in Composer",
+            title: "Goal: Review in Composer",
             group: "Goal",
             palette: true,
             enabled: () => !!currentSession(),
@@ -1844,7 +1851,7 @@ var tui_default = {
             }
           }, {
             id: "goal.abort",
-            title: "Goal: abort",
+            title: "Goal: Abort",
             group: "Goal",
             palette: true,
             enabled: hasGoal,

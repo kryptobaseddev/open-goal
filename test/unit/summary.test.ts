@@ -162,3 +162,50 @@ describe("buildPostGoalSummary", () => {
     expect(s.findings.map((f) => f.kind)).toContain("flag")
   })
 })
+
+describe("the human digest", () => {
+  const build = (over: Partial<SummaryInput> = {}) =>
+    buildPostGoalSummary({ contract: contract(), state: state(), ledgerEvents, ...over })
+
+  test("fits a dialog and answers the four owner questions in order", () => {
+    const s = build({ scopeAudit: completionAudit(contract(), state()) })
+    const lines = s.digest.split("\n")
+    expect(lines.length).toBeLessThanOrEqual(14)
+    expect(lines[0]).toContain("✓ complete")
+    expect(lines[0]).toContain("4/4 proven")
+    expect(lines[0]).toContain("loop stopped")
+    expect(lines[1]).toBe(s.completed)
+    expect(s.digest).toContain("WENT RIGHT")
+    expect(s.digest).toContain("WENT WRONG")
+    expect(s.digest).toContain("STILL OPEN")
+    expect(s.digest).toContain("NEXT")
+    expect(s.digest).toContain("/goal new")
+  })
+
+  test("a clean run says so instead of showing empty headings", () => {
+    const clean = state()
+    const s = buildPostGoalSummary({ contract: contract(), state: clean, scopeAudit: [] })
+    expect(s.digest).toContain("nothing — no failed checks")
+    expect(s.digest).toContain("nothing blocking")
+  })
+
+  test("failures and findings stay visible, capped with a pointer to the panel", () => {
+    const broken = state()
+    broken.criteria.C3 = { status: "fail", by: "verifier", at: 3, rejections: 2, detail: "quote missing\nmore" }
+    broken.criteria.C1 = { status: "fail", by: "host", at: 4, rejections: 1, detail: "exit 1" }
+    const s = buildPostGoalSummary({ contract: contract(), state: broken, ledgerEvents })
+    expect(s.wentWrong.join("\n")).toContain("C3")
+    expect(s.digest).toContain("C3")
+    expect(s.digest).toContain("+")
+    expect(s.digest).toContain("F9")
+  })
+
+  test("the completed line names the linked CLEO task", () => {
+    const c = contract()
+    c.cleo = { tasks: [{ id: "T042" }] }
+    const s = buildPostGoalSummary({ contract: c, state: state() })
+    expect(s.completed).toContain("T042")
+    expect(s.digest).toContain("TASKS  CLEO T042")
+    expect(s.tasks).toContain("CLEO T042")
+  })
+})

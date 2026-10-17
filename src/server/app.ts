@@ -597,7 +597,7 @@ export class GoalApp {
       })
       const file = this.store.evidence(state.slug, state.runId, `summary-turn-${state.turn}-${Date.now()}`, summary)
       this.store.ledger(state.slug, { type: "summary", turn: state.turn, status: state.status, headline: summary.headline, file })
-      void this.rpc?.events.emit("summary", { sessionID: state.sessionID, slug: state.slug, status: state.status, headline: summary.headline, text: summary.text }).catch(() => {})
+      void this.rpc?.events.emit("summary", { sessionID: state.sessionID, slug: state.slug, status: state.status, headline: summary.headline, title: summary.title, digest: summary.digest, text: summary.text }).catch(() => {})
       this.noticeM(state.sessionID, M.goalSummary(summary.headline, summary.caveats.length + summary.scopeAudit.length, state.status))
       await this.transcript(state.sessionID, `◎ goal.summary (${state.status}) — ${summary.headline}. ${summary.followUps[0] ?? ""}`)
       this.persist(state)

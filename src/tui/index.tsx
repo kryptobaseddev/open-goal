@@ -135,14 +135,19 @@ export default {
     // the screen; dialogs carry a screen-fit digest, the panel keeps the rest.
     // A summary must not displace an unanswered native Composer decision.
     const openDecisions = new Map<string, number>()
-    const pendingSummaries = new Map<string, { headline: string; text: string; status: string }>()
+    const pendingSummaries = new Map<string, { headline: string; text: string; status: string; title?: string; digest?: string }>()
+    const summaryTitle = (data: any) => {
+      const label = String(data.status ?? "summary").replace(/_/g, " ")
+      return data.status === "complete" ? `✓ Goal complete — ${data.title ?? label}` : `Goal ${label}`
+    }
+    const summaryBody = (data: any) => String(data.digest ?? dialogDigest(String(data.headline ?? "summary"), String(data.text ?? "")))
     const flushSummary = (sessionID: string) => {
       const queued = pendingSummaries.get(sessionID)
       pendingSummaries.delete(sessionID)
       if (!queued) return
       void context.ui.dialog.alert({
-        title: `Goal summary — ${queued.status}`,
-        message: dialogDigest(queued.headline, queued.text),
+        title: summaryTitle(queued),
+        message: summaryBody(queued),
       })
     }
     const offSummary = rpc.events.on("summary", (event: any) => {
@@ -154,13 +159,13 @@ export default {
       }
       // Queue the digest behind an actual pending native review.
       if (openDecisions.has(data.sessionID)) {
-        pendingSummaries.set(data.sessionID, { headline: String(data.headline ?? "summary"), text: String(data.text ?? data.headline ?? ""), status: String(data.status ?? "") })
+        pendingSummaries.set(data.sessionID, { headline: String(data.headline ?? "summary"), text: String(data.text ?? data.headline ?? ""), status: String(data.status ?? ""), title: data.title ? String(data.title) : undefined, digest: data.digest ? String(data.digest) : undefined })
         context.ui.toast.show({ title: "Goal summary queued", message: String(data.headline ?? "the full summary opens after the decision"), variant: "info", ...(data.sessionID ? { sessionID: data.sessionID } : {}) })
         return
       }
       void context.ui.dialog.alert({
-        title: `Goal summary — ${data.status ?? ""}`,
-        message: dialogDigest(String(data.headline ?? "summary"), String(data.text ?? data.headline ?? "")),
+        title: summaryTitle(data),
+        message: summaryBody(data),
       })
     })
     // Composer's core form is the sole decision surface. A notification
@@ -603,7 +608,7 @@ export default {
             commands: [
               {
                 id: "goal.attach",
-                title: "Goal: manage or attach a project goal",
+                title: "Goal: Manage goals",
                 group: "Goal",
                 palette: true,
                 enabled: () => true,
@@ -611,7 +616,7 @@ export default {
               },
               {
                 id: "goal.panel",
-                title: "Goal: toggle dashboard",
+                title: "Goal: Toggle dashboard",
                 group: "Goal",
                 palette: true,
                 // T056/T074: the documented default was leader+g, but OpenCode
@@ -628,7 +633,7 @@ export default {
               },
               {
                 id: "goal.dashboard.tab",
-                title: "Goal: next dashboard tab",
+                title: "Goal: Next dashboard tab",
                 group: "Goal",
                 palette: true,
                 bind: "tab",
@@ -641,7 +646,7 @@ export default {
               },
               {
                 id: "goal.status",
-                title: "Goal: show status",
+                title: "Goal: Show status",
                 group: "Goal",
                 palette: true,
                 enabled: hasGoal,
@@ -650,12 +655,12 @@ export default {
                   if (view) void context.ui.dialog.alert({ title: "Goal", message: statusText(view, Date.now()) })
                 },
               },
-              { id: "goal.pause", title: "Goal: pause", group: "Goal", palette: true, enabled: hasGoal, run: () => act("pause") },
-              { id: "goal.resume", title: "Goal: resume", group: "Goal", palette: true, enabled: hasGoal, run: () => act("resume") },
-              { id: "goal.verify", title: "Goal: verify now", group: "Goal", palette: true, enabled: hasGoal, run: () => act("verify") },
+              { id: "goal.pause", title: "Goal: Pause", group: "Goal", palette: true, enabled: hasGoal, run: () => act("pause") },
+              { id: "goal.resume", title: "Goal: Resume", group: "Goal", palette: true, enabled: hasGoal, run: () => act("resume") },
+              { id: "goal.verify", title: "Goal: Verify now", group: "Goal", palette: true, enabled: hasGoal, run: () => act("verify") },
               {
                 id: "goal.approve",
-                title: "Goal: open native review in Composer",
+                title: "Goal: Review in Composer",
                 group: "Goal",
                 palette: true,
                 enabled: () => !!currentSession(),
@@ -671,7 +676,7 @@ export default {
               },
               {
                 id: "goal.abort",
-                title: "Goal: abort",
+                title: "Goal: Abort",
                 group: "Goal",
                 palette: true,
                 enabled: hasGoal,
