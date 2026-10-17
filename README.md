@@ -1,8 +1,8 @@
-# opencode-goal
+# CLEO Goal (@cleocode/goal)
 
-Persistent, host-verified goal mode for [OpenCode 2](https://opencode.ai). Describe what you want, let the bundled **write-goal** interview turn it into a structured contract, and the plugin keeps the session working until the host — not the model — proves every criterion.
+Persistent, host-verified goal mode for [OpenCode 2](https://opencode.ai) and CLEO-dispatched harnesses. Describe what you want, let the bundled **write-goal** interview turn it into a structured contract, and the plugin keeps the session working until the host — not the model — proves every criterion.
 
-> **Status: released (`v0.8.1`).** Engine, verification and TUI are built and tested end to end against OpenCode 2.0.22 with a scripted model, and each release is proven from its own installed git tag. CLEO integrates as an optional first-class citizen (`/goal cleo`). See [docs/HANDOFF.md](docs/HANDOFF.md).
+> **Status: released (`v0.8.2`).** Engine, verification and TUI are built and tested end to end against OpenCode 2, and each release is proven from its own installed artifact. CLEO integrates as an optional first-class citizen (`/goal cleo`). The OpenCode plugin id remains `opencode-goal` for compatibility; the package is published as `@cleocode/goal`. See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Why another goal plugin
 
@@ -19,15 +19,22 @@ Most goal loops let the model declare itself done. Research and user reports say
 
 ## Install
 
-Requires OpenCode **2.0.22 or later** (OpenCode 1.x plugins and this plugin are not compatible). No npm package — OpenCode installs it from GitHub:
+Requires OpenCode **2.0.22 or later** (OpenCode 1.x plugins and this plugin are not compatible). The canonical install is the published package:
 
 ```bash
-opencode plugin add "github:kryptobaseddev/opencode-goal#v0.5.0"
+opencode plugin add @cleocode/goal@0.8.2
 opencode reload
-opencode plugin list        # opencode-goal should be listed
+opencode plugin list        # the goal plugin should be listed
 ```
 
-Pin a tag. To upgrade, `opencode plugin remove` the old spec and add the new one. Uninstall with `opencode plugin remove "github:kryptobaseddev/opencode-goal#<tag>"`.
+For an unreleased build, the git tag remains supported:
+
+```bash
+opencode plugin add "github:kryptobaseddev/opencode-goal#v0.8.2"
+opencode reload
+```
+
+Pin a version. To upgrade, `opencode plugin remove` the old spec and add the new one.
 
 ## Quick start
 

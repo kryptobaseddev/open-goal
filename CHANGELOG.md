@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2 — 2026-10-17
+
+- **The package is now `@cleocode/goal` (CLEO Goal).** The npm package is renamed from the unpublished `opencode-goal` name to the scoped `@cleocode/goal`, made public, and documented as the canonical install (`opencode plugin add @cleocode/goal@0.8.2`). The OpenCode plugin id remains `opencode-goal` for compatibility; the git-tag install stays supported. **No engine behaviour changed.**
+- **Trusted publishing is prepared.** `.github/workflows/release.yml` publishes a pushed `v*` tag with `npm publish --provenance --access public` and `id-token: write`; the first publish is manual, then OIDC is configured on npmjs.com for this repo/workflow. Nothing is stored in the repository.
+- **No npm publish yet.** The local npm token is currently invalid (E401); the package is prepared and validated, and the first publish happens once the owner refreshes `npm login`/the token.
+
 ## 0.8.1 — 2026-10-17
 
 - **The post-goal summary is scannable (T120).** The summary dialog now opens with a 3–5 second digest — `completed`, `WENT RIGHT`, `WENT WRONG`, `STILL OPEN`, `NEXT`, linked tasks, and a one-line provenance split (`host 6 · verifier 2 · owner 1`) — capped at 14 lines; the full report (criteria, non-goals, findings) stays in `text`. Palette actions use Title Case. The RPC summary event carries `title` and `digest`.
