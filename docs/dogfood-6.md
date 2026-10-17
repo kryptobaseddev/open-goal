@@ -1,3 +1,9 @@
+> **Status update — 2026-10-17T05:41Z.** T001 and its four child sagas **T002, T024, T035 and T039
+> are done** in the CLEO store (T002 79/79 children, T024 18/18, T035 3/3, T039 4/4). The
+> "50/61", "50/56", "1/4 epics" and "T035/T039 pending" statements below describe earlier
+> snapshots (2026-10-13/16), not the current state. Current capture and acceptance evidence:
+> [cleo-t001-completion.md](cleo-t001-completion.md).
+
 ## Current C14 inventory evidence — fresh native CLI, not the older50/56 snapshot
 
 The completing host round proved **16/17 conditions**; C14 alone lacked independently inspectable current task enumeration. No product/source/contract check was weakened. Fresh authoritative CLI output is captured at **2026-10-13T16:19:18Z** in this project:
