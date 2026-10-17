@@ -2,28 +2,10 @@
 // OpenCode's own package installer. Set OCGOAL_NPM_SPEC to test another
 // version, or OCGOAL_NPM_INSTALL=1 to enable.
 import { describe, expect, test } from "bun:test"
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
-import { join } from "node:path"
+import { GoalRpc } from "../../src/rpc"
 import { startHost, until } from "./harness"
 
-const SPEC = process.env.OCGOAL_NPM_SPEC ?? "@cleocode/goal@0.8.1"
-
-/** The newest installed copy of the package in the harness's shared cache. */
-function installedManifest(): string | undefined {
-  const cacheRoot = join(import.meta.dir, "..", "..", ".tmp", "host-cache", "opencode", "npm")
-  if (!existsSync(cacheRoot)) return undefined
-  const manifests: Array<{ path: string; mtime: number }> = []
-  for (const dir of readdirSync(cacheRoot)) {
-    const base = join(cacheRoot, dir)
-    let stamps: string[] = []
-    try { stamps = readdirSync(base) } catch { continue }
-    for (const stamp of stamps) {
-      const path = join(base, stamp, "node_modules", "@cleocode", "goal", "package.json")
-      if (existsSync(path)) manifests.push({ path, mtime: statSync(path).mtimeMs })
-    }
-  }
-  return manifests.sort((a, b) => b.mtime - a.mtime)[0]?.path
-}
+const SPEC = process.env.OCGOAL_NPM_SPEC ?? "@cleocode/goal@0.9.2"
 
 describe.skipIf(!process.env.OCGOAL_NPM_INSTALL)("install from npm", () => {
   test(`OpenCode installs ${SPEC} and registers /goal, the tools and the skill`, async () => {
@@ -38,14 +20,19 @@ describe.skipIf(!process.env.OCGOAL_NPM_INSTALL)("install from npm", () => {
       const skills: any = await host.client.skill.list({ location: host.location } as any)
       expect((Array.isArray(skills) ? skills : skills?.data ?? []).some((s: any) => s.id === "write-goal")).toBe(true)
 
-      // The TUI entry's runtime must resolve in the installed npm package too:
-      // @opentui/solid is a production dependency, not a dev one.
-      const manifestPath = installedManifest()
-      expect(manifestPath).toBeDefined()
-      const manifest = JSON.parse(readFileSync(manifestPath!, "utf8"))
-      expect(manifest.name).toBe("@cleocode/goal")
-      expect(manifest.dependencies?.["@opentui/solid"]).toBeDefined()
-      expect(JSON.stringify(manifest)).not.toContain('"private":true')
+      // The serving package is the npm artifact, not a git checkout: provenance
+      // reports the package version and the registry spec it was installed from.
+      const session: any = await host.client.session.create({
+        location: host.location, agent: "build", model: { providerID: "fixture", id: "test" },
+      } as any)
+      const rpc: any = (host.client as any).rpc(GoalRpc)
+      const provenance = await rpc.provenance({ sessionID: session.id })
+      expect(provenance.status).toBe("active")
+      expect(provenance.packageVersion).toBe(SPEC.split("@").pop())
+      expect(JSON.stringify(provenance.source)).toContain("@cleocode/goal")
+      // The TUI entry's runtime is a production dependency, so the plugin's
+      // TUI half resolves from the npm artifact too.
+      expect(provenance.features?.tui).toBe(true)
     } finally {
       await host.stop()
     }
