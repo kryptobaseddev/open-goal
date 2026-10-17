@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1 — 2026-10-17
+
+- **First canonical npm release through Trusted Publishing (OIDC).** `@cleocode/goal@0.9.1` is published by `release.yml` with a signed provenance statement. `0.9.0` was a manual publish whose registry package metadata was not readable/installable; it is superseded by this release. **No engine behaviour changed.**
+- **Install:** `opencode plugin add @cleocode/goal@0.9.1`. The plugin id remains `opencode-goal`; the git-tag install remains supported.
+
 ## 0.9.0 — 2026-10-17
 
 - **Published to npm as `@cleocode/goal`.** The package was `opencode-goal` (private, installed from git tags). It is now public with npm provenance. The plugin id stays `opencode-goal`, so existing configs, state and the TUI keep working. A tag-triggered `release.yml` publishes through npm Trusted Publishing (OIDC, no token).
