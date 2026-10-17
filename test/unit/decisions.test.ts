@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { DecisionStore, decisionChoices } from "../../src/engine/decisions"
+import { DecisionStore, decisionChoices, shouldReaskDecision } from "../../src/engine/decisions"
 import { selectedReviewChoice } from "../../src/engine/owner-reviews"
 import { M } from "../../src/server/messages"
 
@@ -46,4 +46,17 @@ test("cancellation invalidates the old core form but retains the exact unresolve
     expect(restored.target).toEqual(p.target)
     expect(store.bind({ id: "new", sessionID: p.sessionID, fields: [{ key: "q0", title: restored.question, options }] })?.id).toBe(p.id)
   } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+test("re-ask policy: one ask per process, then silence until review or reload", () => {
+  // a never-presented pending decision is asked on the turn end that follows
+  expect(shouldReaskDecision({ alreadyAsked: false, status: "pending", stale: false, formOpen: false })).toEqual({ ask: true })
+  // once the form has been offered, an unanswered turn end does not ask again
+  expect(shouldReaskDecision({ alreadyAsked: true, status: "pending", stale: false, formOpen: false })).toEqual({ ask: false, reason: "already-asked" })
+  // a dismissed form is restored explicitly, not by ordinary execution
+  expect(shouldReaskDecision({ alreadyAsked: false, status: "interrupted", stale: false, formOpen: false })).toEqual({ ask: false, reason: "interrupted" })
+  // a live form is never duplicated
+  expect(shouldReaskDecision({ alreadyAsked: false, status: "pending", stale: false, formOpen: true })).toEqual({ ask: false, reason: "form-open" })
+  // stale wins even over a never-asked decision
+  expect(shouldReaskDecision({ alreadyAsked: false, status: "pending", stale: true, formOpen: false })).toEqual({ ask: false, reason: "stale" })
 })

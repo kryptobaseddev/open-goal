@@ -23,26 +23,44 @@ const parse = (stdout: string): any => {
 }
 
 /**
- * The next ready item, from CLEO's own CLI. `cleo next` suggests by priority and
- * dependency; `cleo show --full` supplies the acceptance text. Any failure is
- * "no ready work", never a guess.
+ * The next ready LEAF item, from CLEO's own CLI. `cleo next` suggests by
+ * priority and dependency; `cleo show --full` supplies the type and acceptance
+ * text. A parent (epic/saga) is never started by itself — its acceptance is a
+ * rollup, not work — so parents are reported as skipped and the next leaf is
+ * tried. Any failure is "no ready work", never a guess.
  */
-export async function readyCleoTask(run: Runner, bin = "cleo"): Promise<CleoTask | undefined> {
-  const next = await run(bin, ["next", "-n", "1"])
-  if (next.exit !== 0) return undefined
-  const suggestion = parse(next.stdout)?.data?.suggestions?.[0]
-  const id = typeof suggestion?.id === "string" ? suggestion.id : undefined
-  if (!id) return undefined
-  const show = await run(bin, ["show", id, "--full"])
-  if (show.exit !== 0) return undefined
-  const task = parse(show.stdout)?.data?.task
-  if (!task || ["done", "completed", "cancelled", "archived"].includes(String(task.status))) return undefined
-  return {
-    id,
-    title: String(task.title ?? suggestion?.title ?? id),
-    description: String(task.description ?? ""),
-    acceptance: Array.isArray(task.acceptance) ? task.acceptance.map(String).filter(Boolean) : [],
+export type SkippedParent = { id: string; type: string; title: string }
+export type ReadyCleo = { task?: CleoTask; skipped: SkippedParent[] }
+
+export async function readyCleoTask(run: Runner, bin = "cleo"): Promise<ReadyCleo> {
+  const next = await run(bin, ["next", "-n", "5"])
+  if (next.exit !== 0) return { skipped: [] }
+  const suggestions = parse(next.stdout)?.data?.suggestions
+  if (!Array.isArray(suggestions)) return { skipped: [] }
+  const skipped: SkippedParent[] = []
+  for (const suggestion of suggestions) {
+    const id = typeof suggestion?.id === "string" ? suggestion.id : undefined
+    if (!id) continue
+    const show = await run(bin, ["show", id, "--full"])
+    if (show.exit !== 0) continue
+    const task = parse(show.stdout)?.data?.task
+    if (!task || ["done", "completed", "cancelled", "archived"].includes(String(task.status))) continue
+    const type = String(task.type ?? suggestion?.type ?? "")
+    if (type === "epic" || type === "saga") {
+      skipped.push({ id, type, title: String(task.title ?? suggestion?.title ?? id) })
+      continue
+    }
+    return {
+      task: {
+        id,
+        title: String(task.title ?? suggestion?.title ?? id),
+        description: String(task.description ?? ""),
+        acceptance: Array.isArray(task.acceptance) ? task.acceptance.map(String).filter(Boolean) : [],
+      },
+      skipped,
+    }
   }
+  return { skipped }
 }
 
 const q = (value: string) => JSON.stringify(value)

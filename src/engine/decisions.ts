@@ -16,6 +16,28 @@ export function decisionChoices(request: DecisionRequest): ReviewChoice[] {
   return request.message.choices.map((c, i) => ({ value: String(i), label: c.label, description: `${c.act ? "" : "Guidance only; no operation: "}${c.run}` }))
 }
 
+/**
+ * Should the native form be re-offered when a turn ends?
+ *
+ * An unanswered decision is not stale, but re-asking it on every turn end is
+ * noise (the owner sees the same question forever). The policy is: ask once
+ * per process; after that, silence until an explicit `goal_review` (which
+ * calls the form directly) or a reload (a new process, so `alreadyAsked` is
+ * false again). Dismissed reviews (`interrupted`) and open forms never re-ask.
+ */
+export function shouldReaskDecision(input: {
+  alreadyAsked: boolean
+  status: string
+  stale: boolean
+  formOpen: boolean
+}): { ask: boolean; reason?: "already-asked" | "interrupted" | "stale" | "form-open" } {
+  if (input.stale) return { ask: false, reason: "stale" }
+  if (input.formOpen) return { ask: false, reason: "form-open" }
+  if (input.status === "interrupted") return { ask: false, reason: "interrupted" }
+  if (input.alreadyAsked) return { ask: false, reason: "already-asked" }
+  return { ask: true }
+}
+
 export class DecisionStore extends OwnerReviewStore<DecisionRequest> {
   constructor(file: string) { super(file, []) }
   protected reviewChoices(request: DecisionRequest) { return decisionChoices(request) }

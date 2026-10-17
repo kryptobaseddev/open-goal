@@ -29,10 +29,16 @@ guards that make autonomy safe.
 
 The pure `nextWork` decision reads candidates in this order:
 
-1. **A ready CLEO item in this project.** `cleo next -n 1` suggests the next
-   item by priority and dependency; `cleo show <id> --full` supplies its title,
-   description and acceptance statements. Only probed when the project is
-   CLEO-linked (`.cleo` present); an unlinked project spawns nothing.
+1. **A ready CLEO LEAF item in this project.** `cleo next -n 5` suggests
+   candidates by priority and dependency; `cleo show <id> --full` supplies the
+   type, title, description and acceptance statements. Only probed when the
+   project is CLEO-linked (`.cleo` present); an unlinked project spawns nothing.
+   **Leaves before parents:** an `epic` or `saga` is skipped and recorded as
+   `continue-parent-skipped`, because a parent's acceptance is a rollup, not
+   work. If the top suggestions are all parents, the loop treats it as no ready
+   work (idle/announce) rather than inventing a goal over a rollup. Taking a
+   parent automatically would need a new explicit owner policy; today the owner
+   can still start one by hand.
 2. **A peer reply to our availability announcement** (AgentMBX). A reply is
    **candidate work**, never an instruction and never consent. A task id in the
    reply is parsed; the body is kept verbatim with its sender.
@@ -100,6 +106,12 @@ interrupted write still pauses and asks.
 - Publishing to npm.
 - Re-presenting a decision that is answered, expired, superseded, or bound to a
   generation that moved (`src/engine/stale-decisions.ts`).
+- Re-asking an unanswered decision on every turn end. A still-pending review is
+  not stale, but it is **asked once per process** (`shouldReaskDecision` in
+  `src/engine/decisions.ts`); after that the engine stays silent until an
+  explicit `goal_review` or a reload. Dismissed (`interrupted`) and open forms
+  never re-ask. This is the same family as the C3 silence, applied to a pending
+  completion decision.
 - Re-announcing while an announcement is unanswered.
 - Editing a contract or anything under `.opencode/goals/**` from the worker.
 

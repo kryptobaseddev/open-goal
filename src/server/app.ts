@@ -19,7 +19,7 @@ import { amendmentDiff, amendedState } from "../engine/amendment"
 import { AmendmentStore, recoveryChoices, type AmendmentRequest } from "../engine/amendments"
 import { classifyChange, policyAllows } from "../engine/policy"
 import { selectedReviewChoice, reviewExpired } from "../engine/owner-reviews"
-import { DecisionStore, decisionChoices, type DecisionKind, type DecisionRequest, type DecisionTarget } from "../engine/decisions"
+import { DecisionStore, decisionChoices, shouldReaskDecision, type DecisionKind, type DecisionRequest, type DecisionTarget } from "../engine/decisions"
 import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
 import { goalHelp } from "./help"
@@ -40,8 +40,13 @@ import { createPeerChannel } from "../engine/peer-transport"
 import { readyCleoTask, continuationContractYaml, continuationSlug } from "../engine/continue-work"
 import { buildHandoff, handoffDigest } from "../engine/handoff"
 
-/** Spawn the cleo CLI with a hard timeout; all failures resolve safely. */
-const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
+/** Decisions whose native form has already been presented in THIS process.
+ *  Kept at module scope so a re-run of `setup` (which creates a new GoalApp)
+ *  cannot silently ask again; a real process reload clears it, which is the
+ *  documented "reload restores it once" path. */
+const askedDecisionIds = new Set<string>()
+
+/** Spawn the cleo CLI with a hard timeout; all failures resolve safely. */const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
   new Promise((resolve) => {
     const child = Bun.spawn([command, ...args], { stdout: "pipe", stderr: "ignore" })
     const timer = setTimeout(() => child.kill(), timeoutMs)
@@ -683,7 +688,22 @@ export class GoalApp {
    * ask was skipped because the session was mid-turn (e.g. the decision
    * landed while the owner was answering the previous form).
    */
+  /**
+   * After a reload the in-memory pending map is empty. Recover the latest
+   * genuinely pending decision for this session so the owner's next turn
+   * re-presents it once (the explicit "reload restores it" path).
+   */
+  private restorePendingDecision(sessionID: string) {
+    if (this.pendingDecisions.has(sessionID)) return
+    const latest = this.decisions.all(sessionID)
+      .filter((p) => p.status === "pending" && !reviewExpired(p))
+      .sort((a, b) => b.createdAt - a.createdAt)[0]
+    if (!latest) return
+    this.pendingDecisions.set(sessionID, { id: latest.id, kind: latest.kind, slug: latest.slug, at: latest.createdAt, message: latest.message })
+  }
+
   private reaskDecisionForm(sessionID: string) {
+    this.restorePendingDecision(sessionID)
     const pending = this.pendingDecisions.get(sessionID)
     if (!pending || this.pendingFormDecisions.has(sessionID)) return
     if (this.factsOf(sessionID).forms.size > 0) return
@@ -697,8 +717,17 @@ export class GoalApp {
     }
     // A dismissal/comment is an unresolved review, not permission to trap
     // the owner in an immediately re-opening form. Reload or goal_review
-    // explicitly restores it; ordinary execution events do not.
-    if (request?.status === "interrupted") return
+    // explicitly restores it; ordinary execution events do not. An
+    // unanswered ask is not stale either, but it is asked ONCE per process:
+    // only goal_review (which calls askDecisionForm directly) or a reload
+    // (new process, empty set) presents it again.
+    const policy = shouldReaskDecision({
+      alreadyAsked: askedDecisionIds.has(request.id),
+      status: request.status,
+      stale: false,
+      formOpen: this.pendingFormDecisions.has(sessionID) || this.factsOf(sessionID).forms.size > 0,
+    })
+    if (!policy.ask) return
     void this.askDecisionForm(sessionID, pending.slug, pending.kind, pending.id, pending.message)
   }
 
@@ -718,6 +747,7 @@ export class GoalApp {
     const request = this.decisions.get(decisionId)
     if (!request || request.status !== "pending" || request.formID || reviewExpired(request)) return
     this.pendingFormDecisions.set(sessionID, { decisionId, kind, slug, choices: message.choices.map((c) => ({ label: c.label, act: c.act, arg: c.arg })), askedAt: Date.now() })
+    askedDecisionIds.add(decisionId)
     const payload = { questions: [{ header: "Goal", question: request.question, options: decisionChoices(request).map((c) => ({ label: c.label, description: c.description })) }] }
     const presentation = newRunId()
     const text = [
@@ -1906,8 +1936,9 @@ export class GoalApp {
     //    unlinked project spawns nothing and keeps today's behaviour.
     try {
       if (await cleoFacts(this.root, defaultRunner)) {
-        const task = await readyCleoTask((command, args, timeoutMs) => defaultRunner(process.env.OCGOAL_CLEO_BIN ?? command, args, timeoutMs))
-        if (task) candidates.push({ source: "cleo", project: this.root, taskId: task.id, title: task.title, acceptance: task.acceptance })
+        const ready = await readyCleoTask((command, args, timeoutMs) => defaultRunner(process.env.OCGOAL_CLEO_BIN ?? command, args, timeoutMs))
+        if (ready.skipped.length) this.store.ledger(state.slug, { type: "continue-parent-skipped", tasks: ready.skipped, reason: "a parent's acceptance is a rollup, not work; leaves are preferred" })
+        if (ready.task) candidates.push({ source: "cleo", project: this.root, taskId: ready.task.id, title: ready.task.title, acceptance: ready.task.acceptance })
       }
     } catch (error) {
       this.store.ledger(state.slug, { type: "continue-cleo-error", error: String(error).slice(0, 300) })
