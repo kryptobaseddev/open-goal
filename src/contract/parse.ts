@@ -1,6 +1,7 @@
 // Parses and validates goal.yaml. Every rule here is one the write-goal skill
 // relies on to tell a loop-verifiable goal from a wish.
 import { createHash } from "node:crypto"
+import { parse as parseYamlPortable } from "yaml"
 import {
   AMEND_CLASSES,
   CHECK_KINDS,
@@ -198,12 +199,17 @@ function parseCriteria(raw: unknown, path: string, prefix: "C" | "I", issues: Is
   })
 }
 
+type YamlParse = (text: string) => unknown
+/** Bun's built-in parser inside OpenCode (unchanged behaviour); the portable `yaml` package on plain Node (the npm bin). */
+const bunYaml = (globalThis as { Bun?: { YAML?: { parse: YamlParse } } }).Bun?.YAML
+const parseYaml: YamlParse = (text) => (bunYaml ? bunYaml.parse(text) : parseYamlPortable(text))
+
 export function parseContract(text: string, options: { slug?: string } = {}): ParseResult {
   const issues: Issue[] = []
   const lock = lockOf(text)
   let raw: unknown
   try {
-    raw = (Bun as any).YAML.parse(text)
+    raw = parseYaml(text)
   } catch (error) {
     issues.push({ level: "error", path: "", message: `not valid YAML: ${error instanceof Error ? error.message : String(error)}${yamlHint(text)}` })
     return { issues, lock }

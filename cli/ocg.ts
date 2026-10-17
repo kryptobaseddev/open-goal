@@ -1,6 +1,11 @@
-#!/usr/bin/env bun
-// v0.7.0 - the `ocg` bin.
+#!/usr/bin/env node
+// The `cleo-goal` bin (alias `ocg`, "open cleo goal"). Published as
+// dist/cli.js (built by scripts/build-cli.mjs) so it runs on plain Node.
 //
+//   cleo-goal --version             the package version
+//   cleo-goal status --json         the live goal, schemaVersion 1 (CLEO's read contract)
+//   cleo-goal install --project [--spec <npm-or-git spec>] [--json] [--dry-run]
+//                                   register the plugin in .opencode/opencode.json
 //   ocg tick    CLEO's Stop dispatcher spawns this with the harness Stop JSON on
 //               stdin. JSON ONLY on stdout, logs on stderr, nothing when no goal
 //               is live. It records the turn, decides, and runs the verification
@@ -12,6 +17,9 @@
 // We deliberately do NOT install our own Stop hook in any harness: CLEO's
 // dispatcher owns Stop, and a second entry would tick twice.
 import { readFileSync } from "node:fs"
+import pkg from "../package.json"
+import { InstallError, installProject, PACKAGE_NAME } from "../src/cli/install"
+import { goalStatus } from "../src/cli/status"
 import { fingerprint } from "../src/util/git"
 import { Store } from "../src/engine/store"
 import { tick } from "../src/engine/tick"
@@ -25,6 +33,50 @@ const flag = (name: string): string | undefined => {
 }
 const root = process.cwd()
 const store = new Store(root)
+const USAGE = [
+  "usage: cleo-goal --version",
+  "       cleo-goal status --json",
+  "       cleo-goal install --project [--spec <npm-or-git spec>] [--json] [--dry-run]",
+  "       cleo-goal tick   (reads the harness Stop JSON on stdin; writes JSON on stdout)",
+  "usage: ocg tick   (alias; same contract)",
+  "       cleo-goal claim --summary <text> [--evidence C1=<note> ...]",
+]
+const usage = (): never => {
+  for (const line of USAGE) console.error(line)
+  process.exit(2)
+}
+
+if (sub === "--version" || sub === "-v" || sub === "version") {
+  process.stdout.write(`cleo-goal ${pkg.version}\n`)
+  process.exit(0)
+}
+
+if (sub === "status") {
+  if (!argv.includes("--json")) usage()
+  try {
+    process.stdout.write(`${JSON.stringify(goalStatus(store))}\n`)
+    process.exit(0)
+  } catch (error) {
+    process.stdout.write(`${JSON.stringify({ schemaVersion: 1, error: error instanceof Error ? error.message : String(error) })}\n`)
+    process.exit(1)
+  }
+}
+
+if (sub === "install") {
+  const spec = flag("--spec") ?? `${PACKAGE_NAME}@${pkg.version}`
+  if (!argv.includes("--project") || spec.startsWith("--")) usage()
+  const json = argv.includes("--json")
+  try {
+    const result = installProject(root, spec, { dryRun: argv.includes("--dry-run") })
+    process.stdout.write(json ? `${JSON.stringify(result)}\n` : `${result.action}: ${result.spec} in ${result.file}\n`)
+    process.exit(0)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!(error instanceof InstallError)) console.error(`cleo-goal install: ${message}`)
+    process.stdout.write(json ? `${JSON.stringify({ schemaVersion: 1, error: message })}\n` : `error: ${message}\n`)
+    process.exit(1)
+  }
+}
 
 if (sub === "claim") {
   const summary = flag("--summary") ?? ""
@@ -57,15 +109,17 @@ if (sub === "claim") {
   process.exit(0)
 }
 
-if (sub !== "tick") {
-  console.error("usage: ocg tick   (reads the harness Stop JSON on stdin; writes JSON on stdout)")
-  console.error("       ocg claim --summary <text> [--evidence C1=<note> ...]")
-  process.exit(2)
-}
+if (sub !== "tick") usage()
 
 // Read stdin to EOF (the harness Stop JSON). Its content is mined for a
 // transcript path when the harness supplies one; otherwise the tick degrades.
-const payload = await new Response(Bun.stdin.stream()).text().catch(() => "")
+const readStdin = async (): Promise<string> => {
+  let text = ""
+  process.stdin.setEncoding("utf8")
+  for await (const chunk of process.stdin) text += chunk
+  return text
+}
+const payload = await readStdin().catch(() => "")
 if (payload.trim()) console.error(`ocg tick: received ${payload.length} bytes of Stop payload`)
 
 const result = await tick({

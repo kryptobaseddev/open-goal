@@ -1,8 +1,8 @@
-# CLEO Goal (@cleocode/goal)
+# opencode-goal
 
-Persistent, host-verified goal mode for [OpenCode 2](https://opencode.ai) and CLEO-dispatched harnesses. Describe what you want, let the bundled **write-goal** interview turn it into a structured contract, and the plugin keeps the session working until the host — not the model — proves every criterion.
+Persistent, host-verified goal mode for [OpenCode 2](https://opencode.ai). Describe what you want, let the bundled **write-goal** interview turn it into a structured contract, and the plugin keeps the session working until the host — not the model — proves every criterion.
 
-> **Status: released (`v0.8.2`).** Engine, verification and TUI are built and tested end to end against OpenCode 2, and each release is proven from its own installed artifact. CLEO integrates as an optional first-class citizen (`/goal cleo`). The OpenCode plugin id remains `opencode-goal` for compatibility; the package is published as `@cleocode/goal`. See [docs/HANDOFF.md](docs/HANDOFF.md).
+> **Status: released (`v0.5.0`).** Engine, verification and TUI are built and tested end to end against OpenCode 2.0.22 with a scripted model, and each release is proven from its own installed git tag. CLEO integrates as an optional first-class citizen (`/goal cleo`). See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Why another goal plugin
 
@@ -19,22 +19,37 @@ Most goal loops let the model declare itself done. Research and user reports say
 
 ## Install
 
-Requires OpenCode **2.0.22 or later** (OpenCode 1.x plugins and this plugin are not compatible). The canonical install is the published package:
+Requires OpenCode **2.0.22 or later** (OpenCode 1.x plugins and this plugin are not compatible). The package is **`@cleocode/goal`** ("CLEO Goal"); its bin is `cleo-goal`, with `ocg` ("open cleo goal") as an alias. The bin runs on plain Node 22.14+, no Bun needed.
+
+Register the plugin for one project (writes only `<project>/.opencode/opencode.json`, key `plugins`; idempotent):
 
 ```bash
-opencode plugin add @cleocode/goal@0.8.2
-opencode reload
-opencode plugin list        # the goal plugin should be listed
+npm i -g @cleocode/goal
+cd your-project
+cleo-goal install --project          # --dry-run to preview, --json for a machine reply
 ```
 
-For an unreleased build, the git tag remains supported:
+With [CLEO](https://github.com/kryptobaseddev/cleo), `cleo goal install --harness opencode` runs the same step, and `cleo doctor goal-runtime` reports the installed version.
+
+Or install it for every project through OpenCode itself (this writes the user-global config):
 
 ```bash
-opencode plugin add "github:kryptobaseddev/opencode-goal#v0.8.2"
+opencode plugin add "@cleocode/goal@<version>"
 opencode reload
+opencode plugin list        # opencode-goal should be listed
 ```
 
-Pin a version. To upgrade, `opencode plugin remove` the old spec and add the new one.
+Pin a version. A git tag still works as a spec: `github:kryptobaseddev/opencode-goal#v<version>`.
+
+### The `cleo-goal` bin
+
+| Command | Does |
+|---|---|
+| `cleo-goal --version` | prints `cleo-goal <version>` |
+| `cleo-goal status --json` | the live goal (else the newest finished one, else `status: "none"`) as JSON with `schemaVersion: 1`; exits 0 whenever the project was readable |
+| `cleo-goal install --project [--spec <npm-or-git spec>] [--json] [--dry-run]` | adds this plugin to `.opencode/opencode.json`; replies `{schemaVersion, action: installed\|already-present\|updated\|dry-run, file, spec, plugins}`; exit 1 `{schemaVersion, error}`, exit 2 usage |
+| `cleo-goal tick` | the Stop-hook tick CLEO's dispatcher runs: harness Stop JSON on stdin, JSON only on stdout |
+| `cleo-goal claim --summary <text> [--evidence C1=<note> ...]` | records a claim from a harness with no OCG tools |
 
 ## Quick start
 

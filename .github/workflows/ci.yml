@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Typecheck, unit tests, Node bin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.14.0
+      - run: bun install --frozen-lockfile
+      # Also fails when dist/tui.js or dist/cli.js is stale (they are committed for git installs).
+      - run: bun run typecheck
+      - run: bun test test/unit --timeout 120000
+      # The scripted-harness host test needs no OpenCode; it drives the bin under Bun and plain Node.
+      - run: bun test test/host/tick-scripted-harness.test.ts --timeout 120000
+      - name: Packed bin runs on plain Node without Bun
+        run: |
+          set -euo pipefail
+          npm pack --silent
+          prefix="$RUNNER_TEMP/prefix"
+          npm_config_prefix="$prefix" npm install -g ./cleocode-goal-*.tgz
+          project="$RUNNER_TEMP/project"
+          mkdir -p "$project" && cd "$project"
+          nobun="$prefix/bin:$(dirname "$(command -v node)"):/usr/bin:/bin"
+          PATH="$nobun" cleo-goal --version
+          PATH="$nobun" cleo-goal status --json
+          PATH="$nobun" cleo-goal install --project --json --dry-run
+          PATH="$nobun" ocg --version

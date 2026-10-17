@@ -1,19 +1,27 @@
 {
   "name": "@cleocode/goal",
-  "version": "0.8.2",
-  "description": "CLEO Goal \u2014 persistent, host-verified goal mode for OpenCode 2 and CLEO-dispatched harnesses, with a structured goal contract and a live TUI.",
+  "version": "0.9.0",
+  "description": "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
-    "node": ">=20",
+    "node": ">=22.14.0",
     "opencode": ">=2.0.22"
   },
   "scripts": {
+    "build": "bun run build:tui && bun run build:cli",
     "build:tui": "bun scripts/build-tui.mjs",
     "check:tui": "bun scripts/build-tui.mjs --check",
+    "build:cli": "bun scripts/build-cli.mjs",
+    "check:cli": "bun scripts/build-cli.mjs --check",
+    "prepublishOnly": "bun run check:tui && bun run check:cli",
     "test": "bun test --timeout 120000",
     "test:host": "bun test test/host --timeout 120000",
-    "typecheck": "bun run check:tui && tsc --noEmit"
+    "typecheck": "bun run check:tui && bun run check:cli && tsc --noEmit"
   },
   "devDependencies": {
     "@opencode/client": "2.0.22",
@@ -24,8 +32,8 @@
     "typescript": "^5.9.3"
   },
   "bin": {
-    "ocg": "./cli/ocg.ts",
-    "cleo-goal": "./cli/ocg.ts"
+    "cleo-goal": "./dist/cli.js",
+    "ocg": "./dist/cli.js"
   },
   "exports": {
     ".": "./server.ts",
@@ -41,6 +49,7 @@
     "dist",
     "src",
     "skills",
+    "!skills/*/evals",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -53,20 +62,18 @@
   "keywords": [
     "opencode",
     "opencode-plugin",
-    "cleo",
-    "cleo-goal",
     "goal",
     "goal-mode",
     "autonomous",
     "agent",
+    "cleo",
+    "cleo-goal",
     "harness"
   ],
   "dependencies": {
     "@opentui/solid": "0.5.14",
-    "solid-js": "1.9.15"
-  },
-  "publishConfig": {
-    "access": "public"
+    "solid-js": "1.9.15",
+    "yaml": "2.8.1"
   },
   "bugs": {
     "url": "https://github.com/kryptobaseddev/opencode-goal/issues"

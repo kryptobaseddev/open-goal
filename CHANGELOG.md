@@ -1,10 +1,15 @@
 # Changelog
 
+## 0.9.0 — 2026-10-17
+
+- **Published to npm as `@cleocode/goal`.** The package was `opencode-goal` (private, installed from git tags). It is now public with npm provenance. The plugin id stays `opencode-goal`, so existing configs, state and the TUI keep working. A tag-triggered `release.yml` publishes through npm Trusted Publishing (OIDC, no token).
+- **The bin runs on plain Node.** `cleo-goal` and `ocg` point at `dist/cli.js`, a Node bundle built from `cli/ocg.ts` by `scripts/build-cli.mjs` and committed like `dist/tui.js` (CI fails when it is stale). The tick, status and install paths no longer use Bun APIs: git and owner check commands run through `node:child_process`, the Stop payload is read from `process.stdin`, and goal contracts parse with the `yaml` package when Bun's built-in parser is absent (OpenCode still uses Bun's).
+- **`cleo-goal --version`, `status --json` and `install --project`.** The contract CLEO reads (`schemaVersion: 1`). `install --project [--spec] [--json] [--dry-run]` writes only the project's `.opencode/opencode.json` (`plugins`), is idempotent, replaces an older spec of this plugin in place (keeping its options), and refuses the home directory, user-global config, invalid JSON and a `.jsonc` config without writing. A `.opencode` dir or `opencode.json` symlinked into `~/.config`, `$XDG_CONFIG_HOME`, `~/.opencode` or anywhere outside the project is refused; a symlinked `opencode.json` inside the project is written through.
+- **CI.** Typecheck, unit tests, the scripted-harness test under Bun and Node, and a packed-bin smoke on a PATH without Bun, on every push and pull request.
+
 ## 0.8.2 — 2026-10-17
 
-- **The package is now `@cleocode/goal` (CLEO Goal).** The npm package is renamed from the unpublished `opencode-goal` name to the scoped `@cleocode/goal`, made public, and documented as the canonical install (`opencode plugin add @cleocode/goal@0.8.2`). The OpenCode plugin id remains `opencode-goal` for compatibility; the git-tag install stays supported. **No engine behaviour changed.**
-- **Trusted publishing is prepared.** `.github/workflows/release.yml` publishes a pushed `v*` tag with `npm publish --provenance --access public` and `id-token: write`; the first publish is manual, then OIDC is configured on npmjs.com for this repo/workflow. Nothing is stored in the repository.
-- **No npm publish yet.** The local npm token is currently invalid (E401); the package is prepared and validated, and the first publish happens once the owner refreshes `npm login`/the token.
+- **Packaging-only preparation for `@cleocode/goal`.** The package name, public access and README install path were prepared. **Superseded by 0.9.0 (PR #2) and never published to npm.**
 
 ## 0.8.1 — 2026-10-17
 
