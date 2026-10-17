@@ -1,3 +1,10 @@
+> **STALE — read `docs/HANDOFF-v0.8.0.md` instead.** This file describes a **v0.3.x** mission that was
+> completed in 2026-10, and it was not updated for v0.4 through v0.7. As of **2026-10-17** the project is at
+> **v0.7.1** (goal `tick-records-the-turn` complete, 9/9, tag `v0.7.1` → commit `040b8bf`) with
+> `proactive-continuation` (v0.8.0) in flight in session `ses_eb82b0d09ffeS3UJBJeRLw1idx`, run
+> `147dfba0e001`. The current handoff is `docs/HANDOFF-v0.8.0.md`. **Everything below is history and must
+> not be followed as current instructions.**
+
 # Clean-session handoff — next mission T103 lab lifecycle repros
 
 ## Outcome already complete — do not resume the old loop
