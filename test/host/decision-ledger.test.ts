@@ -69,7 +69,7 @@ test("decision ledger: emissions traced with choices; the next owner act resolve
     const events = await ledger(host, "review")
     const decision = events.find((e) => e.type === "decision" && e.kind === "needs_review")
     expect(decision).toBeTruthy()
-    expect(decision.decisionId).toMatch(/^needs_review#review@/)
+    expect(decision.decisionId).toMatch(/^[0-9a-f-]{36}$/)
     expect(decision.message).toContain("sign-off")
     const approve = decision.choices.find((c: any) => c.act === "approve")
     expect(approve).toBeTruthy()

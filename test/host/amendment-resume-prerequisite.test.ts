@@ -60,7 +60,9 @@ test("an unresolved amendment blocks resume before another impossible owner ques
     await until(async () => (await run(host)).lock === replacement.nextLock, 10000)
     expect((await Bun.file(path).json()).requests[original.id].status).toBe("cancelled")
     expect((await ledger(host)).filter((event) => event.type === "amended")).toHaveLength(1)
-    expect((await ledger(host)).filter((event) => event.type === "resumed")).toHaveLength(0)
+    // v0.8.0 C2: the accepted replacement resumes this run in the same act.
+    expect((await ledger(host)).filter((event) => event.type === "resumed")).toHaveLength(1)
+    expect((await ledger(host)).filter((event) => event.type === "amendment-resumed" && event.decisionId === replacement.id)).toHaveLength(1)
     target = { ...target, lock: replacement.nextLock }
     await host.client.session.prompt({ sessionID: actor, text: "RESUME_THIS" } as never)
     const resumeForm = await until(async () => (await host.client.session.form.list({ sessionID: actor })).find((form) => JSON.stringify(form).includes("Resume selected goal")), 10000)
@@ -69,7 +71,9 @@ test("an unresolved amendment blocks resume before another impossible owner ques
     const resumeChoice = resumeField.options!.find((option) => option.label === "Resume selected goal")!
     await host.client.session.form.reply({ sessionID: actor, formID: resumeForm.id, answer: { [resumeField.key]: resumeChoice.value } })
     await waitStatus(host, ["waiting"], 10000)
-    expect((await ledger(host)).filter((event) => event.type === "resumed")).toHaveLength(1)
+    // Two resumes: the accepted amendment resumed in its own act (C2), and this
+    // explicit owner resume is the later, separate act under test.
+    expect((await ledger(host)).filter((event) => event.type === "resumed")).toHaveLength(2)
     const events = await ledger(host), resumed = events.find((event) => event.type === "resumed")!
     expect(events.some((event) => event.type === "admit" && event.t >= resumed.t)).toBe(true)
     expect((await run(host)).runId).toBe(initial.runId)

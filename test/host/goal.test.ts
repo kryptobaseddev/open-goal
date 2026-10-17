@@ -155,16 +155,23 @@ describe("goal loop on a real OpenCode 2 host", () => {
     }
   }, 60000)
 
-  test("a reload brings a running goal back paused", async () => {
-    const host = await goalHost(script(() => ({ delayMs: 1500, text: "working" })))
+  test("a clean reload resumes a running goal by itself", async () => {
+    const host = await goalHost(script((_req, turn) => turn.results === 0
+      ? { toolCalls: [{ name: "goal_wait", args: { seconds: 10, reason: "reload continuity" } }] }
+      : { text: "waiting" }))
     try {
       const sessionID = await newSession(host)
       await host.client.session.command({ sessionID, name: "goal", text: "start demo" } as any)
-      await until(async () => (await run(host)).turn >= 1, 20000)
+      await waitStatus(host, ["waiting"], 20000)
       await host.client.location.reload()
       await host.client.plugin.list({ location: host.location } as any)
-      const recovered = await waitStatus(host, ["paused"], 20000)
-      expect(recovered.reason).toMatch(/restarted/)
+      // v0.8.0 C1: unchanged lock + intact run → resumed, not paused.
+      const resumed = await until(async () => {
+        const state = await run(host)
+        return state.status !== "paused" ? state : undefined
+      }, 20000)
+      expect(["running", "waiting"]).toContain(resumed.status)
+      await until(async () => (await ledger(host)).some((e) => e.type === "restart-resume"), 10000)
     } finally {
       await host.stop()
     }

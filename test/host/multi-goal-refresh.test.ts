@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { ensureSolidTransformPlugin } from "@opentui/solid/bun-plugin"
 import { GoalRpc } from "../../src/rpc"
-import { DEMO_GOAL, goalHost, newSession, run, script, waitStatus } from "./goal.helpers"
+import { DEMO_GOAL, goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
 import { until } from "./harness"
 
 ensureSolidTransformPlugin()
@@ -53,11 +53,16 @@ test("real two-session sidebar converges after missed events and reload from a g
     expect(["running", "waiting"]).toContain((await run(host)).status)
     expect(terminal.renderer.root.findDescendantById(id1)).toBe(originalControl)
     await host.client.location.reload()
-    await waitStatus(host, ["paused"], 10000)
+    // v0.8.0 C1: `second` was owner-paused and stays paused; `demo` resumes.
+    await waitStatus(host, ["paused"], 10000, "second")
+    await until(async () => (await ledger(host)).some((e) => e.type === "restart-resume"), 10000)
     reconnect({ details: { type: "server.connected" } })
+    // v0.8.0 C1: the clean reload resumes `demo`; only the owner-paused
+    // `second` stays paused.
     await until(async () => {
       await terminal!.renderOnce()
-      return [id1, id2].every((id) => (terminal!.renderer.root.findDescendantById(id) as any)?.getSelectedOption()?.description.includes("paused"))
+      const paused = (id: string) => (terminal!.renderer.root.findDescendantById(id) as any)?.getSelectedOption()?.description.includes("paused")
+      return paused(id2) && !paused(id1)
     }, 12000, 200)
     expect(terminal.renderer.root.findDescendantById(id1)).toBe(originalControl)
   } finally { stop?.(); terminal?.renderer.destroy(); await host.stop() }

@@ -43,7 +43,7 @@ test("settled decision diagnostics are owned, non-executing and durable; pending
     await Bun.write(receiptFile, JSON.stringify(data))
     const changed = await rpc.review({ sessionID: actor, decisionId: prepared.decisionId })
     expect(changed).toMatchObject({ ok: false, actionExecuted: false })
-    expect(JSON.stringify(changed)).toContain("reviewed target changed")
+    expect(JSON.stringify(changed)).toContain("generation or owning session changed")
     // The settled receipts survive reload; no restored answer can execute them.
     await host.client.location.reload()
     const records = await Bun.file(receiptFile).json()
