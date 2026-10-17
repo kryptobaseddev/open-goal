@@ -1,9 +1,13 @@
 # Changelog
 
+## 0.9.2 — 2026-10-17
+
+- **First installable release through Trusted Publishing (OIDC).** `release.yml` rebuilt the Node bundle first and then published `@cleocode/goal@0.9.2` with a signed provenance statement. `0.9.0` was a manual publish whose registry package metadata was not readable/installable; `0.9.1` was tagged but its committed bundle was stale and the workflow refused it. **No engine behaviour changed.**
+- **Install:** `opencode plugin add @cleocode/goal@0.9.2`. The plugin id remains `opencode-goal`; the git-tag install remains supported.
+
 ## 0.9.1 — 2026-10-17
 
-- **First canonical npm release through Trusted Publishing (OIDC).** `@cleocode/goal@0.9.1` is published by `release.yml` with a signed provenance statement. `0.9.0` was a manual publish whose registry package metadata was not readable/installable; it is superseded by this release. **No engine behaviour changed.**
-- **Install:** `opencode plugin add @cleocode/goal@0.9.1`. The plugin id remains `opencode-goal`; the git-tag install remains supported.
+- **Superseded by 0.9.2 before publishing.** The version bump left the committed `dist/cli.js` stale, so the release workflow refused it. `0.9.1` was tagged but never published.
 
 ## 0.9.0 — 2026-10-17
 
