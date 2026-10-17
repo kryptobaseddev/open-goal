@@ -38,6 +38,7 @@ const USAGE = [
   "       cleo-goal status --json",
   "       cleo-goal install --project [--spec <npm-or-git spec>] [--json] [--dry-run]",
   "       cleo-goal tick   (reads the harness Stop JSON on stdin; writes JSON on stdout)",
+  "usage: ocg tick   (alias; same contract)",
   "       cleo-goal claim --summary <text> [--evidence C1=<note> ...]",
 ]
 const usage = (): never => {
