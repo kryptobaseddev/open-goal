@@ -45,7 +45,9 @@ test("Composer recovery finds amendment reviews; expired legacy consent is visib
     const restored = await getForm(replacement.id), f = restored.fields[0], choice = f.options.find((o: any) => o.label === "Accept amendment")
     await (host.client.session.form as any).reply({ sessionID: sid, formID: restored.id, answer: { [f.key]: choice.value } })
     await until(async () => (await run(host)).lock === replacement.nextLock, 10000)
-    expect((await run(host)).status).toBe("paused")
+    // v0.8.0 C2: acceptance resumes in the same act; the goal is not left paused.
+    expect(["running", "waiting"]).toContain((await run(host)).status)
+    expect((await ledger(host)).filter((e) => e.type === "amendment-resumed" && e.decisionId === replacement.id)).toHaveLength(1)
     expect((await ledger(host)).filter((e) => e.type === "amended")).toHaveLength(1)
     const replay = await rpc.review({ sessionID: sid, decisionId: replacement.id })
     expect(replay.ok).toBe(false)

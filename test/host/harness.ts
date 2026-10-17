@@ -3,6 +3,7 @@
 // data or running sessions: every XDG directory points into a temp root.
 import { OpenCode } from "@opencode/client"
 import { mkdir, mkdtemp, writeFile, readFile, rm } from "node:fs/promises"
+import { chmodSync } from "node:fs"
 import { tmpdir, homedir } from "node:os"
 import { join } from "node:path"
 
@@ -66,6 +67,10 @@ export type HostOptions = {
   files?: Record<string, string>
   /** Extra opencode.json keys merged over the defaults. */
   config?: Record<string, unknown>
+  /** Extra environment variables for the spawned server (tests: fake CLI bins on PATH). */
+  env?: Record<string, string>
+  /** Files (relative paths) to mark executable after writing. */
+  executable?: string[]
   /** Initialise the project as a git repository with one commit. */
   git?: boolean
 }
@@ -96,6 +101,7 @@ export async function startHost(options: HostOptions) {
     const file = join(project, rel)
     await mkdir(join(file, ".."), { recursive: true })
     await writeFile(file, content)
+    if (options.executable?.includes(rel)) chmodSync(file, 0o755)
   }
   if (options.git) {
     const run = (...args: string[]) => Bun.spawnSync(["git", ...args], { cwd: project, env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } })
@@ -118,6 +124,7 @@ export async function startHost(options: HostOptions) {
     OPENCODE_DISABLE_AUTOUPDATE: "1",
   }
   delete env.BUN_BE_BUN
+  Object.assign(env, options.env ?? {})
 
   // T107: never reserve a port by opening and closing a listener — the number
   // is free in that window, so a parallel test host (or anything else) can take

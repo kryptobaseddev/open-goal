@@ -95,6 +95,11 @@ export type Autonomy = {
   /** Owner-set: what the stall detector does. `pause` (default) stops for the
    * owner; `continue` keeps a stalled-but-active run going with a report. */
   on_stall: "pause" | "continue"
+  /** v0.8.0: a first visit to a project this loop has never worked in does not
+   * stop it. Default false (the contract's stop rule applies). */
+  visit_new_projects?: boolean
+  /** v0.8.0: an exhausted budget does not stop the loop. Default false. */
+  continue_past_budget?: boolean
 }
 
 export type VerificationMode = "host" | "host+verifier" | "strict"

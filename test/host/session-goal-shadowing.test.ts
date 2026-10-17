@@ -42,10 +42,11 @@ test("after a reload the session's active goal is the running one, not a complet
       return snapshot?.view?.slug === "a-live" ? snapshot : undefined
     }, 20000)
     expect(active.view.slug).toBe("a-live")
-    // A reload legitimately pauses the live run; the point is that the session
-    // reports the RUNNING goal and not the completed sibling.
-    expect(active.view.status).toBe("paused")
-    expect(active.view.reason).toContain("host restarted")
+    // A clean reload resumes the live run (v0.8.0 C1); the point is that the
+    // session reports the LIVE goal and not the completed sibling.
+    expect(["running", "waiting"]).toContain(active.view.status)
+    // and the reload did not pause it for the owner
+    expect(active.view.reason ?? "").not.toContain("host restarted")
     expect(active.view.target).toMatchObject({ key: `live:a-live:${live.runId}`, runId: live.runId, lock: live.lock, sessionID: owner })
     // The finished goal is still intact on disk and reported terminal.
     expect((await run(host, "z-finished")).status).toBe("complete")

@@ -70,7 +70,7 @@ test("natural-language amendment stages a validated diff; exact acceptance alone
       const state = await run(host, "amend-demo")
       return state.lock !== before.lock ? state : undefined
     })
-    expect(after.status).toBe("paused")
+    expect(["running", "waiting"]).toContain(after.status)
     expect(after.criteria.C1).toEqual({ status: "unknown", rejections: 0 })
     expect(after.criteria.C2).toEqual(before.criteria.C2)
     expect(await host.readProject(".opencode/goals/amend-demo/goal.yaml")).toBe(changed)
@@ -79,7 +79,7 @@ test("natural-language amendment stages a validated diff; exact acceptance alone
     await host.client.location.reload()
     expect((await run(host, "amend-demo")).lock).toBe(after.lock)
     expect((await ledger(host, "amend-demo")).filter((e) => e.type === "amended")).toHaveLength(1)
-    await host.client.session.prompt({ sessionID, text: "TRY_ORACLE while amended and stopped" } as any)
+    await host.client.session.prompt({ sessionID, text: "TRY_ORACLE while amended and live" } as any)
     await until(() => host.fixture.requests.some((r) => JSON.stringify(r.messages).includes("protected by the goal contract")))
     expect(await host.readProject("oracle.txt")).toBe("do not edit\n")
   } finally { await host.stop() }

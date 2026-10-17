@@ -45,5 +45,6 @@ export function goalHelp({ version }: HelpFacts): string {
     "- Command checks live on ONE line and are rehearsed at start; a check that cannot run refuses the lock.",
     "- Supersession replaces a goal: `supersedes: <slug>@<lock>` in the new contract; live predecessors need your explicit acknowledgment.",
     "- Describe changes in the Composer; goal_propose_amendment stages an exact diff, then goal_resolve_amendment binds genuine owner chat once. No sidebar Accept or manual command is required.",
+    "- Every accepted amendment is a generation-bound, audit-trailed re-lock: the prior generation is retained, changed criteria reset and re-verify, and acceptance resumes the run in the same act.",
   ].join("\n")
 }

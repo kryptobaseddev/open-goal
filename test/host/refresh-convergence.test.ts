@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { until } from "./harness"
-import { goalHost, newSession, run, script, waitStatus } from "./goal.helpers"
+import { goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
 import { GoalRpc } from "../../src/rpc"
 
 // T072 — snapshot convergence across a server reload (the v0.3.1 completion's
@@ -22,7 +22,7 @@ const DONE = "status: ok - converging\n"
 const evidence = { C1: "wrote done.txt", C2: "grep finds status: ok", C3: "the file states it" }
 
 const worker = () => (req: any, turn: { trigger: string; results: number }) => {
-  const claiming = turn.trigger.includes("resumed")
+  const claiming = turn.trigger.includes("resumed") || turn.trigger.includes("goal turn")
   if (turn.trigger.includes("goal started") || turn.trigger.includes("goal turn") || turn.trigger.includes("resumed")) {
     if (turn.results === 0) return { toolCalls: [{ name: "write", args: { path: "done.txt", content: DONE } }] }
     if (turn.results === 1) return { toolCalls: [{ name: "goal_progress", args: { step: "S1", step_done: true, note: "wrote done.txt", next: "claim" } }] }
@@ -63,14 +63,14 @@ describe("snapshot convergence across reloads (T072)", () => {
         }
       }, 30000)
 
-      // the snapshot a re-attaching TUI fetches shows the DISK truth: the
-      // recovered state (paused, host restarted) — never a frozen mid-run view
-      const recovered = await waitForView((v) => v?.status === "paused")
-      expect(recovered.reason).toContain("host restarted")
+      // v0.8.0 C1: a clean reload resumes by itself — no resume command and no
+      // pause. The recovered state on disk is the live run, not a frozen card.
+      await until(async () => (await ledger(host)).some((e) => e.type === "restart-resume"), 20000)
+      const recovered = await waitForView((v) => v && v.status !== "paused" && v.status !== "complete")
+      expect(recovered.status === "running" || recovered.status === "waiting").toBe(true)
 
-      // ── resume → the run completes ──
-      const seenBeforeResume = updates.length
-      await host.client.session.command({ sessionID, name: "goal", text: "resume" } as any)
+      // ── it continues and completes without an owner click ──
+      const seenAfterReload = updates.length
       const done = await waitStatus(host, ["complete", "needs_review", "blocked", "paused"], 120000)
       expect(done.status).toBe("complete")
 
@@ -80,7 +80,7 @@ describe("snapshot convergence across reloads (T072)", () => {
 
       // the engine PUSHED a final update on the terminal transition (after
       // the reload — not only the initial attachment saw it)
-      const afterReload = updates.slice(seenBeforeResume)
+      const afterReload = updates.slice(seenAfterReload)
       expect(afterReload.some((u) => u.view?.status === "complete")).toBe(true)
 
       // run.json on disk agrees with the snapshot (disk truth, not memory)

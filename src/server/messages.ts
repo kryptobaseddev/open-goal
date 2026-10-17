@@ -189,6 +189,24 @@ export const M = {
       { label: "Amend the check", run: "start a Composer interview for the check change; no contract changes before reviewed acceptance", act: "amend", arg: "interview" },
       abort,
     ], "question"),
+  continueWork: (title: string, slug: string, taskId: string) =>
+    msg("goal.continue-work", "success", `Goal complete: ${title}. Started the next ready CLEO item ${taskId} as "${slug}" — no owner decision was created.`, [
+      { label: "Open the new goal", run: `/goal status ${slug}` },
+      { label: "See all goals", run: "/goal list" },
+    ], "done"),
+  continueStopped: (reason: string) =>
+    msg("goal.continue.stopped", "warning", `The loop did not take more work: ${reason}. Nothing was started.`, [
+      { label: "Inspect the goal", run: "/goal status" },
+      { label: "Start a goal yourself", run: "/goal new <what you want done>" },
+    ], "question"),
+  peerAnnounced: (taskId?: string) =>
+    msg("goal.peer.announced", "info", `Goal complete. Announced availability to peers over AgentMBX${taskId ? ` (last linked task ${taskId})` : ""}; one announcement is outstanding.`, [
+      { label: "Inspect the goal", run: "/goal status" },
+    ]),
+  peerReplied: (from: string, taskId?: string) =>
+    msg("goal.peer.replied", "info", `${from} replied to the availability announcement${taskId ? ` about ${taskId}` : ""}; it is recorded as candidate work, not as consent.`, [
+      { label: "Inspect the goal", run: "/goal status" },
+    ], "question"),
   completeDecision: (title: string, cleoPresent: boolean, unproven: number) =>
     msg("goal.complete.decision", "success", `Goal complete: ${title}.${unproven ? ` ${unproven} discussed-but-unproven item(s) are flagged in the summary.` : ""} The loop has stopped. What next?`, [
       { label: "Start the next goal", run: "start the write-goal interview for the next goal", act: "start-next" },

@@ -114,6 +114,13 @@ function parseCheck(raw: unknown, path: string, issues: Issue[]): Check | undefi
   switch (kind) {
     case "command": {
       const expect = isRecord(raw.expect) ? raw.expect : {}
+      // v0.8.0 D6: an unimplemented expectation key is an ERROR, never silently
+      // dropped. `stderr_contains` used to collapse a criterion to bare
+      // `exit: 0`, which passes while proving nothing.
+      const supported = ["exit", "stdout_contains", "stdout_regex"] as const
+      for (const key of Object.keys(expect))
+        if (!(supported as readonly string[]).includes(key))
+          issues.push({ level: "error", path: `${path}.expect.${key}`, message: `unknown expectation "${key}"; supported: ${supported.join(", ")}` })
       const out: Check = {
         kind,
         run: need("run", str(raw.run)),
@@ -304,6 +311,8 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
     on_interrupt: pick("autonomy.on_interrupt", autonomyRaw.on_interrupt, ["pause", "resume-on-message"] as const, "pause"),
     amend: [],
     on_stall: pick("autonomy.on_stall", autonomyRaw.on_stall, ["pause", "continue"] as const, "pause"),
+    ...(autonomyRaw.visit_new_projects === true ? { visit_new_projects: true } : {}),
+    ...(autonomyRaw.continue_past_budget === true ? { continue_past_budget: true } : {}),
   }
   if (autonomyRaw.amend !== undefined) {
     if (!Array.isArray(autonomyRaw.amend)) err("autonomy.amend", `amend must be a list of ${AMEND_CLASSES.join(", ")}`)

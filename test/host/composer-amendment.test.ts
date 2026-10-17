@@ -161,7 +161,8 @@ test("actual Composer acceptance re-locks once, preserves unchanged proof and sp
     await host.client.session.wait({ sessionID } as any)
     const after = await run(host, "chat-amend")
     expect(after.runId).toBe(before.runId)
-    expect(after.status).toBe("paused")
+    // v0.8.0 C2: acceptance resumes the run in the same act.
+    expect(["running", "waiting"]).toContain(after.status)
     expect(after.criteria.C1).toEqual({ status: "unknown", rejections: 0 })
     expect(after.criteria.C2).toEqual(before.criteria.C2)
     const events = await ledger(host, "chat-amend")
@@ -217,9 +218,9 @@ test("an outstanding resume review cannot hide explicit amendment acceptance; ge
     expect((await run(host, "chat-amend")).lock).toBe(lock)
     await host.client.session.prompt({ sessionID, text: "I approve the ammendment" } as any)
     await until(async () => (await run(host, "chat-amend")).lock === request.nextLock, 15000)
-    expect((await run(host, "chat-amend")).status).toBe("paused")
+    expect(["running", "waiting"]).toContain((await run(host, "chat-amend")).status)
     expect((await ledger(host, "chat-amend")).filter((e) => e.type === "amended")).toHaveLength(1)
-    expect((await ledger(host, "chat-amend")).filter((e) => e.type === "resumed")).toHaveLength(0)
+    expect((await ledger(host, "chat-amend")).filter((e) => e.type === "resumed")).toHaveLength(1)
   } finally { await host.stop() }
 }, 60000)
 

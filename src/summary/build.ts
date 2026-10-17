@@ -85,6 +85,8 @@ export type SummaryInput = {
   cleo?: { source: string } | undefined
   /** T046: flagged unproven plan steps / scope.in items; empty until wired */
   scopeAudit?: ScopeAuditFlag[]
+  /** v0.8.0 C4: the loop started the next ready item, so it did not stop. */
+  continued?: boolean
 }
 
 export function buildPostGoalSummary(input: SummaryInput): PostGoalSummary {
@@ -102,7 +104,9 @@ export function buildPostGoalSummary(input: SummaryInput): PostGoalSummary {
 
   const followUps: string[] = []
   if (state.status === "complete") {
-    followUps.push("Start the next goal: /goal new <what you want done> — the non-goals below are the ready-made backlog.")
+    followUps.push(input.continued
+      ? "The loop kept going: the next ready item was started by itself. Inspect it in the Goal manager (/goal list)."
+      : "Start the next goal: /goal new <what you want done> — the non-goals below are the ready-made backlog.")
   } else if (state.status === "needs_review") {
     followUps.push("Resolve the review: /goal approve <C#> (final) or /goal reject <C#> <why>, then /goal verify.")
   } else if (state.status === "budget_limited") {
@@ -121,8 +125,11 @@ export function buildPostGoalSummary(input: SummaryInput): PostGoalSummary {
   lines.push(`${headline} · ${state.turn} turn(s)`)
   lines.push("")
   // T071: completion silence read as broken — the summary states plainly
-  // that the loop has stopped and names where the follow-ups live.
-  lines.push(`The loop has stopped (${state.status}). Nothing further runs, verifies, or spends on its own.`)
+  // what stopped. v0.8.0 C4: when the loop took the next item, this goal is
+  // still finished but the loop is not.
+  lines.push(input.continued
+    ? `This goal has stopped (${state.status}); the loop started the next ready item and kept going. This goal itself no longer runs, verifies, or spends.`
+    : `The loop has stopped (${state.status}). Nothing further runs, verifies, or spends on its own.`)
   lines.push(`Follow-ups live here: the list below, the Goal panel (F9), and .opencode/goals/${state.slug}/ (ledger, evidence, this summary).`)
   lines.push("")
   lines.push(`Outcome (as contracted): ${contract.outcome}`)

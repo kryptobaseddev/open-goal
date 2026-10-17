@@ -30,7 +30,7 @@ export type CriterionState = {
 }
 
 export type PendingKind = "kickoff" | "continue" | "verdict" | "recovery" | "wrapup" | "resume"
-export type Handoff = { fromSessionID: string; toSessionID: string; agent?: string; model?: { providerID: string; id: string; variant?: string }; fallback?: string }
+export type Handoff = { fromSessionID: string; toSessionID: string; agent?: string; model?: { providerID: string; id: string; variant?: string }; fallback?: string; /** v0.8.0: the generated handoff document, relative to the goal folder. */ file?: string }
 
 export type RunState = {
   version: 1
@@ -71,6 +71,15 @@ export type RunState = {
   flags: Array<{ criterion?: string; kind: string; reason: string; at: number }>
   amendments: Array<{ change: string; rationale: string; at: number; status: "proposed" | "accepted" | "rejected" }>
   handoff?: Handoff
+  /** v0.8.0: peer availability announcements and the candidates they produced. */
+  peer?: {
+    lastAt?: number
+    outstanding?: { id: string; at: number }
+    lastReplyAt?: number
+    /** Bounded best-effort polling of the outstanding announcement. */
+    polls?: number
+    candidates?: Array<{ source: "peer"; project: string; taskId?: string; title: string; from?: string; messageId?: string; at?: number }>
+  }
 }
 
 export function initialRun(contract: Contract, args: { sessionID: string; runId: string; lock: string; commit?: string; now?: number }): RunState {

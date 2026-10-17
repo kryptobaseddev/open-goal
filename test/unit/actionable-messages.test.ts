@@ -52,6 +52,10 @@ const samples: Record<string, () => EngineMessage> = {
   supersedeAck: () => M.supersedeAck("ship-v3", "ship-v2", "running"),
   pausedAfterVerdict: () => M.pausedAfterVerdict("C15 FAILED [host] output lacks \"0.3.0\""),
   completeDecision: () => M.completeDecision("Ship the widget", false, 2),
+  continueWork: () => M.continueWork("Ship the widget", "cleo-t900", "T900"),
+  continueStopped: () => M.continueStopped("the next candidate is in a project this loop has never worked in"),
+  peerAnnounced: () => M.peerAnnounced("T900"),
+  peerReplied: () => M.peerReplied("peer@host", "T777"),
 }
 
 /** A choice is concrete when it names a command, a worker tool, or an

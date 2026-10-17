@@ -24,6 +24,8 @@ import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
 import { goalHelp } from "./help"
 import { decide } from "../engine/loop"
+import { restartDecision } from "../engine/interrupt-policy"
+import { staleDecision } from "../engine/stale-decisions"
 import { cleoFacts, cleoHealth, cleoHealthReport, cleoLinkEvent, CLEO_INIT_COMMAND, CLEO_INSTALL_COMMAND, type Runner } from "../engine/cleo-link"
 import { bridgeReport, acsByGateFromProves, junitToVitestJson, runBridge, sha256Hex, suggestLinkedTasks, type BridgeReport, type CleoRun, type TaskOutcome } from "../engine/cleo-bridge"
 import type { CleoTaskLink } from "../contract/types"
@@ -32,6 +34,11 @@ import { completionAudit } from "../summary/audit"
 import { M, renderMessage, type EngineMessage } from "./messages"
 import { directGoalCommand } from "./intent"
 import { ownerAmendmentMessage, ownerLaunchMessage, ownerResumeMessage } from "../engine/owner-intent"
+import { nextWork, type WorkCandidate } from "../engine/next-work"
+import { candidateFromReply, announcementText, type PeerChannel } from "../engine/peer-announce"
+import { createPeerChannel } from "../engine/peer-transport"
+import { readyCleoTask, continuationContractYaml, continuationSlug } from "../engine/continue-work"
+import { buildHandoff, handoffDigest } from "../engine/handoff"
 
 /** Spawn the cleo CLI with a hard timeout; all failures resolve safely. */
 const defaultRunner: Runner = (command, args, timeoutMs = 2500) =>
@@ -140,6 +147,12 @@ export class GoalApp {
   private readonly artifacts = captureArtifactHashes(this.packageRoot)
   private readonly packageVersion: string = JSON.parse(readFileSync(join(this.packageRoot, "package.json"), "utf8")).version
   private launchRecoveryTimer?: ReturnType<typeof setTimeout>
+  /** Runs a clean restart decided to resume; admitted after setup completes. */
+  private pendingResumes: RunState[] = []
+  /** Runs whose owner-accepted amendment was committed during startup recovery. */
+  private recoveredAmendmentRuns = new Set<string>()
+  /** v0.8.0: lazily created AgentMBX transport (only with an identity). */
+  private peerChannelInstance?: PeerChannel
 
   constructor(private ctx: Context) {
     this.root = ctx.location.directory
@@ -168,7 +181,49 @@ export class GoalApp {
     // a recovery prompt here would wait for our own setup and deadlock.
     this.launchRecoveryTimer = setTimeout(() => {
       if (!this.disposed) void this.recoverOwnerReviews().catch((error) => this.store.ledger("_errors", { type: "owner-review-recovery-error", error: String(error) }))
+      if (!this.disposed) this.resumeRestarted()
     }, 0)
+  }
+
+  /**
+   * v0.8.0 C1: a clean restart's runs resume without an owner decision. The
+   * work is deferred until setup is complete (admitting during setup would wait
+   * on our own hooks). A run that was verifying a claim re-verifies; a run that
+   * was waiting re-arms its deadline; anything else receives the same
+   * continuation it had pending, or an ordinary continue.
+   */
+  private resumeRestarted() {
+    for (const state of this.pendingResumes.splice(0)) {
+      void this.serial(async () => {
+        const live = this.runs.get(state.sessionID)
+        if (this.disposed || !live || live.runId !== state.runId) return
+        if (!isActive(live.status)) return
+        const contract = this.contractOf(live)
+        if (!contract) {
+          setStatus(live, "paused", "contract unavailable after restart; resume when ready")
+          this.persist(live)
+          return
+        }
+        this.store.ledger(live.slug, { type: "restart-resume", runId: live.runId, lock: live.lock, status: live.status, turn: live.turn })
+        // A claim that was mid-verification is re-verified, never skipped.
+        if (live.claim) return this.verify(live, contract, "claim")
+        if (live.status === "verifying") {
+          // No claim survives: the checks were interrupted and their partial
+          // results are not evidence. Pause rather than invent a verdict.
+          setStatus(live, "paused", "host restarted during verification; resume when ready")
+          this.store.ledger(live.slug, { type: "restart-verify-interrupted", turn: live.turn })
+          this.persist(live)
+          return
+        }
+        if (live.status === "waiting" && live.wait && live.wait.until > Date.now())
+          return this.schedule(live, live.wait.until - Date.now(), "continue")
+        if (live.status === "waiting") {
+          live.wait = undefined
+          setStatus(live, "running")
+        }
+        await this.admit(live, live.pending?.kind ?? "continue")
+      })
+    }
   }
 
   async stop() {
@@ -180,15 +235,36 @@ export class GoalApp {
     for (const r of this.registrations.splice(0)) await Promise.resolve(r.dispose()).catch(() => {})
   }
 
-  /** Running goals from a previous process come back paused (never resumed blindly). */
+  /**
+   * Running goals from a previous process: v0.8.0 resumes a clean restart by
+   * itself (unchanged lock, intact run) and still pauses on a changed contract,
+   * a repaired/divergent run or an interrupted write. The decision is the pure
+   * `restartDecision`; this method only gathers the facts and applies it.
+   */
   private recover() {
     for (const slug of this.store.slugs()) {
-      const state = this.recoverRunState(slug)
+      const { state, intact } = this.recoverRunState(slug)
       if (!state) continue
       if (isActive(state.status)) {
-        setStatus(state, "paused", "host restarted; resume when ready")
-        this.store.ledger(slug, { type: "recovered", status: "paused" })
-        this.store.writeRun(state)
+        let disk: { lock: string } | undefined
+        try { disk = this.store.readContract(slug) } catch { disk = undefined }
+        const decision = restartDecision({
+          status: state.status,
+          lock: state.lock,
+          ...(disk ? { diskLock: disk.lock } : {}),
+          runIntact: intact,
+          interruptedWrite: this.amendmentReviews.all().some((p) => p.slug === slug && p.runId === state.runId && p.status === "executing"),
+        })
+        const recoveredAccept = this.recoveredAmendmentRuns.has(state.runId) && state.status === "paused" && intact && !!disk && disk.lock === state.lock
+        if (decision.action === "resume" || recoveredAccept) {
+          this.store.ledger(slug, { type: "recovered", status: "resumed", reason: recoveredAccept ? "an owner-accepted amendment was committed before the restart" : decision.reason })
+          this.store.writeRun(state)
+          this.pendingResumes.push(state)
+        } else if (decision.action === "pause") {
+          setStatus(state, "paused", `host restarted; ${decision.reason}`)
+          this.store.ledger(slug, { type: "recovered", status: "paused", code: decision.code, reason: decision.reason })
+          this.store.writeRun(state)
+        }
       }
       // T072: EVERY goal on disk — terminal ones included — is mirrored in
       // memory. A re-attaching TUI's snapshot then reads the disk truth
@@ -211,15 +287,15 @@ export class GoalApp {
    * silently trusted (JSON would keep the last duplicate). Repair exactly what
    * the run's own ledger and evidence prove; otherwise refuse and leave it to
    * the owner. */
-  private recoverRunState(slug: string): RunState | undefined {
+  private recoverRunState(slug: string): { state?: RunState; intact: boolean } {
     const raw = this.store.readRunRaw(slug)
-    if (!raw) return undefined
+    if (!raw) return { intact: true }
     let parsed: RunState | undefined
     try {
       const value = JSON.parse(raw.text)
       parsed = value?.version === 1 ? (value as RunState) : undefined
     } catch { parsed = undefined }
-    if (parsed && !raw.duplicates.length) return parsed
+    if (parsed && !raw.duplicates.length) return { state: parsed, intact: true }
 
     const reason = raw.duplicates.length
       ? `run.json carried duplicate keys (${raw.duplicates.join(", ")}); JSON keeps the last value silently`
@@ -227,10 +303,10 @@ export class GoalApp {
     this.store.ledger(slug, { type: "run-state-corruption", duplicateKeys: raw.duplicates, reason })
 
     const repaired = this.repairRunState(slug, raw.text, raw.duplicates)
-    if (repaired) return repaired
+    if (repaired) return { state: repaired, intact: false }
     this.store.ledger(slug, { type: "run-state-unprovable", duplicateKeys: raw.duplicates, reason,
       detail: "the run's own ledger/evidence cannot prove its runId, lock and session; owner decision required" })
-    return undefined
+    return { intact: false }
   }
 
   /** Prove the run's identity from its own bytes: the ledger's last start event
@@ -509,7 +585,7 @@ export class GoalApp {
    * the owner (rpc event → TUI dialog) and the agent (one-line transcript
    * notice), and persisted under evidence/ with a ledger event.
    */
-  private async summarize(state: RunState, contract: Contract) {
+  private async summarize(state: RunState, contract: Contract, continued = false) {
     try {
       const summary = buildPostGoalSummary({
         contract,
@@ -517,6 +593,7 @@ export class GoalApp {
         ledgerEvents: this.store.recent(state.slug, 200) as unknown as Array<Record<string, unknown>>,
         cleo: await cleoFacts(this.root, defaultRunner),
         scopeAudit: completionAudit(contract, state),
+        continued,
       })
       const file = this.store.evidence(state.slug, state.runId, `summary-turn-${state.turn}-${Date.now()}`, summary)
       this.store.ledger(state.slug, { type: "summary", turn: state.turn, status: state.status, headline: summary.headline, file })
@@ -611,6 +688,13 @@ export class GoalApp {
     if (!pending || this.pendingFormDecisions.has(sessionID)) return
     if (this.factsOf(sessionID).forms.size > 0) return
     const request = this.decisions.get(pending.id)
+    if (!request) return
+    const stale = staleDecision(request, request.target, this.decisionTarget(request.slug))
+    if (stale.stale) {
+      this.silenceDecision(request, stale)
+      if (this.pendingDecisions.get(sessionID)?.id === request.id) this.pendingDecisions.delete(sessionID)
+      return
+    }
     // A dismissal/comment is an unresolved review, not permission to trap
     // the owner in an immediately re-opening form. Reload or goal_review
     // explicitly restores it; ordinary execution events do not.
@@ -970,6 +1054,18 @@ export class GoalApp {
     }
   }
 
+  /**
+   * v0.8.0 C3: a stale decision is silenced, never re-presented. "Stale" is
+   * answered/expired/superseded or bound to a generation that moved; a merely
+   * dismissed review (interrupted) is still unanswered and is restored.
+   */
+  private silenceDecision(request: DecisionRequest, stale: { code: string; reason: string }) {
+    if (stale.code === "answered") return
+    const status = stale.code === "expired" ? "expired" : stale.code === "superseded" ? "cancelled" : "failed"
+    this.decisions.update(request.id, { status: status as any, result: stale.reason })
+    this.store.ledger(request.slug, { type: "decision-silenced", decision: request.id, kind: request.kind, code: stale.code, reason: stale.reason, actionExecuted: false })
+  }
+
   private async recoverDecisions() {
     const api = (this.ctx.session as any).form
     for (const p of this.decisions.all()) {
@@ -981,9 +1077,9 @@ export class GoalApp {
         continue
       }
       if (!["pending", "interrupted"].includes(p.status)) continue
-      if (reviewExpired(p)) { this.decisions.update(p.id, { status: "expired", result: "Decision review expired; inspect status before a new review." }); continue }
       const current = this.decisionTarget(p.slug)
-      if (current.lock !== p.target.lock || current.runId !== p.target.runId || current.sessionID !== p.target.sessionID) { this.decisions.update(p.id, { status: "failed", result: "Goal generation/session changed; old review invalidated." }); continue }
+      const stale = staleDecision(p, p.target, current)
+      if (stale.stale) { this.silenceDecision(p, stale); continue }
       this.publishDecision(p)
       if (p.formID && typeof api?.get === "function") {
         try {
@@ -1010,6 +1106,14 @@ export class GoalApp {
     if (!["pending", "interrupted", "expired"].includes(request.status))
       throw new Error(`Decision review is ${request.status}; old choices cannot be replayed. ${request.result ?? "Inspect the recorded outcome; no operation executed."}`)
     const current = this.decisionTarget(request.slug)
+    // v0.8.0 C3: expired / superseded / already-answered decisions are never
+    // re-presented. The caller can request a fresh review only through the
+    // operation that creates a new decision, never by replaying this one.
+    const stale = staleDecision(request, request.target, current)
+    if (stale.stale) {
+      this.silenceDecision(request, stale)
+      throw new Error(`${stale.reason}. No decision was re-presented; inspect the current goal status or request a fresh review.`)
+    }
     if (current.lock !== request.target.lock || current.runId !== request.target.runId || current.sessionID !== request.target.sessionID || current.status !== request.target.status) throw new Error("The reviewed target changed; old choices cannot be reused. Inspect current goal status.")
     // Legacy rejected-criterion forms offered approval without its ID. A
     // failed choice is not consent for a newly inferred argument: replace
@@ -1027,10 +1131,6 @@ export class GoalApp {
       this.decide(sessionID, request.slug, "needs_review", M.needsReview(state.reason ?? "criterion review", [...new Set(ids)]), request.extra)
       this.store.ledger(request.slug, { type: "decision-review-replaced", previousDecision: request.id, reason: "legacy approval missing criterion; new explicit owner choice required" })
       return "Legacy unbound approval replaced with a new criterion-specific native review. The old answer was not replayed; nothing was approved or executed."
-    }
-    if (request.status === "expired") {
-      this.decide(sessionID, request.slug, request.kind, request.message, request.extra)
-      return "Expired review replaced by a new exact native review. No operation was authorized or executed."
     }
     if (request.status === "pending" && request.formID) return "The exact review is already present in the native composer. No operation was authorized or executed."
     this.decisions.reopenForm(request.id)
@@ -1301,12 +1401,19 @@ export class GoalApp {
 
   private async presentAmendment(request: AmendmentRequest) {
     const nativeForm = (this.ctx.session as any).form
-    if (typeof nativeForm?.create === "function") {
-      const form = await nativeForm.create({ sessionID: request.sessionID, title: `${request.recovery ? "Recover" : "Amend"} ${request.slug}?`, metadata: { goalDecisionID: request.id }, fields: [{ key: "action", title: request.question, type: "string", custom: true, options: [...this.amendmentReviews.choicesFor(request)] }] })
-      this.amendmentReviews.bind(form)
-    } else {
-      const payload = { questions: [{ header: "Goal", question: request.question, options: this.amendmentReviews.choicesFor(request).map((c) => ({ label: c.label, description: c.description })) }] }
-      await this.ctx.session.prompt({ sessionID: request.sessionID, text: `Ask the owner with the question tool using this exact JSON. The host alone applies the selected amendment; do not edit goal.yaml or call an owner action afterwards.\nGOAL_FORM_JSON:${JSON.stringify(payload)}`, resume: true, metadata: { goal: { kind: "amendment-review", decisionId: request.id } } } as any)
+    try {
+      if (typeof nativeForm?.create === "function") {
+        const form = await nativeForm.create({ sessionID: request.sessionID, title: `${request.recovery ? "Recover" : "Amend"} ${request.slug}?`, metadata: { goalDecisionID: request.id }, fields: [{ key: "action", title: request.question, type: "string", custom: true, options: [...this.amendmentReviews.choicesFor(request)] }] })
+        this.amendmentReviews.bind(form)
+        this.store.ledger(request.slug, { type: "amendment-review-presented", decisionId: request.id, formID: (form as any)?.id ?? null, sessionID: request.sessionID })
+      } else {
+        const payload = { questions: [{ header: "Goal", question: request.question, options: this.amendmentReviews.choicesFor(request).map((c) => ({ label: c.label, description: c.description })) }] }
+        await this.ctx.session.prompt({ sessionID: request.sessionID, text: `Ask the owner with the question tool using this exact JSON. The host alone applies the selected amendment; do not edit goal.yaml or call an owner action afterwards.\nGOAL_FORM_JSON:${JSON.stringify(payload)}`, resume: true, metadata: { goal: { kind: "amendment-review", decisionId: request.id } } } as any)
+        this.store.ledger(request.slug, { type: "amendment-review-dispatched", decisionId: request.id, sessionID: request.sessionID })
+      }
+    } catch (error) {
+      this.store.ledger(request.slug, { type: "amendment-review-present-failed", decisionId: request.id, sessionID: request.sessionID, error: String(error).slice(0, 400) })
+      throw error
     }
   }
 
@@ -1383,13 +1490,10 @@ export class GoalApp {
     const after = this.amendmentReviews.get(resolved.request.id)!
     let continuation: { ok: boolean; message: string } | undefined
     if (resolved.continueGoal && after.status === "succeeded") {
-      continuation = await this.serial(async () => {
-        const selected = this.list().find((g) => g.slug === after.slug && g.runId === after.runId && g.lock === after.nextLock && g.sessionID === after.targetSessionID)
-        if (!selected) return { ok: false, message: "Accepted generation changed before continuation; no other goal used." }
-        const result = await this.ownerActLocked(sessionID, "resume", undefined, undefined, selected)
-        this.store.ledger(after.slug, { type: "amendment-chat-continuation", decisionId: after.id, ownerMessageID: resolved.source.id, lock: after.nextLock, ok: result.ok, message: result.message })
-        return result
-      })
+      const live = this.runs.get(after.targetSessionID)
+      const resumed = !!live && live.runId === after.runId && !isTerminal(live.status) && live.lock === after.nextLock
+      continuation = { ok: resumed, message: resumed ? "Resumed the accepted generation." : "Accepted; the run was not resumable." }
+      this.store.ledger(after.slug, { type: "amendment-chat-continuation", decisionId: after.id, ownerMessageID: resolved.source.id, lock: after.nextLock, ok: resumed, message: continuation.message })
     }
     if (resolved.request.formID) await (this.ctx.session as any).form?.cancel?.({ sessionID, formID: resolved.request.formID }).catch(() => {})
     return { ok: input.action === "accept" ? after.status === "succeeded" && (!continuation || continuation.ok) : ["rejected", "commented"].includes(after.status),
@@ -1429,7 +1533,7 @@ export class GoalApp {
       if (!rejected) await this.ctx.session.prompt({ sessionID: request.sessionID, text: `Owner commentary for amendment ${request.id} of ${request.slug}: ${JSON.stringify(comment)}. Nothing was accepted or resumed. Use goal_propose_amendment with a revised validated contract and the current lock; never edit goal.yaml directly.`, resume: true } as any)
       return
     }
-    await this.serial(() => {
+    await this.serial(async () => {
       const state = this.runs.get(request.targetSessionID)
       const disk = this.store.readContract(request.slug)
       const next = parseContract(request.nextText, { slug: request.slug })
@@ -1454,10 +1558,13 @@ export class GoalApp {
         if (!next.contract.priority) delete state.priority
         this.loaded.set(state.slug, { contract: next.contract, lock: next.lock, text: request.nextText })
         this.persist(state)
-        this.amendmentReviews.update(request.id, { status: "succeeded", result: `Amended ${state.slug} to ${state.lock}; the goal stays paused.` })
+        this.amendmentReviews.update(request.id, { status: "succeeded", result: `Amended ${state.slug} to ${state.lock}; the goal resumes.` })
         this.retireAmendmentReviews(approved)
         if (ownerChat) this.store.ledger(request.slug, { type: "amendment-chat-resolved", decisionId: request.id, ownerMessageID: ownerChat.messageID, lock: state.lock, ok: true })
         this.invalidateOldDecision(state)
+        // v0.8.0 C2: an accepted amendment resumes in the same act. No second
+        // owner decision is created; the acceptance was the decision.
+        await this.resumeAccepted(state, request.id)
         this.noticeM(request.sessionID, M.amended(state.amendments.filter((a) => a.status === "accepted").length, request.diff.summary))
       } catch (error) {
         // Keep executing+write-ahead receipt for recovery. Never report a
@@ -1476,7 +1583,8 @@ export class GoalApp {
       // Conflicting third-generation bytes fail setup rather than admitting
       // a worker with an inconsistent approved contract/state pair.
       this.store.commitAmendment(p)
-      this.amendmentReviews.update(p.id, { status: "succeeded", result: "Recovered owner-accepted amendment; goal remains paused." })
+      this.amendmentReviews.update(p.id, { status: "succeeded", result: "Recovered owner-accepted amendment; the goal resumes." })
+      this.recoveredAmendmentRuns.add(p.runId)
       this.retireAmendmentReviews(p)
     }
   }
@@ -1668,6 +1776,9 @@ export class GoalApp {
         this.store.evidence(slug, state.runId, "rehearsal", { at: Date.now(), results: rehearsal })
         this.store.ledger(slug, { type: "rehearsal", turn: 0, baseline: rehearsal.map((r) => ({ id: r.id, pass: r.pass })) })
       }
+      // v0.8.0 D1: a fresh launch carries a handoff built from what the host
+      // already knows, so the new session does not have to rediscover it.
+      if (options.handoff) this.writeHandoff(state, contract, options.handoff, exec, rehearsal)
       this.store.evidence(slug, state.runId, "contract", { lock, text })
       await Bun.write(join(this.store.dir(slug), "evidence", state.runId, "contract.yaml"), text)
       this.runs.set(sessionID, state)
@@ -1735,6 +1846,252 @@ export class GoalApp {
     return `Amended ${state.slug} (generation ${generation}): ${summary}. Changed criteria reset to unknown and re-verify on the next claim.`
   }
 
+  /**
+   * v0.8.0 C2: the accepted generation continues immediately. The run was
+   * paused while its review was staged; this clears that pause, records the
+   * resume, and admits the ordinary continuation — all in the acceptance act.
+   * A verifying run is left alone (its verdict decides), and a terminal run is
+   * never revived.
+   */
+  private async resumeAccepted(state: RunState, decisionId: string) {
+    const live = this.runs.get(state.sessionID)
+    if (!live || live.runId !== state.runId || isTerminal(live.status) || live.status === "verifying") return false
+    if (!this.contractOf(live)) return false
+    live.wait = undefined
+    setStatus(live, "running", "owner accepted an amendment")
+    this.store.ledger(live.slug, { type: "resumed", by: "owner amendment", decisionId, lock: live.lock, turn: live.turn })
+    this.store.ledger(live.slug, { type: "amendment-resumed", decisionId, lock: live.lock, turn: live.turn })
+    this.persist(live)
+    await this.admit(live, "resume")
+    return true
+  }
+
+  // ───────────────────────────── continuation (v0.8.0 C4/C5)
+
+  private peerChannel(): PeerChannel | undefined {
+    const identity = process.env.OCGOAL_PEER_IDENTITY
+    if (!identity) return undefined
+    this.peerChannelInstance ??= createPeerChannel({
+      bin: process.env.OCGOAL_PEER_BIN ?? "agentmbx",
+      identity,
+      cli: "opencode",
+      ...(Number(process.env.OCGOAL_PEER_TIMEOUT_MS) > 0 ? { timeoutMs: Number(process.env.OCGOAL_PEER_TIMEOUT_MS) } : {}),
+    })
+    return this.peerChannelInstance
+  }
+
+  private peerCooldownMs(): number {
+    const value = Number(process.env.OCGOAL_PEER_COOLDOWN_MS)
+    return Number.isFinite(value) && value >= 0 ? value : 15 * 60_000
+  }
+
+  private peerPollMs(): number {
+    const value = Number(process.env.OCGOAL_PEER_POLL_MS)
+    return Number.isFinite(value) && value > 0 ? value : 30_000
+  }
+
+  /**
+   * v0.8.0 C4/C5: after a goal completes the loop looks for the next work
+   * before it stops. Sources, in order: a ready CLEO item in this project, then
+   * peer replies to an availability announcement. The decision is the pure
+   * `nextWork`; this method only gathers the facts and applies the action.
+   *
+   * Returns true only when a NEW goal was actually started — that is the case
+   * where the completion must not create an owner question.
+   */
+  private async continueWork(state: RunState, contract: Contract): Promise<boolean> {
+    const candidates: WorkCandidate[] = []
+
+    // 1. A ready CLEO item. Only probe when this project is CLEO-linked; an
+    //    unlinked project spawns nothing and keeps today's behaviour.
+    try {
+      if (await cleoFacts(this.root, defaultRunner)) {
+        const task = await readyCleoTask((command, args, timeoutMs) => defaultRunner(process.env.OCGOAL_CLEO_BIN ?? command, args, timeoutMs))
+        if (task) candidates.push({ source: "cleo", project: this.root, taskId: task.id, title: task.title, acceptance: task.acceptance })
+      }
+    } catch (error) {
+      this.store.ledger(state.slug, { type: "continue-cleo-error", error: String(error).slice(0, 300) })
+    }
+
+    // 2. Peer replies since the last poll. A reply is candidate work, never consent.
+    const channel = this.peerChannel()
+    if (channel) {
+      const replies = await channel.replies({ since: state.peer?.lastReplyAt ?? 0, sessionID: state.sessionID }).catch(() => [])
+      if (replies.length) {
+        const now = Date.now()
+        state.peer = { ...(state.peer ?? {}), outstanding: undefined, lastReplyAt: now,
+          candidates: [...(state.peer?.candidates ?? []), ...replies.map((r) => candidateFromReply(r, this.root))] }
+        this.persist(state)
+        this.store.ledger(state.slug, { type: "peer-reply", count: replies.length, from: replies.map((r) => r.from), candidates: replies.map((r) => r.text.slice(0, 200)) })
+        for (const reply of replies) {
+          for (const candidate of [candidateFromReply(reply, this.root)])
+            this.noticeM(state.sessionID, M.peerReplied(candidate.from ?? reply.from, candidate.taskId))
+        }
+      }
+      for (const candidate of state.peer?.candidates ?? [])
+        if (!candidates.some((c) => c.messageId === candidate.messageId)) candidates.push(candidate as WorkCandidate)
+    }
+
+    const decision = nextWork({
+      candidates,
+      currentProject: this.root,
+      visitedProjects: [this.root],
+      budgetExhausted: budgetUse(state, contract).ratio >= 1,
+      allowBudgetExhaustion: contract.autonomy.continue_past_budget === true,
+      allowNewProjects: contract.autonomy.visit_new_projects === true,
+      ...(state.peer ? { announce: { ...(state.peer.lastAt !== undefined ? { lastAt: state.peer.lastAt } : {}), ...(state.peer.outstanding ? { outstanding: state.peer.outstanding } : {}) } } : { announce: {} }),
+      now: Date.now(),
+      cooldownMs: this.peerCooldownMs(),
+    })
+
+    switch (decision.kind) {
+      case "start":
+        return this.startContinuation(state, contract, decision.candidate)
+      case "announce":
+        await this.announceAvailability(state, contract, channel)
+        return false
+      case "stop":
+        this.store.ledger(state.slug, { type: "continue-stopped", code: decision.code, reason: decision.reason })
+        this.noticeM(state.sessionID, M.continueStopped(decision.reason))
+        return false
+      default:
+        return false
+    }
+  }
+
+  /** Write the continuation contract and open it in a fresh session. */
+  private startContinuation(state: RunState, contract: Contract, candidate: WorkCandidate): boolean {
+    if (candidate.source !== "cleo" || !candidate.taskId) {
+      this.store.ledger(state.slug, { type: "continue-candidate", source: candidate.source, title: candidate.title, from: candidate.from ?? null, taskId: candidate.taskId ?? null })
+      return false
+    }
+    const taken = new Set([...this.store.slugs(), ...this.store.archivedSlugs()])
+    const slug = continuationSlug(candidate.taskId, taken)
+    const text = continuationContractYaml({
+      slug,
+      task: { id: candidate.taskId, title: candidate.title, description: "", acceptance: candidate.acceptance ?? [] },
+      sourceSlug: state.slug,
+      autonomy: contract.autonomy,
+    })
+    const parsed = parseContract(text, { slug })
+    if (!parsed.contract) {
+      this.store.ledger(state.slug, { type: "continue-refused", taskId: candidate.taskId, slug, issues: parsed.issues })
+      this.noticeM(state.sessionID, M.continueStopped(`the contract generated from ${candidate.taskId} did not validate`))
+      return false
+    }
+    const dir = join(this.root, ".opencode", "goals", slug)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, "goal.yaml"), text)
+    this.store.ledger(state.slug, { type: "continue-work", taskId: candidate.taskId, slug, title: candidate.title, lock: parsed.lock })
+    this.noticeM(state.sessionID, M.continueWork(state.title, slug, candidate.taskId))
+    void this.transcript(state.sessionID, `◎ Goal complete — "${state.title}". Started the next ready CLEO item ${candidate.taskId} as "${slug}" in a new session; no owner decision was created. The new contract is .opencode/goals/${slug}/goal.yaml.`)
+    // startClean creates the session outside the serial queue and queues the
+    // start behind this completion turn; called synchronously it would re-enter
+    // the queue and deadlock.
+    setTimeout(() => {
+      if (this.disposed) return
+      void this.startClean(state.sessionID, slug, {}).catch((error) =>
+        this.store.ledger(state.slug, { type: "continue-start-failed", taskId: candidate.taskId, slug, error: String(error).slice(0, 300) }))
+    }, 0)
+    return true
+  }
+
+  /** One availability announcement, rate-limited by the pure policy. */
+  private async announceAvailability(state: RunState, contract: Contract, channel: PeerChannel | undefined) {
+    if (!channel) {
+      this.store.ledger(state.slug, { type: "peer-announce-skipped", reason: "no peer identity configured (set OCGOAL_PEER_IDENTITY)" })
+      return
+    }
+    const now = Date.now()
+    const taskId = contract.cleo?.tasks[0]?.id
+    const sent = await channel.announce({
+      text: announcementText({ project: this.root, ...(taskId ? { taskId } : {}), slug: state.slug }),
+      sessionID: state.sessionID,
+    }).catch(() => undefined)
+    if (!sent) {
+      this.store.ledger(state.slug, { type: "peer-announce-failed" })
+      return
+    }
+    state.peer = { ...(state.peer ?? {}), lastAt: now, outstanding: { id: sent.id, at: now }, polls: 0 }
+    this.persist(state)
+    this.store.ledger(state.slug, { type: "peer-announce", id: sent.id, taskId: taskId ?? null })
+    this.noticeM(state.sessionID, M.peerAnnounced(taskId))
+    this.schedulePeerPoll(state)
+  }
+
+  /** Best-effort: turn replies to the outstanding announcement into candidates. */
+  private schedulePeerPoll(state: RunState) {
+    const channel = this.peerChannel()
+    if (!channel) return
+    const key = `peer:${state.sessionID}`
+    clearTimeout(this.timers.get(key))
+    const timer = setTimeout(() => {
+      void this.serial(async () => {
+        const replies = await channel.replies({ since: state.peer?.lastReplyAt ?? 0, sessionID: state.sessionID }).catch(() => [])
+        if (!replies.length) {
+          // Keep watching while the announcement is outstanding, but never
+          // forever: 40 polls at the configured interval is a bounded wait.
+          const polls = (state.peer?.polls ?? 0) + 1
+          state.peer = { ...(state.peer ?? {}), polls }
+          if (state.peer.outstanding && polls < 40) this.schedulePeerPoll(state)
+          else if (state.peer.outstanding) this.store.ledger(state.slug, { type: "peer-poll-expired", id: state.peer.outstanding.id, polls })
+          return
+        }
+        const now = Date.now()
+        const candidates = replies.map((r) => candidateFromReply(r, this.root))
+        state.peer = { ...(state.peer ?? {}), outstanding: undefined, lastReplyAt: now, candidates: [...(state.peer?.candidates ?? []), ...candidates] }
+        this.persist(state)
+        this.store.ledger(state.slug, { type: "peer-reply", count: replies.length, candidates: candidates.map((c) => ({ from: c.from, taskId: c.taskId ?? null, title: c.title })) })
+        for (const candidate of candidates) this.noticeM(state.sessionID, M.peerReplied(candidate.from ?? "a peer", candidate.taskId))
+      })
+    }, this.peerPollMs())
+    timer.unref?.()
+    this.timers.set(key, timer)
+  }
+
+  /**
+   * v0.8.0 D1: write the launch handoff beside the contract. Facts only, with
+   * their sources; a failed probe is omitted, never invented.
+   */
+  private writeHandoff(state: RunState, contract: Contract, handoff: Handoff, exec: string, rehearsal: Array<{ id: string; pass: boolean }>) {
+    try {
+      const prior = this.store.slugs()
+        .filter((s) => s !== state.slug)
+        .map((s) => ({ slug: s, run: this.store.readRun(s) }))
+        .filter((x): x is { slug: string; run: RunState } => !!x.run && isTerminal(x.run.status) && x.run.sessionID === handoff.fromSessionID)
+        .sort((a, b) => (b.run.updatedAt ?? 0) - (a.run.updatedAt ?? 0))[0]
+      const branch = Bun.spawnSync(["git", "branch", "--show-current"], { cwd: exec, stdout: "pipe", stderr: "ignore" })
+      const status = Bun.spawnSync(["git", "status", "--porcelain"], { cwd: exec, stdout: "pipe", stderr: "ignore" })
+      const dirty = status.exitCode === 0
+        ? status.stdout.toString().split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !l.includes(".opencode/goals"))
+        : []
+      const doc = buildHandoff({
+        slug: state.slug,
+        title: contract.title,
+        fromSessionID: handoff.fromSessionID,
+        toSessionID: handoff.toSessionID,
+        ...(prior ? { prior: {
+          slug: prior.slug, runId: prior.run.runId, lock: prior.run.lock, status: prior.run.status, turn: prior.run.turn,
+          evidence: `.opencode/goals/${prior.slug}/evidence/${prior.run.runId}/`,
+        } } : {}),
+        repo: { ...(state.base.commit ? { head: state.base.commit } : {}), ...(branch.exitCode === 0 && branch.stdout.toString().trim() ? { branch: branch.stdout.toString().trim() } : {}), dirty },
+        baseline: rehearsal.map((r) => ({ id: r.id, pass: r.pass })),
+        ...(contract.plan[0] ? { nextAction: { step: contract.plan[0].id, title: contract.plan[0].title } } : {}),
+        authority: {
+          trust: ["goal.yaml (the locked contract)", ...(existsSync(join(this.root, "docs", "HANDOFF-v0.8.0.md")) ? ["docs/HANDOFF-v0.8.0.md"] : [])],
+          stale: ["docs/HANDOFF.md (its historical body; read the current-state banner before trusting it)"],
+        },
+        evidence: [`.opencode/goals/${state.slug}/evidence/${state.runId}/`],
+      })
+      writeFileSync(join(this.store.dir(state.slug), "handoff.md"), `${doc.markdown}\n`)
+      writeFileSync(join(this.store.dir(state.slug), "handoff.json"), `${JSON.stringify({ schema: doc.schema, generatedAt: doc.generatedAt, ...doc.data }, null, 2)}\n`)
+      state.handoff = { ...handoff, file: "handoff.md" }
+      this.store.ledger(state.slug, { type: "handoff-written", file: "handoff.md", prior: prior?.slug ?? null })
+    } catch (error) {
+      this.store.ledger(state.slug, { type: "handoff-failed", error: String(error).slice(0, 300) })
+    }
+  }
+
   private async admit(state: RunState, kind: PendingKind) {
     if (this.disposed || !isActive(state.status)) return
     const contract = this.contractOf(state)
@@ -1749,7 +2106,15 @@ export class GoalApp {
     }
     if (state.status !== "running") setStatus(state, "running")
     state.activity = { kind: "turn", since: Date.now(), detail: kind }
-    const note = renderTailNote(state, contract, kind as TailKind)
+    let note = renderTailNote(state, contract, kind as TailKind)
+    // v0.8.0 D1: the kickoff carries the handoff digest. It is volatile tail
+    // content for turn 1 only, so the system block stays byte-stable.
+    if (kind === "kickoff" && state.handoff?.file) {
+      try {
+        const digest = handoffDigest(readFileSync(join(this.store.dir(state.slug), state.handoff.file), "utf8"))
+        note = `<goal_handoff>\n${digest}\n</goal_handoff>\n\n${note}`
+      } catch { /* the handoff is optional context; never block the kickoff */ }
+    }
     this.notes.set(state.sessionID, note)
     state.compacted = false
     this.store.ledger(state.slug, { type: "admit", kind, turn: state.turn, messageID: state.pending.messageID })
@@ -2290,9 +2655,15 @@ export class GoalApp {
         this.store.ledger(state.slug, { type: "cleo-bridge", results: outcomes.map((o) => ({ task: o.task, completed: o.completed, blocker: o.blocker ?? null, openAcs: o.openAcs })) })
         await this.transcript(state.sessionID, `◎ CLEO bridge — ${bridgeReport(outcomes)}`)
       }
-      const summary = await this.summarize(state, contract)
+      // v0.8.0 C4/C5: look for the next work BEFORE the completion is reported.
+      // A started CLEO item means no owner question; otherwise the announcement
+      // policy runs and the existing completion decision stands.
+      const continued = await this.continueWork(state, contract)
+      const summary = await this.summarize(state, contract, continued)
       this.noticeM(state.sessionID, M.complete(contract.title, summary ? summary.caveats.length + summary.scopeAudit.length : 0))
-      this.decide(state.sessionID, state.slug, "complete", M.completeDecision(contract.title, Boolean(await cleoFacts(this.root, defaultRunner)), summary?.scopeAudit.length ?? 0))
+      // v0.8.0 C4: a started next goal is not an owner question. Without one,
+      // the existing completion decision remains the surface.
+      if (!continued) this.decide(state.sessionID, state.slug, "complete", M.completeDecision(contract.title, Boolean(await cleoFacts(this.root, defaultRunner)), summary?.scopeAudit.length ?? 0))
       await this.transcript(state.sessionID, `◎ Goal complete — "${contract.title}". Every required criterion was verified by the host${contract.verification.mode !== "host" ? " and the independent verifier" : ""}. The loop has stopped; follow-ups live in the summary dialog and .opencode/goals/${state.slug}/.`)
       return
     }
