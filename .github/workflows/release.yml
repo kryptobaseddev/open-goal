@@ -35,5 +35,19 @@ jobs:
           test "v$version" = "$GITHUB_REF_NAME" || { echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"; exit 1; }
       - run: bun run typecheck
       - run: bun test test/unit --timeout 120000
+      # A manual first publish is required before npm can attach a trusted
+      # publisher. Pushing that same version's tag afterwards must no-op, not
+      # fail the release run.
+      - name: Skip an already-published version
+        id: published
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if npm view "@cleocode/goal@$version" version >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::@cleocode/goal@$version is already on npm; nothing to publish."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       # prepublishOnly re-checks that the committed dist/ is current.
-      - run: npm publish --provenance --access public
+      - if: steps.published.outputs.skip != 'true'
+        run: npm publish --provenance --access public
