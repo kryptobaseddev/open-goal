@@ -49,6 +49,7 @@
     "dist",
     "src",
     "skills",
+    "!skills/*/evals",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

@@ -53,13 +53,27 @@ const inside = (child: string, parent: string) => {
   return !(rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel))
 }
 
-/** Refuse anything that is user-global OpenCode config: the home directory as a project, or a target under ~/.config. */
+/**
+ * Refuse anything that is user-global OpenCode config: the home directory as a
+ * project, a project under the config dirs, and (T13871) a `.opencode` dir or
+ * `opencode.json` that resolves, through a symlink, into a config dir or
+ * anywhere outside the project.
+ */
 function assertProjectScoped(root: string, home: string) {
   const r = canonical(root)
   const h = canonical(home)
   if (r === h) throw new InstallError(`refusing to install into the home directory (${h}): its .opencode/ is user-global; run from a project`)
-  const xdg = canonical(process.env.XDG_CONFIG_HOME || join(h, ".config"))
-  if (inside(r, xdg)) throw new InstallError(`refusing to install under ${xdg}: that is user-global config; run from a project`)
+  const globals = [...new Set([canonical(process.env.XDG_CONFIG_HOME || join(h, ".config")), canonical(join(h, ".config")), canonical(join(h, ".opencode"))])]
+  const underGlobal = (path: string) => globals.find((g) => inside(path, g))
+  const g = underGlobal(r)
+  if (g) throw new InstallError(`refusing to install under ${g}: that is user-global config; run from a project`)
+  for (const target of [join(root, ".opencode"), join(root, PROJECT_CONFIG)]) {
+    if (!existsSync(target)) continue
+    const real = canonical(target)
+    const global = underGlobal(real)
+    if (global) throw new InstallError(`refusing to write ${target}: it resolves to ${real}, inside user-global ${global}`)
+    if (!inside(real, r)) throw new InstallError(`refusing to write ${target}: it resolves to ${real}, outside the project ${r}`)
+  }
 }
 
 function readPlugins(path: string): { config: Record<string, unknown>; plugins: PluginEntry[] } {
@@ -104,7 +118,8 @@ export function installProject(root: string, spec: string, options: { dryRun?: b
   if (options.dryRun) return { ...result, action: "dry-run" }
   if (action !== "already-present") {
     mkdirSync(join(root, ".opencode"), { recursive: true })
-    writeAtomic(path, `${JSON.stringify({ ...config, plugins: next }, null, 2)}\n`)
+    // A symlinked opencode.json inside the project is written through, never replaced by a file.
+    writeAtomic(existsSync(path) ? canonical(path) : path, `${JSON.stringify({ ...config, plugins: next }, null, 2)}\n`)
   }
   return { ...result, action }
 }

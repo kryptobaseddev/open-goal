@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { identity, InstallError, installProject } from "../../src/cli/install"
@@ -90,6 +90,43 @@ describe("cleo-goal install --project", () => {
     mkdirSync(join(jsonc, ".opencode"))
     writeFileSync(join(jsonc, ".opencode/opencode.jsonc"), "{}")
     expect(() => installProject(jsonc, "@cleocode/goal@0.9.0", { home })).toThrow(/by hand/)
+  })
+
+  test("refuses a .opencode or opencode.json symlinked into user-global config or outside the project (T13871)", () => {
+    const home = project("t13871-home")
+    const globalCfg = join(home, ".config", "opencode")
+    const globalOc = join(home, ".opencode")
+    const outside = project("t13871-outside")
+    for (const dir of [globalCfg, globalOc, outside]) {
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, "opencode.json"), JSON.stringify({ theme: "keep" }))
+    }
+    const cases: Array<[string, (root: string) => void, string]> = [
+      ["dir -> ~/.config/opencode", (root) => symlinkSync(globalCfg, join(root, ".opencode")), globalCfg],
+      ["dir -> ~/.opencode", (root) => symlinkSync(globalOc, join(root, ".opencode")), globalOc],
+      ["dir -> outside the project", (root) => symlinkSync(outside, join(root, ".opencode")), outside],
+      ["file -> ~/.config/opencode/opencode.json", (root) => {
+        mkdirSync(join(root, ".opencode"))
+        symlinkSync(join(globalCfg, "opencode.json"), join(root, ".opencode", "opencode.json"))
+      }, globalCfg],
+    ]
+    for (const [name, link, target] of cases) {
+      const root = project(`t13871-${name.replace(/\W+/g, "-")}`)
+      link(root)
+      expect(() => installProject(root, "@cleocode/goal@0.9.0", { home }), name).toThrow(/refusing to write/)
+      expect(JSON.parse(readFileSync(join(target, "opencode.json"), "utf8")), name).toEqual({ theme: "keep" })
+    }
+  })
+
+  test("writes through a symlinked opencode.json that stays inside the project", () => {
+    const root = project("t13871-inside")
+    mkdirSync(join(root, "cfg"))
+    writeFileSync(join(root, "cfg", "oc.json"), "{}")
+    mkdirSync(join(root, ".opencode"))
+    symlinkSync(join(root, "cfg", "oc.json"), join(root, ".opencode", "opencode.json"))
+    expect(installProject(root, "@cleocode/goal@0.9.0", { home: scratch + "-home" }).action).toBe("installed")
+    expect(lstatSync(join(root, ".opencode", "opencode.json")).isSymbolicLink()).toBe(true)
+    expect(JSON.parse(readFileSync(join(root, "cfg", "oc.json"), "utf8"))).toEqual({ plugins: ["@cleocode/goal@0.9.0"] })
   })
 
   test("identity drops the version or ref", () => {
