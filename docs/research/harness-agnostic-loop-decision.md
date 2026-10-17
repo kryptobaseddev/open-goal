@@ -128,7 +128,7 @@ transitions, or plan-step moves - those are session facts the OpenCode adapter r
 stream. It recovers *some* of that from a transcript when the payload names a readable one, and nothing when
 it does not.
 
-**Degradation is stated, never guessed.** Every gap is logged to stderr as `could not see …`:
+**Degradation is stated, never guessed.** Every *payload* gap is logged to stderr as `could not see …`:
 - no Stop payload → the tool calls and the progress call are simply not visible;
 - a payload that is not JSON → the payload itself is named as unreadable;
 - a payload naming no transcript → the transcript is absent by the harness's design;
@@ -136,6 +136,20 @@ it does not.
 
 In every one of those cases the tick still records the turn and the fingerprint it *can* take, and
 `noProgress` advances honestly. It never invents a tool call, a progress call or a live-check transition.
+
+**A missing or unreadable run store is never an error either**, and it is never silent about *why*:
+- no `.opencode/goals/` directory at all → `nothing to tick`, nothing on stdout, exit 0: the harness session
+  is free to end;
+- run records that are absent, duplicated or unparseable JSON → the store returns no state, the tick logs
+  `no live goal here; nothing to tick` and prints nothing - it does not throw, and it does not invent a run;
+- a live run whose `goal.yaml` is missing, unreadable or fails to parse → `no readable contract; holding`,
+  and the tick emits `{"final":false}` so the session is held rather than ended on a guess;
+- a claim is pending but this build has no verifier wired → `a claim is pending but this tick cannot verify;
+  holding` and the same `{"final":false}` - it never marks a claim verified that it did not check.
+
+Degradation always errs toward holding or ending quietly, never toward a fabricated fact or a partial write:
+the tick writes run state only through OCG's store (`writeRun`/`ledger`/`evidence`), in the same shapes the
+adapter uses, so a harness other than OpenCode leaves records the adapter can still read.
 
 ## Which goals the tick can drive to completion
 

@@ -83,6 +83,12 @@ const result = await tick({
   // Host checks only: a contract that asks for the independent verifier child is
   // the adapter's mechanism, and the tick does not claim to run one.
   verify: (state, contract, contractText) => verifyClaim(contract, state, { root, contractText }),
+}).catch((error: unknown) => {
+  // A crash is never the answer. Empty stdout means "no live goal" to the
+  // dispatcher, which would silently drop the run; holding keeps the session
+  // alive and the reason goes to stderr where it belongs.
+  console.error(`ocg tick: failed (${error instanceof Error ? error.message : String(error)}); holding the session`)
+  return { stdout: JSON.stringify({ final: false }), log: [] }
 })
 for (const line of result.log) console.error(line) // logs ONLY on stderr
 if (result.stdout) process.stdout.write(`${result.stdout}\n`) // JSON ONLY on stdout

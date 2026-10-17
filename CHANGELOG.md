@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1 — 2026-10-16
+
+- **The tick no longer crashes on an unreadable store (T102).** v0.7.0 named the payload and transcript degradations but left the *store* half unguarded: `ocg tick` read the goals directory and `run.json` with no `try/catch`, so an I/O error (permissions, `ENOTDIR`) escaped as an exception. Empty stdout means "no live goal" to the harness dispatcher, so a crash was indistinguishable from "nothing to do" — which silently **drops** the run and ends the session. An unreadable store, run record or contract is now a stated degradation: the tick logs what it could not read and **holds** the session (`{"final":false}`) rather than printing nothing on a guess, and a record it cannot read is never replaced by an invented one. A readable live run beside an unreadable record is still ticked, and the unreadable record is named.
+- **The bin survives an unexpected throw (T102).** `ocg tick` catches an error from the tick, holds the session and puts the reason on stderr, instead of dying with an empty stdout.
+- **C1's suite now covers the store clause (T102).** `test/unit/tick-record.test.ts` gains the absent-store, empty-store, unreadable-store, unreadable-record, unreadable-record-beside-a-live-run, unreadable-contract, unparsable-contract and "wrote nothing on degradation" cases.
+- **Why this is a patch and not a re-cut (T102).** v0.7.0 was tagged and pushed, and then this defect was found by *this goal's own C1* before v0.7.0 was ever loaded into a session. The fix is published **forward** rather than rewriting the published v0.7.0 tag, because the tag is public history and immutability is exactly what C5 demands. C5's check is a `--min-version 0.7.0` floor and C6 is written for the `v0.7.x` line, so the v0.7 release this goal loads is v0.7.1. Nothing was published to npm.
+
 ## 0.7.0 — 2026-10-16
 
 - **The tick RECORDS the turn (T102)** — `ocg tick` no longer decides from a frozen run state. Before deciding it advances the turn, recomputes the repository fingerprint (a move counts as progress), honours a claim the run already carries, and — best-effort and optional — mines a transcript the harness Stop payload points at for tool calls and a progress call. Everything is written through OCG's own store, so the records, the ledger and the schema stay identical to the adapter's, and the stall pause, recovery, the budget wrap-up and the blocker repeats now work under a harness that is not OpenCode.

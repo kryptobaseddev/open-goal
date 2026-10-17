@@ -64,16 +64,37 @@ export type TickResult = {
 
 const BLOCK = (reason: string) => JSON.stringify({ decision: "block", reason })
 const HOLD = JSON.stringify({ final: false })
+const why = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
-/** The newest non-terminal run in the project, by `updatedAt`. */
-function liveRun(store: TickStore): RunState | undefined {
+/** The newest non-terminal run in the project, by `updatedAt`.
+ *
+ * An absent or unreadable store is a stated degradation, never an exception: a
+ * crash looks exactly like "no live goal" to the dispatcher (empty stdout), which
+ * would silently drop the run. If a record cannot be read we cannot rule out a
+ * live goal, so the caller HOLDS rather than printing nothing. */
+function liveRun(store: TickStore, log: string[]): { live?: RunState; unreadable: boolean } {
+  let slugs: string[]
+  try {
+    slugs = store.slugs()
+  } catch (error) {
+    log.push(`could not read the run store (${why(error)}); cannot rule out a live goal`)
+    return { unreadable: true }
+  }
   let live: RunState | undefined
-  for (const slug of store.slugs()) {
-    const state = store.readRun(slug)
+  let unreadable = false
+  for (const slug of slugs) {
+    let state: RunState | undefined
+    try {
+      state = store.readRun(slug)
+    } catch (error) {
+      log.push(`could not read the run record for ${slug} (${why(error)}); cannot rule it out`)
+      unreadable = true
+      continue
+    }
     if (!state?.slug || TERMINAL_STATUSES.includes(state.status)) continue
     if (!live || (state.updatedAt ?? 0) > (live.updatedAt ?? 0)) live = state
   }
-  return live
+  return { live, unreadable }
 }
 
 export async function tick(deps: TickDeps): Promise<TickResult> {
@@ -85,12 +106,22 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
     log.push("no .opencode/goals directory; nothing to tick")
     return { stdout: "", log }
   }
-  const live = liveRun(deps.store)
+  const { live, unreadable } = liveRun(deps.store, log)
+  if (!live && unreadable) {
+    log.push("a run record could not be read; cannot rule out a live goal - holding")
+    return { stdout: HOLD, log }
+  }
   if (!live) {
     log.push("no live goal here; nothing to tick")
     return { stdout: "", log }
   }
-  const read = deps.store.readContract(live.slug)
+  let read: { contract?: Contract; text: string } | undefined
+  try {
+    read = deps.store.readContract(live.slug)
+  } catch (error) {
+    log.push(`could not read the contract for ${live.slug} (${why(error)}); holding`)
+    return { stdout: HOLD, log }
+  }
   if (!read?.contract) {
     log.push(`goal ${live.slug} has no readable contract; holding`)
     return { stdout: HOLD, log }
