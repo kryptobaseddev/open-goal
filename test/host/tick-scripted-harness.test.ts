@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test"
+import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -12,6 +12,10 @@ import { parseContract } from "../../src/contract/parse"
 // real process boundary, so what this proves is the shipped behaviour.
 
 const BIN = join(import.meta.dir, "..", "..", "cli", "ocg.ts")
+// The published bin is dist/cli.js on plain Node; drive the same goal through it.
+const DIST = join(import.meta.dir, "..", "..", "dist", "cli.js")
+const RUNNERS: Array<[string, string[]]> = [["bun source", ["bun", BIN]], ...(Bun.which("node") ? ([["node dist/cli.js", ["node", DIST]]] as Array<[string, string[]]>) : [])]
+let runner: string[] = RUNNERS[0]![1]
 const SLUG = "driven"
 // A goal whose verification is HOST-ONLY, so the tick can finish it without the
 // adapter's verifier child.
@@ -44,7 +48,7 @@ const git = (cwd: string, ...args: string[]) =>
   })
 
 async function ocg(root: string, args: string[], stdin = "") {
-  const proc = Bun.spawn(["bun", BIN, ...args], { cwd: root, stdin: "pipe", stdout: "pipe", stderr: "pipe" })
+  const proc = Bun.spawn([...runner, ...args], { cwd: root, stdin: "pipe", stdout: "pipe", stderr: "pipe" })
   proc.stdin.write(stdin)
   await proc.stdin.end()
   const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
@@ -81,7 +85,10 @@ function project(): { root: string; ledger: () => any[]; run: () => any } {
   }
 }
 
-describe("a scripted harness drives a goal to complete through ocg tick alone (v0.7.0)", () => {
+describe.each(RUNNERS)("a scripted harness drives a goal to complete through ocg tick alone (v0.7.0, %s)", (_name, cmd) => {
+  beforeAll(() => {
+    runner = cmd
+  })
   test("kickoff -> the agent's work and claim -> verified complete, driven only by the bin", async () => {
     const p = project()
     const stopPayload = JSON.stringify({ hook_event_name: "Stop", session_id: "ses_harness", cwd: p.root })

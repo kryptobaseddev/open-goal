@@ -30,7 +30,7 @@ describe.skipIf(!process.env.OCGOAL_GIT_INSTALL)("install from git", () => {
       const stamps = dirs.flatMap((d) => readdirSync(join(cacheRoot, d)).map((ts) => join(cacheRoot, d, ts)))
       const newest = stamps.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs).at(0)!
       expect(existsSync(join(newest, "node_modules", "@opentui", "solid"))).toBe(true)
-      const manifest = JSON.parse(readFileSync(join(newest, "node_modules", "opencode-goal", "package.json"), "utf8"))
+      const manifest = JSON.parse(readFileSync(join(newest, "node_modules", "@cleocode", "goal", "package.json"), "utf8"))
       expect(manifest.dependencies?.["@opentui/solid"]).toBeDefined()
     } finally {
       await host.stop()

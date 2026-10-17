@@ -1,12 +1,15 @@
 // Worktree fingerprints: progress is measured by authoritative state change,
 // not by how much the model talked.
+import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
+import { statSync } from "node:fs"
 
 const GOAL_STATE = ":(exclude).opencode/goals"
 
 function git(cwd: string, args: string[]): { ok: boolean; out: string } {
-  const result = Bun.spawnSync(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" })
-  return { ok: result.exitCode === 0, out: result.stdout.toString() }
+  // node:child_process so the bin also runs on plain Node (Bun implements it too).
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 })
+  return { ok: result.status === 0, out: result.stdout ?? "" }
 }
 
 export const isRepo = (cwd: string) => git(cwd, ["rev-parse", "--is-inside-work-tree"]).out.trim() === "true"
@@ -48,8 +51,8 @@ export function fingerprint(cwd: string): string | undefined {
     .slice(0, 500)
     .map((file) => {
       try {
-        const stat = Bun.file(`${cwd}/${file}`)
-        return `${file}:${stat.size}:${stat.lastModified}`
+        const stat = statSync(`${cwd}/${file}`)
+        return `${file}:${stat.size}:${Math.trunc(stat.mtimeMs)}`
       } catch {
         return file
       }
