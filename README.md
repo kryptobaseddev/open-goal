@@ -2,7 +2,7 @@
 
 Persistent, host-verified goal mode for [OpenCode 2](https://opencode.ai). Describe what you want, let the bundled **write-goal** interview turn it into a structured contract, and the plugin keeps the session working until the host — not the model — proves every criterion.
 
-> **Status: released (`v0.5.0`).** Engine, verification and TUI are built and tested end to end against OpenCode 2.0.22 with a scripted model, and each release is proven from its own installed git tag. CLEO integrates as an optional first-class citizen (`/goal cleo`). See [docs/HANDOFF.md](docs/HANDOFF.md).
+> **Status: released (`v0.8.1`).** Engine, verification and TUI are built and tested end to end against OpenCode 2.0.22 with a scripted model, and each release is proven from its own installed git tag. CLEO integrates as an optional first-class citizen (`/goal cleo`). See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Why another goal plugin
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.1 — 2026-10-17
+
+- **The post-goal summary is scannable (T120).** The summary dialog now opens with a 3–5 second digest — `completed`, `WENT RIGHT`, `WENT WRONG`, `STILL OPEN`, `NEXT`, linked tasks, and a one-line provenance split (`host 6 · verifier 2 · owner 1`) — capped at 14 lines; the full report (criteria, non-goals, findings) stays in `text`. Palette actions use Title Case. The RPC summary event carries `title` and `digest`.
+- **A pending decision is asked once, then silent (T121/T123).** `shouldReaskDecision()` is now a pure policy: stale wins, an open form never duplicates, a dismissed (`interrupted`) review never re-asks, and an already-asked review never re-asks. The once-per-process marker lives at module scope, so a plugin re-setup cannot silently ask again; a real process reload clears it and re-presents once. `restorePendingDecision()` recovers the latest pending decision after a reload.
+- **Fixed — an explicit review request restores a dismissal.** The once-per-process marker also blocked the documented `goal_review` restore path, because the direct ask is skipped while the session is mid-turn and the deferred re-ask was suppressed. `reviewDecision` now clears the marker for that exact decision; the protected `durable-goal-decisions` oracle caught it before release.
+- **The loop prefers leaves over epics (T122/T123).** `readyCleoTask()` asks `cleo next -n 5`, skips sagas/epics, and returns the first leaf; skipped parents are journalled as `continue-parent-skipped`. If only parents are ready, the loop treats it as no work instead of opening a goal for a rollup. The design note records the work-vs-state rule.
+- **Recorded.** CLEO lifecycle records for T119/T122 are committed with the fixes; T001 stays closed with `docs/cleo-t001-completion.md` as its one-off receipt.
+- **Release posture.** A git-tag patch only. **Nothing was published to npm.**
+
 ## 0.8.0 — 2026-10-17
 
 - **A clean restart resumes by itself (C1).** A host restart no longer asks for a click when the lock is unchanged and the run is intact: the run re-arms its wait, re-verifies a claim it was verifying, or receives the continuation it had pending. A contract changed under the run, a repaired/divergent run and an interrupted write still pause and name the cause. The decision is the pure `restartDecision` (`src/engine/interrupt-policy.ts`).

@@ -1165,6 +1165,11 @@ export class GoalApp {
     if (request.status === "pending" && request.formID) return "The exact review is already present in the native composer. No operation was authorized or executed."
     this.decisions.reopenForm(request.id)
     this.pendingFormDecisions.delete(sessionID)
+    // An explicit review request is a NEW presentation even if this process
+    // already asked once. Clear the once-per-process marker so the direct ask
+    // (or the deferred re-ask at turn end, when this call is mid-turn) really
+    // presents it. Without this, a dismissal could never be restored.
+    askedDecisionIds.delete(request.id)
     this.publishDecision(request)
     await this.askDecisionForm(sessionID, request.slug, request.kind, request.id, request.message)
     return "The same pending decision has been re-presented natively. No choice, approval, rejection or operation was inferred."
