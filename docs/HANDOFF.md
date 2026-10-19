@@ -1,3 +1,4 @@
+> **Current (2026-10-19): read [`HANDOFF-2026-10-19.md`](HANDOFF-2026-10-19.md) and [`research/agnostic-ocg-roadmap.md`](research/agnostic-ocg-roadmap.md) first.** `@cleocode/goal@0.9.2` is live on npm and installed; the three-goal agnostic plan (`harness-identity` 0.9.3, `adapter-seam` 0.10.0, `agnostic-goal-store` 0.11.0) is validated and staged; no goal is running. Everything below is history.
 > **STALE — read `docs/HANDOFF-v0.8.0.md` instead.** This file describes a **v0.3.x** mission that was
 > completed in 2026-10, and it was not updated for v0.4 through v0.7. As of **2026-10-17** the project is at
 > **v0.7.1** (goal `tick-records-the-turn` complete, 9/9, tag `v0.7.1` → commit `040b8bf`) with
