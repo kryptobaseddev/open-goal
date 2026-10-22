@@ -57,7 +57,7 @@ export type LoopAction =
   | { kind: "verify" }
   | { kind: "admit"; tail: TailKind }
   | { kind: "schedule"; tail: TailKind; delayMs: number; waiting?: { reason: string } }
-  | { kind: "stop"; status: Status; code: "blocked" | "stalled" | "budget" | "wrapup"; reason: string }
+  | { kind: "stop"; status: Status; code: "blocked" | "stalled" | "budget" | "backstop" | "wrapup"; reason: string }
 
 /**
  * The one decision. Ordering mirrors the adapter exactly:
@@ -78,7 +78,12 @@ export function decide(state: RunState, signals: LoopSignals, limits: LoopLimits
   if (signals.budgetRatio >= 1 || signals.backstop) {
     // One wrap-up turn is admitted before the run stops for the owner.
     if (!state.wrapup) return { kind: "admit", tail: "wrapup" }
-    return { kind: "stop", status: "budget_limited", code: "budget", reason: signals.backstop ? `backstop of ${limits.backstopTurns} turns reached` : "budget used" }
+    // D9: a backstop stop is NOT an exhausted budget. It means no contract
+    // budget was set at all, so it gets its own status and a reason that names
+    // the remedy instead of pretending the owner's budget ran out.
+    if (signals.backstop)
+      return { kind: "stop", status: "backstop_limited", code: "backstop", reason: `backstop of ${limits.backstopTurns} turns reached; no contract budget set — set budget.turns to control the run` }
+    return { kind: "stop", status: "budget_limited", code: "budget", reason: "budget used" }
   }
   if (state.counters.noProgress >= limits.stallTurns) {
     // Owner-set policy: a genuinely stalled-but-active run may continue with a

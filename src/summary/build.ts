@@ -78,9 +78,9 @@ export function provenanceSplit(criteria: SummaryCriterion[]): string | undefine
  *  dialog — the full report (criteria, non-goals, findings) stays in `text`. */
 export function buildDigest(s: Omit<PostGoalSummary, "digest" | "text">): string {
   const lines: string[] = []
-  const icon = s.status === "complete" ? "✓" : s.status === "failed" ? "✗" : s.status === "budget_limited" ? "⊘" : "⚑"
+  const icon = s.status === "complete" ? "✓" : s.status === "failed" ? "✗" : s.status === "budget_limited" ? "⊘" : s.status === "backstop_limited" ? "⏱" : "⚑"
   const proven = s.criteria.filter((c) => c.status === "pass").length
-  const terminal = new Set(["complete", "failed", "aborted", "needs_review", "budget_limited"])
+  const terminal = new Set(["complete", "failed", "aborted", "needs_review", "budget_limited", "backstop_limited"])
   const stopped = terminal.has(s.status) ? "loop stopped" : "loop running"
   lines.push(`${icon} ${s.status.replace(/_/g, " ")} · ${proven}/${s.criteria.length} proven · ${s.turns} turn${s.turns === 1 ? "" : "s"} · ${stopped}`)
   lines.push(s.completed)
@@ -124,6 +124,7 @@ export function findingsFromLedger(events: Array<Record<string, unknown>>): Summ
     else if (e.type === "amended") out.push({ kind: "amended", text: `contract amended (generation ${e.generation ?? "?"}): ${e.summary ?? ""}`, at })
     else if (e.type === "amend-proposed") out.push({ kind: "amend-proposed", text: `amendment proposed: ${e.summary ?? ""}`, at })
     else if (e.type === "budget_limited") out.push({ kind: "budget_limited", text: "the run hit its budget", at })
+    else if (e.type === "backstop_limited") out.push({ kind: "backstop_limited", text: `the run hit the ${e.backstopTurns ?? "turn"} backstop because no budget was set`, at })
   }
   return out
 }
@@ -162,6 +163,8 @@ export function buildPostGoalSummary(input: SummaryInput): PostGoalSummary {
     followUps.push("Resolve the review: /goal approve <C#> (final) or /goal reject <C#> <why>, then /goal verify.")
   } else if (state.status === "budget_limited") {
     followUps.push("Raise the budget in goal.yaml and start a new run, or wrap up: /goal archive after aborting.")
+  } else if (state.status === "backstop_limited") {
+    followUps.push("No budget was set, so the run stopped at the turn backstop. Set budget.turns in goal.yaml and amend it, or wrap up: /goal archive after aborting.")
   }
   if (scopeAudit.length) followUps.push("Break the discussed-but-unproven items out into a follow-up goal so they stop riding on this one.")
   followUps.push("Decompose long-running work with CLEO" + (input.cleo ? " (this project is already linked; keep tasks completing with evidence)." : ": this project has no .cleo workspace — installing it gives goals a task board that outlives any single run (the link stays optional and CLI-only)."))
@@ -222,6 +225,9 @@ export function buildPostGoalSummary(input: SummaryInput): PostGoalSummary {
     nextSteps.push("Re-run the checks — /goal verify")
   } else if (state.status === "budget_limited") {
     nextSteps.push("Raise the budget in goal.yaml, then start a new run")
+    nextSteps.push("Or wrap up — /goal archive")
+  } else if (state.status === "backstop_limited") {
+    nextSteps.push("Set budget.turns in goal.yaml, then amend the run")
     nextSteps.push("Or wrap up — /goal archive")
   } else {
     nextSteps.push("Inspect the goal — /goal status")

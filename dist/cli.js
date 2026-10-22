@@ -7408,7 +7408,14 @@ function parseContract(text, options = {}) {
   }
   if (hasCycle(plan))
     err("plan", "step dependencies form a cycle");
+  const BUDGET_KEYS = ["turns", "wall", "tokens", "cost_usd"];
+  if (raw.budget !== undefined && !isRecord(raw.budget))
+    err("budget", `budget must be a mapping with ${BUDGET_KEYS.join(", ")}`);
   const budgetRaw = isRecord(raw.budget) ? raw.budget : {};
+  for (const key of Object.keys(budgetRaw)) {
+    if (!BUDGET_KEYS.includes(key))
+      err(`budget.${key}`, `unknown key; allowed: ${BUDGET_KEYS.join(", ")}`);
+  }
   const budget = {};
   if (budgetRaw.turns !== undefined) {
     const turns = Number(budgetRaw.turns);
@@ -8118,7 +8125,9 @@ function decide(state, signals, limits) {
   if (signals.budgetRatio >= 1 || signals.backstop) {
     if (!state.wrapup)
       return { kind: "admit", tail: "wrapup" };
-    return { kind: "stop", status: "budget_limited", code: "budget", reason: signals.backstop ? `backstop of ${limits.backstopTurns} turns reached` : "budget used" };
+    if (signals.backstop)
+      return { kind: "stop", status: "backstop_limited", code: "backstop", reason: `backstop of ${limits.backstopTurns} turns reached; no contract budget set — set budget.turns to control the run` };
+    return { kind: "stop", status: "budget_limited", code: "budget", reason: "budget used" };
   }
   if (state.counters.noProgress >= limits.stallTurns) {
     if (signals.activeStalled && signals.onStall === "continue")

@@ -11,6 +11,7 @@ export type Status =
   | "blocked"
   | "needs_review"
   | "budget_limited"
+  | "backstop_limited"
   | "complete"
   | "failed"
   | "aborted"
@@ -140,7 +141,7 @@ export function ownerCan(state: RunState, action: OwnerAction): string | undefin
     case "pause":
       return isActive(state.status) ? undefined : `goal is ${state.status}`
     case "resume":
-      return ["paused", "blocked", "needs_review", "budget_limited"].includes(state.status) ? undefined : `goal is ${state.status}; only a stopped goal can resume`
+      return ["paused", "blocked", "needs_review", "budget_limited", "backstop_limited"].includes(state.status) ? undefined : `goal is ${state.status}; only a stopped goal can resume`
     case "abort":
       return isTerminal(state.status) ? `goal is already ${state.status}` : undefined
     case "verify":

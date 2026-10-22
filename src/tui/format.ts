@@ -17,6 +17,7 @@ export const STATUS: Record<string, { icon: string; label: string; tone: Tone }>
   blocked: { icon: "⛔", label: "blocked", tone: "error" },
   needs_review: { icon: "⚑", label: "needs review", tone: "warning" },
   budget_limited: { icon: "⊘", label: "budget used", tone: "warning" },
+  backstop_limited: { icon: "⏱", label: "turn backstop", tone: "warning" },
   complete: { icon: "✓", label: "complete", tone: "success" },
   failed: { icon: "✗", label: "failed", tone: "error" },
   aborted: { icon: "■", label: "aborted", tone: "muted" },
@@ -108,6 +109,8 @@ export function bannerText(view: GoalView): { text: string; tone: Tone } | undef
       return { text: `◎ ${st.icon} Goal needs review — ${view.reason ?? ""} · /goal approve <id> or ${RESUME}`, tone: "warning" }
     case "budget_limited":
       return { text: `◎ ${st.icon} Goal stopped at its budget — raise budget in goal.yaml and /goal start, or /goal abort`, tone: "warning" }
+    case "backstop_limited":
+      return { text: `◎ ${st.icon} Goal stopped at the turn backstop — no budget was set · set budget.turns in goal.yaml and amend, or /goal abort`, tone: "warning" }
     default:
       return undefined
   }

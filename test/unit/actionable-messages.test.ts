@@ -26,6 +26,7 @@ const samples: Record<string, () => EngineMessage> = {
   awaitingAnswer: () => M.awaitingAnswer("which provider?"),
   pausedUserMessage: () => M.pausedUserMessage(),
   budgetStopped: () => M.budgetStopped("Ship the widget"),
+  backstopStopped: () => M.backstopStopped("Ship the widget", 200),
   blocked: () => M.blocked("missing-stripe-key", "no credential", "a Stripe API key"),
   pausedInterrupted: () => M.pausedInterrupted("interrupted: dismissed question"),
   pausedStalled: () => M.pausedStalled("stalled: no change for 3 turns"),

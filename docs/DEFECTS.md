@@ -13,9 +13,10 @@ Status legend: **open** · **fixed** `<version>` · **by design**.
 | D3 | Accepting an amendment does not resume; a second prompt is forced | high | open |
 | D4 | A superseded/interrupted decision re-surfaces long after the fact | medium | open |
 | D5 | Completion offers `start-next` as a prompt, and can fire after a new run already started | medium | open |
-| D6 | An unknown `expect` key in a check is silently dropped, weakening the criterion | high | open |
+| D6 | An unknown `expect` key in a check is silently dropped, weakening the criterion | high | **fixed 0.8.0** |
 | D7 | A contract can encode the inverse of the owner's intent and still validate | medium | open |
 | D8 | `ocg tick` read the run store without a guard, so an I/O error crashed it | high | **fixed 0.7.1** |
+| D9 | An unknown `budget` key is silently dropped, and the turn backstop is reported as an exhausted budget | high | **fixed in source** (unreleased) |
 
 ---
 
@@ -120,7 +121,9 @@ suppress the completion question when a successor run is already live.
 
 ## D6 — an unknown check key silently weakens a criterion
 
-**Severity** high. **Status** open.
+**Severity** high. **Status** **fixed in 0.8.0**.
+
+**Fixed** `src/contract/parse.ts` now rejects any `expect` key outside `exit`, `stdout_contains` and `stdout_regex` (and `runs`), naming the offending key; `test/unit/check-keys.test.ts` pins it.
 
 **Reproduced** a proposed C4 check used `expect: {stderr_contains: "cli/ocg.ts"}`. The staged diff showed C4
 collapse to `expect: {exit: 0}` — the needle vanished. `src/contract/parse.ts:121-122` accepts only `exit`,
@@ -162,3 +165,37 @@ dropped the run** and ended the session. Now the tick names what it could not re
 (`{"final":false}`) rather than printing nothing on a guess; the bin also catches any unexpected throw.
 
 Found by the goal's own C1, which is why the release is v0.7.1 rather than v0.7.0.
+
+---
+
+## D9 — an unknown `budget` key is silently dropped, and the backstop wears the budget's name
+
+**Severity** high. **Status** **fixed in source** (unreleased at the time of writing).
+
+**Reported** 2026-10-22 by `axiom-instrument-studio-tbl6run` (message
+`01M5JYH09773WSJ8TTFH75GKW0`), from live run `14c6ffb3f001` of `tbl-six-class-production-run` on
+`@cleocode/goal@0.9.2` / OpenCode 2.1.3.
+
+**Observed** the run stopped `budget_limited` five times in a row. Each "Raise budget (amend)" was accepted
+and resumed, then stopped again on the next tick, while the status header said "Budget: no budget set".
+
+**Cause** the same fail-open shape as D6:
+- `src/contract/parse.ts` recognised only `turns`, `wall`, `tokens`, `cost_usd` and **dropped every other
+  `budget` key**. The report's contract used `max_turns` / `max_tokens` / `max_cost_usd`, so the parsed
+  budget was `{}` and every raise was a no-op.
+- `src/server/app.ts` then applied the 200-turn backstop (`!contract.budget.turns && turn >= 200`), and
+  `src/engine/loop.ts` mapped that stop onto `budget_limited` with reason "budget used" — indistinguishable
+  from an exhausted budget, contradicting the header.
+
+**Fixed**
+- An unknown `budget` key is now a validation error naming the allowed keys
+  (`budget.max_turns: unknown key; allowed: turns, wall, tokens, cost_usd`), and a non-mapping `budget` is an
+  error too. Pinned in `test/unit/contract.test.ts`.
+- The backstop now has its own status `backstop_limited`, decision kind and ledger event, with the reason
+  `backstop of N turns reached; no contract budget set — set budget.turns to control the run`. The decision
+  message, banner, action-required line, quick actions and post-goal summary all name `budget.turns` as the
+  remedy instead of offering a budget raise that cannot exist. Pinned in `test/unit/loop-decision.test.ts`
+  and `test/unit/tui-format.test.ts`.
+
+**Immediate workaround on 0.9.2** rename the contract's `max_turns` to `turns` (and `max_tokens` to `tokens`,
+`max_cost_usd` to `cost_usd`) and amend again; the backstop only applies while `budget.turns` is unset.

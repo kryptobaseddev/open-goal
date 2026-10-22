@@ -40,6 +40,8 @@ describe("goal/v1 contract", () => {
     ["plan proves an unknown criterion", edit("proves: [C3]", "proves: [C9]"), /unknown criterion C9/],
     ["plan cycle", edit("{id: S1, title: Profile the slow path}", "{id: S1, title: Profile the slow path, depends_on: [S3]}"), /cycle/],
     ["bad budget", edit("wall: 3h", "wall: soon"), /wall must be a duration/],
+    ["unknown budget key", edit("budget: {turns: 40, wall: 3h, tokens: 3M, cost_usd: 15}", "budget: {max_turns: 100000}"), /budget\.max_turns: unknown key; allowed: turns, wall, tokens, cost_usd/],
+    ["budget is not a mapping", edit("budget: {turns: 40, wall: 3h, tokens: 3M, cost_usd: 15}", "budget: 100000"), /budget must be a mapping/],
     ["wrong schema", edit("schema: goal/v1", "schema: goal/v0"), /schema must be "goal\/v1"/],
     ["missing intent", edit(/intent:\n  verbatim: .*\n/, ""), /intent\.verbatim/],
     ["command without run", edit(`run: "npm test"`, `run: ""`), /command check needs run/],

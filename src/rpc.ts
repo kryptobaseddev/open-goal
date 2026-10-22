@@ -61,7 +61,7 @@ export const GoalRpc = {
         properties: {
           sessionID: { type: "string" },
           slug: { type: "string" },
-          kind: { type: "string", enum: ["needs_review", "paused-after-verdict", "blocked", "budget_limited", "amend-proposed", "supersede-ack", "complete", "start-picker", "owner-operation"] },
+          kind: { type: "string", enum: ["needs_review", "paused-after-verdict", "blocked", "budget_limited", "backstop_limited", "amend-proposed", "supersede-ack", "complete", "start-picker", "owner-operation"] },
           title: { type: "string" },
           message: { type: "string" },
           question: { type: "string" },

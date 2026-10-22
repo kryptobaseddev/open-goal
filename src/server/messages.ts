@@ -112,6 +112,14 @@ export const M = {
       abort,
       archive,
     ], "question"),
+  // D9: a turn backstop is not an exhausted budget. Say what actually happened
+  // and name the one key that turns it into an owner-set limit.
+  backstopStopped: (title: string, turns: number) =>
+    msg("goal.backstop.stopped", "warning", `Goal stopped at the ${turns}-turn backstop: ${title}. No contract budget was set, so the run had no limit to raise. Set budget.turns in goal.yaml and amend, or abort.`, [
+      { label: "Set budget.turns (amend)", run: "reply in the Composer with `budget: {turns: <n>}`; the agent stages a reviewed amendment" },
+      abort,
+      archive,
+    ], "question"),
   blocked: (key: string, reason: string, needs?: string) =>
     msg("goal.blocked", "warning", `Goal blocked on ${key}: ${reason}${needs ? ` — it needs: ${needs}` : " — only the owner can resolve this"}.`, [
       { label: "Resolve, then resume", run: "/goal resume", act: "resume" },

@@ -84,11 +84,12 @@ describe("the pure loop decision (v0.6.0)", () => {
     })
   })
 
-  test("the backstop behaves exactly like the budget when no budget is set", () => {
+  test("the backstop has its own status and names the missing budget", () => {
     expect(decide(state({ turn: 40, wrapup: false }), signals({ backstop: true }), limits)).toEqual({ kind: "admit", tail: "wrapup" })
     const action = decide(state({ turn: 41, wrapup: true }), signals({ backstop: true }), limits)
-    expect(action).toMatchObject({ kind: "stop", code: "budget" })
+    expect(action).toMatchObject({ kind: "stop", status: "backstop_limited", code: "backstop" })
     expect((action as { reason: string }).reason).toContain("backstop of 40 turns")
+    expect((action as { reason: string }).reason).toContain("no contract budget set")
   })
 
   test("a stalled-but-active run continues under the owner's on_stall policy, and pauses otherwise", () => {

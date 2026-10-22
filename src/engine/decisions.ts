@@ -1,7 +1,7 @@
 import type { EngineMessage } from "../server/messages"
 import { OwnerReviewStore, type ReviewChoice, type ReviewRequest } from "./owner-reviews"
 
-export type DecisionKind = "needs_review" | "paused-after-verdict" | "blocked" | "budget_limited" | "amend-proposed" | "supersede-ack" | "complete" | "start-picker" | "owner-operation"
+export type DecisionKind = "needs_review" | "paused-after-verdict" | "blocked" | "budget_limited" | "backstop_limited" | "amend-proposed" | "supersede-ack" | "complete" | "start-picker" | "owner-operation"
 export type DecisionTarget = { slug: string; runId?: string; sessionID?: string; lock: string; status: string }
 export type DecisionRequest = ReviewRequest & {
   kind: DecisionKind

@@ -49,6 +49,7 @@ describe("tui formatting", () => {
     expect(pillText({ ...view, steps: view.steps.map((s) => ({ ...s, status: "done" })), criteria: view.criteria.map((c) => ({ ...c, status: "unknown" })) }, 0)).toBe("◎ ▶ 3/3 plan · 0/4 proven · t7 · 42m")
     expect(bannerText(view)).toBeUndefined()
     expect(bannerText({ ...view, status: "blocked", reason: "x", blocker: { key: "k", count: 3, reason: "need the API token" } })?.text).toMatch(/blocked — need the API token/)
+    expect(bannerText({ ...view, status: "backstop_limited", reason: "backstop of 200 turns reached; no contract budget set" })?.text).toMatch(/turn backstop — no budget was set · set budget\.turns/)
     expect(bannerText({ ...view, awaitingUser: true })?.text).toMatch(/waiting for your answer/)
   })
 

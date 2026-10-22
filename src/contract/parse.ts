@@ -280,7 +280,16 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
   }
   if (hasCycle(plan)) err("plan", "step dependencies form a cycle")
 
+  // D9: the budget block had the same fail-open shape as D6 — an unknown key
+  // such as `max_turns` was silently dropped, leaving no budget at all and a
+  // mysterious 200-turn backstop. Every key is now either recognised or named
+  // in an error.
+  const BUDGET_KEYS = ["turns", "wall", "tokens", "cost_usd"] as const
+  if (raw.budget !== undefined && !isRecord(raw.budget)) err("budget", `budget must be a mapping with ${BUDGET_KEYS.join(", ")}`)
   const budgetRaw = isRecord(raw.budget) ? raw.budget : {}
+  for (const key of Object.keys(budgetRaw)) {
+    if (!(BUDGET_KEYS as readonly string[]).includes(key)) err(`budget.${key}`, `unknown key; allowed: ${BUDGET_KEYS.join(", ")}`)
+  }
   const budget: Budget = {}
   if (budgetRaw.turns !== undefined) {
     const turns = Number(budgetRaw.turns)

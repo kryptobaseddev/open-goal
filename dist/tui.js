@@ -68,7 +68,7 @@ var GoalRpc = {
         properties: {
           sessionID: { type: "string" },
           slug: { type: "string" },
-          kind: { type: "string", enum: ["needs_review", "paused-after-verdict", "blocked", "budget_limited", "amend-proposed", "supersede-ack", "complete", "start-picker", "owner-operation"] },
+          kind: { type: "string", enum: ["needs_review", "paused-after-verdict", "blocked", "budget_limited", "backstop_limited", "amend-proposed", "supersede-ack", "complete", "start-picker", "owner-operation"] },
           title: { type: "string" },
           message: { type: "string" },
           question: { type: "string" },
@@ -107,6 +107,7 @@ var STATUS = {
   blocked: { icon: "\u26D4", label: "blocked", tone: "error" },
   needs_review: { icon: "\u2691", label: "needs review", tone: "warning" },
   budget_limited: { icon: "\u2298", label: "budget used", tone: "warning" },
+  backstop_limited: { icon: "\u23F1", label: "turn backstop", tone: "warning" },
   complete: { icon: "\u2713", label: "complete", tone: "success" },
   failed: { icon: "\u2717", label: "failed", tone: "error" },
   aborted: { icon: "\u25A0", label: "aborted", tone: "muted" },
@@ -185,6 +186,8 @@ function bannerText(view) {
       return { text: `\u25CE ${st.icon} Goal needs review \u2014 ${view.reason ?? ""} \xB7 /goal approve <id> or ${RESUME}`, tone: "warning" };
     case "budget_limited":
       return { text: `\u25CE ${st.icon} Goal stopped at its budget \u2014 raise budget in goal.yaml and /goal start, or /goal abort`, tone: "warning" };
+    case "backstop_limited":
+      return { text: `\u25CE ${st.icon} Goal stopped at the turn backstop \u2014 no budget was set \xB7 set budget.turns in goal.yaml and amend, or /goal abort`, tone: "warning" };
     default:
       return;
   }
@@ -256,6 +259,7 @@ var STATUS2 = {
   blocked: { icon: "\u26D4", label: "blocked", tone: "error" },
   needs_review: { icon: "\u2691", label: "needs review", tone: "warning" },
   budget_limited: { icon: "\u2298", label: "budget used", tone: "warning" },
+  backstop_limited: { icon: "\u23F1", label: "turn backstop", tone: "warning" },
   complete: { icon: "\u2713", label: "complete", tone: "success" },
   failed: { icon: "\u2717", label: "failed", tone: "error" },
   aborted: { icon: "\u25A0", label: "aborted", tone: "muted" },
@@ -325,7 +329,7 @@ function cardAffordanceTab(view, now, width = 40) {
   const truncated = new Set(cardCompactLines(view, now, width).filter((l) => l.tab && l.text.includes("\u2026")).map((l) => l.tab));
   return order.find((t) => truncated.has(t));
 }
-var humanKinds = new Set(["verdict", "approve", "reject", "amend-proposed", "amended", "blocked", "complete", "summary", "flag", "attached", "paused", "resumed", "aborted", "budget_limited", "superseded-by", "approve ", "reject "]);
+var humanKinds = new Set(["verdict", "approve", "reject", "amend-proposed", "amended", "blocked", "complete", "summary", "flag", "attached", "paused", "resumed", "aborted", "budget_limited", "backstop_limited", "superseded-by", "approve ", "reject "]);
 function quickActRows(view) {
   const rows = [];
   if (["running", "waiting", "verifying"].includes(view.status)) {
@@ -344,6 +348,8 @@ function quickActRows(view) {
     rows.push({ label: "Verify now", description: "run the host checks + verifier immediately", act: "verify" });
   } else if (view.status === "budget_limited") {
     rows.push({ label: "Abort the goal", description: "stop at the budget", act: "abort" });
+  } else if (view.status === "backstop_limited") {
+    rows.push({ label: "Abort the goal", description: "stop at the turn backstop", act: "abort" });
   } else if (isTerminalStatus(view.status)) {
     rows.push({ label: "Archive the goal", description: "demote to goals-archive/ (history intact)", act: "archive" });
     rows.push({ label: "Start the next goal", description: "open the write-goal interview", act: "start-next" });
@@ -371,6 +377,9 @@ function decisionRows(view) {
     } else if (view.status === "budget_limited") {
       rows.push({ label: "Raise budget and amend", description: "Describe the budget change in the Composer; review the agent's staged diff" });
       rows.push({ label: "Abort the goal", description: "stop at the budget", act: "abort" });
+    } else if (view.status === "backstop_limited") {
+      rows.push({ label: "Set budget.turns and amend", description: "The run had no budget; name a turn limit in the Composer and review the staged diff" });
+      rows.push({ label: "Abort the goal", description: "stop at the turn backstop", act: "abort" });
     }
   }
   if (view.status === "paused")

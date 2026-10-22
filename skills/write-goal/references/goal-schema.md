@@ -20,7 +20,7 @@ The plugin's parser (`src/contract/parse.ts` in opencode-goal) is the source of 
 | `protect` | no | globs the worker may not edit; enforced before edits and re-checked at verification |
 | `assumptions` | no | ids `A1…`; `status` assumed (default) / confirmed / vetoed |
 | `plan` | no | ids `S1…`; `proves` must reference criteria; `depends_on` must reference steps; no cycles |
-| `budget` | no | `turns` (int), `wall` ("90m", "3h", "1h30m"), `tokens` (400k, "3M"; spend across the run), `cost_usd` |
+| `budget` | no | `turns` (int), `wall` ("90m", "3h", "1h30m"), `tokens` (400k, "3M"; spend across the run), `cost_usd`. Exactly these keys: any other key is an error, never a silent drop. With no `turns`, the run is capped by a 200-turn backstop that reports `backstop_limited`. |
 | `stop.when`, `stop.escalate_when` | no | shown to the worker; escalation means `goal_block` |
 | `autonomy` | no | `questions` defer (default) / allow · `on_user_message` steer (default) / pause · `on_interrupt` pause (default) / resume-on-message · `amend`: owner-set policy, a list of change classes the agent may apply to its own contract without asking — `timeout` (a check's timeout only), `budget`, `plan` (plan steps and assumptions), `recover` (adopt an in-policy out-of-band disk edit). Default `[]` = owner reviews every change. Criteria statements/checks, protect, scope, verification, stop rules and the policy itself are never agent-applicable. |
 | `verification` | no | `mode` host / host+verifier (default) / strict · `max_rejections` 1-10 (default 3) · `read`: extra folders or files outside the project the verifier may READ (plain paths, relative to the project root; never writable; everything else outside the project stays denied) |
@@ -48,6 +48,6 @@ The plugin's parser (`src/contract/parse.ts` in opencode-goal) is the source of 
 
 ## Validator messages
 
-Errors: wrong schema · bad or mismatched id · missing title / intent.verbatim / outcome · no non-goals · no criteria · no essential criterion · criterion id not `C<n>` · missing statement · missing or unknown check kind · missing kind fields (run, path, pattern, paths, ask, text|regex) · invalid regex · non-positive timeout · invariant with a non-host kind · duplicate ids · plan id not `S<n>` · unknown `proves`/`depends_on` · dependency cycle · bad budget values · bad autonomy / verification values · invalid YAML (with a hint for unquoted `: `).
+Errors: wrong schema · bad or mismatched id · missing title / intent.verbatim / outcome · no non-goals · no criteria · no essential criterion · criterion id not `C<n>` · missing statement · missing or unknown check kind · missing kind fields (run, path, pattern, paths, ask, text|regex) · invalid regex · non-positive timeout · invariant with a non-host kind · duplicate ids · plan id not `S<n>` · unknown `proves`/`depends_on` · dependency cycle · bad budget values or unknown budget keys · bad autonomy / verification values · invalid YAML (with a hint for unquoted `: `).
 
 Warnings: title over 80 chars · outcome reads as an activity · vague words without a number (outcome and statements) · no host-checkable essential criterion.

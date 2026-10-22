@@ -572,7 +572,9 @@ export class GoalApp {
           ? { actionRequired: `blocked on ${state.blocker?.key ?? "owner decision"}: ${state.blocker?.reason ?? state.reason ?? ""}${state.blocker?.needs ? ` — needs ${state.blocker.needs}` : ""}` }
           : state.status === "budget_limited"
             ? { actionRequired: `budget used: raise the budget and amend, or abort (${state.reason ?? ""})` }
-            : {}),
+            : state.status === "backstop_limited"
+              ? { actionRequired: `turn backstop: no contract budget set — set budget.turns and amend, or abort (${state.reason ?? ""})` }
+              : {}),
       amendments: state.amendments.filter((a) => a.status === "proposed").length,
       flags: state.flags.length,
       updatedAt: state.updatedAt,
@@ -586,7 +588,7 @@ export class GoalApp {
 
   /**
    * T045: the post-goal summary, emitted on every complete / needs_review /
-   * budget_limited transition. Built from data the run already has, shown to
+   * budget_limited / backstop_limited transition. Built from data the run already has, shown to
    * the owner (rpc event → TUI dialog) and the agent (one-line transcript
    * notice), and persisted under evidence/ with a ledger event.
    */
@@ -2557,6 +2559,13 @@ export class GoalApp {
             await this.transcript(state.sessionID, `◎ budget used (${contract.title}). The owner decides: raise the budget in goal.yaml and amend, or abort. Do not start new work.`)
             await this.summarize(state, contract)
             return this.persist(state)
+          case "backstop":
+            setStatus(state, "backstop_limited", action.reason)
+            this.store.ledger(state.slug, { type: "backstop_limited", turns: state.turn, backstopTurns: this.options.backstopTurns })
+            this.decide(state.sessionID, state.slug, "backstop_limited", M.backstopStopped(contract.title, this.options.backstopTurns))
+            await this.transcript(state.sessionID, `◎ turn backstop reached (${contract.title}): no contract budget was set. The owner decides: set budget.turns in goal.yaml and amend, or abort. Do not start new work.`)
+            await this.summarize(state, contract)
+            return this.persist(state)
           case "stalled":
             this.store.ledger(state.slug, { type: "stall", turns: stallTurns, activity: active, reason: stallReason, policy: contract.autonomy.on_stall })
             setStatus(state, "paused", action.reason)
@@ -3078,6 +3087,7 @@ export class GoalApp {
           return { ok: true, message: `Goal paused: ${state.title} — /goal resume · /goal abort` }
         case "resume": {
           if (state.status === "budget_limited") return { ok: false, message: "The goal used its budget. Raise budget in goal.yaml and start a new run, or abort it." }
+          if (state.status === "backstop_limited") return { ok: false, message: "The goal stopped at the turn backstop because no budget was set. Set budget.turns in goal.yaml and amend it, or abort it." }
           // T091: a resume is idempotent — an already-running run journals no
           // second receipt and is not admitted twice.
           if (state.status === "running" && !state.wait) return { ok: true, message: `Goal already running: ${state.title} — /goal status · /goal pause` }

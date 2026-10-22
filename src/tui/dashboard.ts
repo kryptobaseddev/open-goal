@@ -22,6 +22,7 @@ const STATUS: Record<string, { icon: string; label: string; tone: Tone }> = {
   blocked: { icon: "⛔", label: "blocked", tone: "error" },
   needs_review: { icon: "⚑", label: "needs review", tone: "warning" },
   budget_limited: { icon: "⊘", label: "budget used", tone: "warning" },
+  backstop_limited: { icon: "⏱", label: "turn backstop", tone: "warning" },
   complete: { icon: "✓", label: "complete", tone: "success" },
   failed: { icon: "✗", label: "failed", tone: "error" },
   aborted: { icon: "■", label: "aborted", tone: "muted" },
@@ -155,7 +156,7 @@ export function cardAffordanceTab(view: GoalView, now: number, width = 40): Dash
   return order.find((t) => truncated.has(t))
 }
 
-const humanKinds = new Set(["verdict", "approve", "reject", "amend-proposed", "amended", "blocked", "complete", "summary", "flag", "attached", "paused", "resumed", "aborted", "budget_limited", "superseded-by", "approve ", "reject "])
+const humanKinds = new Set(["verdict", "approve", "reject", "amend-proposed", "amended", "blocked", "complete", "summary", "flag", "attached", "paused", "resumed", "aborted", "budget_limited", "backstop_limited", "superseded-by", "approve ", "reject "])
 
 /** (T074 sign-off fix) Quick acts: owner actions that ALWAYS make sense for
  *  the goal's current state — the Decisions tab is interactive even when no
@@ -178,6 +179,8 @@ export function quickActRows(view: GoalView): ActionRow[] {
     rows.push({ label: "Verify now", description: "run the host checks + verifier immediately", act: "verify" })
   } else if (view.status === "budget_limited") {
     rows.push({ label: "Abort the goal", description: "stop at the budget", act: "abort" })
+  } else if (view.status === "backstop_limited") {
+    rows.push({ label: "Abort the goal", description: "stop at the turn backstop", act: "abort" })
   } else if (isTerminalStatus(view.status)) {
     rows.push({ label: "Archive the goal", description: "demote to goals-archive/ (history intact)", act: "archive" })
     rows.push({ label: "Start the next goal", description: "open the write-goal interview", act: "start-next" })
@@ -211,6 +214,9 @@ export function decisionRows(view: GoalView): ActionRow[] {
     } else if (view.status === "budget_limited") {
       rows.push({ label: "Raise budget and amend", description: "Describe the budget change in the Composer; review the agent's staged diff" })
       rows.push({ label: "Abort the goal", description: "stop at the budget", act: "abort" })
+    } else if (view.status === "backstop_limited") {
+      rows.push({ label: "Set budget.turns and amend", description: "The run had no budget; name a turn limit in the Composer and review the staged diff" })
+      rows.push({ label: "Abort the goal", description: "stop at the turn backstop", act: "abort" })
     }
   }
   if (view.status === "paused") rows.push({ label: "Resume the goal", description: view.reason ?? "", act: "resume" })

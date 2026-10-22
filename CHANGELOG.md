@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Fixed — an unknown `budget` key no longer fails open (D9).** The parser recognised only `turns`, `wall`, `tokens` and `cost_usd` and silently dropped anything else, so a contract written with `max_turns`/`max_tokens`/`max_cost_usd` ran with no budget at all and every "raise the budget" amendment was a no-op. Unknown keys are now a validation error naming the allowed keys, and a non-mapping `budget` is an error too.
+- **Fixed — the turn backstop is no longer reported as an exhausted budget (D9).** A run with no `budget.turns` still stops at the 200-turn backstop, but it now stops with its own `backstop_limited` status, decision kind and ledger event, and every surface (banner, action-required line, quick actions, post-goal summary) names the real remedy: set `budget.turns`. Previously the status said `budget_limited` while the header said "no budget set", which cost one live goal five owner round-trips.
+
 ## 0.9.2 — 2026-10-17
 
 - **First installable release through Trusted Publishing (OIDC).** `release.yml` rebuilt the Node bundle first and then published `@cleocode/goal@0.9.2` with a signed provenance statement. `0.9.0` was a manual publish whose registry package metadata was not readable/installable; `0.9.1` was tagged but its committed bundle was stale and the workflow refused it. **No engine behaviour changed.**
