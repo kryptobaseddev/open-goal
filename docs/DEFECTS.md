@@ -16,7 +16,8 @@ Status legend: **open** · **fixed** `<version>` · **by design**.
 | D6 | An unknown `expect` key in a check is silently dropped, weakening the criterion | high | **fixed 0.8.0** |
 | D7 | A contract can encode the inverse of the owner's intent and still validate | medium | open |
 | D8 | `ocg tick` read the run store without a guard, so an I/O error crashed it | high | **fixed 0.7.1** |
-| D9 | An unknown `budget` key is silently dropped, and the turn backstop is reported as an exhausted budget | high | **fixed in source** (unreleased) |
+| D9 | An unknown `budget` key is silently dropped, and the turn backstop is reported as an exhausted budget | high | **fixed 0.9.3** |
+| D10 | A contract locked before a validator tightening bricks its run; resume, amendment and divergence recovery disagree | high | **fixed 0.9.4** |
 
 ---
 
@@ -199,3 +200,42 @@ and resumed, then stopped again on the next tick, while the status header said "
 
 **Immediate workaround on 0.9.2** rename the contract's `max_turns` to `turns` (and `max_tokens` to `tokens`,
 `max_cost_usd` to `cost_usd`) and amend again; the backstop only applies while `budget.turns` is unset.
+
+---
+
+## D10 — a contract locked before a validator tightening bricks its run
+
+**Severity** high. **Status** **fixed 0.9.4**.
+
+**Reported** 2026-10-28 by `axiom-lab-profiler` (message `01M61Q6A5ASQN4TJTA4C5RH5PT`), from live
+goal `cbl514-scrutiny-ready` run `17122c97c001`, turn 574, paused with `contract unavailable after
+restart; resume when ready`.
+
+**Observed** the goal's locked generation contains `budget.rationale`, a free-text key that was
+accepted silently by 0.9.2 and is rejected by the D9 validator in 0.9.3. The disk bytes had **not**
+been edited; the lock predates the stricter parser. Three tools then refused for three different
+reasons:
+- `goal_manage resume` → "read-only (draft, archived or invalid)";
+- `goal_propose_amendment` → "Disk contract differs from the locked goal" (it was the same bytes);
+- `goal_recover_divergence` → "does not differ from the locked generation; nothing to recover"
+  (correct, and the only true statement).
+No worker-side path existed; only a human hand-edit of `goal.yaml` could clear it.
+
+**Cause** `divergenceOf` required a parsable disk contract, so an invalid-but-identical lock read as
+"no divergence"; `proposeAmendment` required `disk.contract` regardless of the lock; and validation
+errors were reported as a generic read-only state.
+
+**Fix**
+- `parseContract` accepts `tolerateUnknownBudgetKeys` for the repair path only; the strict default is
+  unchanged.
+- `proposeAmendment` and amendment acceptance read the locked generation with that lenient option
+  when the lock matches, so a repair diff can be staged and owner-reviewed instead of refused.
+- `goal_manage` on an invalid live goal names the failing key(s), states that the disk bytes ARE the
+  locked generation, and returns the exact `goal_propose_amendment` call; it no longer calls the goal
+  read-only.
+- `divergenceOf` reports differing bytes as a divergence even when the disk copy does not parse, so
+  recovery is reachable and can explain an invalid edit.
+
+**Regression** `test/host/invalid-locked-contract-repair.test.ts` seeds a paused run whose locked
+bytes carry `budget.rationale`, asserts the resume refusal names the key and the amendment tool, then
+stages and accepts the one-key repair and asserts the run re-locks to the corrected generation.

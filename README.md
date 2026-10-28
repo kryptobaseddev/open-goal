@@ -2,7 +2,7 @@
 
 Persistent, host-verified goal mode for [OpenCode 2](https://opencode.ai). Describe what you want, let the bundled **write-goal** interview turn it into a structured contract, and the plugin keeps the session working until the host — not the model — proves every criterion.
 
-> **Status: released (`0.9.3` on npm as `@cleocode/goal`).** Engine, verification and TUI are built and tested end to end against OpenCode 2.0.22 with a scripted model, and each release is proven from its own installed tag. CLEO integrates as an optional first-class citizen (`/goal cleo`). See [docs/HANDOFF.md](docs/HANDOFF.md).
+> **Status: released (`0.9.4` on npm as `@cleocode/goal`).** Engine, verification and TUI are built and tested end to end against OpenCode 2.0.22 with a scripted model, and each release is proven from its own installed tag. CLEO integrates as an optional first-class citizen (`/goal cleo`). See [docs/HANDOFF.md](docs/HANDOFF.md).
 >
 > **Name:** this project is **open-goal** (repo `kryptobaseddev/open-goal`). It was called `opencode-goal` until 2026-10; the GitHub repo redirects the old URL, and the agent mailbox is **`open-goal-lead@macbook`**. Use `open-goal` in new code, docs, mail and instructions — not `opencode-goal`.
 

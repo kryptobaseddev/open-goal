@@ -55,6 +55,16 @@ describe("goal/v1 contract", () => {
     })
   }
 
+  test("the repair path tolerates unknown budget metadata keys, but nothing else", () => {
+    const stale = edit("budget: {turns: 40, wall: 3h, tokens: 3M, cost_usd: 15}", "budget: {turns: 40, rationale: 'owner raised the cap'}")
+    expect(parseContract(stale).contract).toBeUndefined()
+    const repaired = parseContract(stale, { tolerateUnknownBudgetKeys: true })
+    expect(repaired.contract?.budget.turns).toBe(40)
+    // The tolerance is narrow: a broken budget value is still an error.
+    const broken = edit("budget: {turns: 40, wall: 3h, tokens: 3M, cost_usd: 15}", "budget: {turns: soon, rationale: x}")
+    expect(parseContract(broken, { tolerateUnknownBudgetKeys: true }).contract).toBeUndefined()
+  })
+
   test("rejects a slug that does not match the directory", () => {
     expect(errors(valid, "other-slug").join("\n")).toMatch(/must match its directory name/)
   })

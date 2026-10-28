@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.4 — 2026-10-28
+
+- **Fixed — a contract locked before a validator tightening no longer bricks its run (D10).** A run whose locked generation carries a key the current validator rejects (the reported case: a free-text `budget.rationale` locked under 0.9.2) used to be unresumable: resume called it read-only, `goal_propose_amendment` claimed the disk differed, and `goal_recover_divergence` correctly said nothing differed. The locked bytes are now read leniently **only** to form the prior side of a repair amendment, the repair can be staged and owner-reviewed, and the resume refusal names the failing key and the exact `goal_propose_amendment` call instead of a generic read-only message. Strict validation of new and repaired contracts is unchanged.
+- **Fixed — divergence detection reaches recovery even when the disk copy is invalid.** Differing bytes are a divergence; recovery now explains an invalid edit rather than reporting "nothing to recover" from a path that also refuses to stage.
+
 ## 0.9.3 — 2026-10-28
 
 - **Fixed — uncommitted work in a linked worktree now counts as progress (T116).** The fingerprint already covered a linked worktree's commits; it now also hashes each linked worktree's staged/unstaged diff and untracked sizes/mtimes. A run that works only in `.worktrees/<slug>` no longer records `changed:false` and auto-pauses as stalled. Measured cost on this repo with 6 worktrees: ~200 ms per fingerprint.

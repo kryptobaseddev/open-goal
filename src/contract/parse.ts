@@ -204,7 +204,7 @@ type YamlParse = (text: string) => unknown
 const bunYaml = (globalThis as { Bun?: { YAML?: { parse: YamlParse } } }).Bun?.YAML
 const parseYaml: YamlParse = (text) => (bunYaml ? bunYaml.parse(text) : parseYamlPortable(text))
 
-export function parseContract(text: string, options: { slug?: string } = {}): ParseResult {
+export function parseContract(text: string, options: { slug?: string; tolerateUnknownBudgetKeys?: boolean } = {}): ParseResult {
   const issues: Issue[] = []
   const lock = lockOf(text)
   let raw: unknown
@@ -288,7 +288,13 @@ export function parseContract(text: string, options: { slug?: string } = {}): Pa
   if (raw.budget !== undefined && !isRecord(raw.budget)) err("budget", `budget must be a mapping with ${BUDGET_KEYS.join(", ")}`)
   const budgetRaw = isRecord(raw.budget) ? raw.budget : {}
   for (const key of Object.keys(budgetRaw)) {
-    if (!(BUDGET_KEYS as readonly string[]).includes(key)) err(`budget.${key}`, `unknown key; allowed: ${BUDGET_KEYS.join(", ")}`)
+    if ((BUDGET_KEYS as readonly string[]).includes(key)) continue
+    // The default is a hard error (D9: a typo must not silently remove the
+    // budget). The repair path opts in to tolerating metadata keys so a
+    // contract locked under an older, laxer validator can still be read and
+    // amended forward instead of bricking its run.
+    if (options.tolerateUnknownBudgetKeys) continue
+    err(`budget.${key}`, `unknown key; allowed: ${BUDGET_KEYS.join(", ")}`)
   }
   const budget: Budget = {}
   if (budgetRaw.turns !== undefined) {

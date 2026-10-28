@@ -365,6 +365,18 @@ export class GoalApp {
     return value
   }
 
+  /** T163/D9 repair: a generation locked under an older, laxer validator can
+   *  become unreadable when the validator tightens (for example a free-text
+   *  `budget.rationale` key). The strict parser stays the default; this helper
+   *  is used only to form the "prior" side of a repair amendment so the owner
+   *  can stage a valid generation instead of hand-editing goal.yaml. It
+   *  tolerates unknown `budget.*` keys and nothing else. */
+  private priorContract(text: string, slug: string): Contract | undefined {
+    const strict = parseContract(text, { slug })
+    if (strict.contract) return strict.contract
+    return parseContract(text, { slug, tolerateUnknownBudgetKeys: true }).contract
+  }
+
   private contractOf(state: RunState): Contract | undefined {
     const cached = this.loaded.get(state.slug)
     if (cached && cached.lock === state.lock) return cached.contract
@@ -399,7 +411,10 @@ export class GoalApp {
    * — never infer it from the presence of a pending proposal. */
   private divergenceOf(state: RunState): { diskLock: string; diskText: string } | undefined {
     const disk = this.store.readContract(state.slug)
-    if (!disk?.contract || disk.lock === state.lock) return undefined
+    // Differing bytes are a divergence even when the disk copy does not parse:
+    // recovery must at least be reachable so it can name an invalid edit
+    // instead of reporting "nothing to recover" while staging refuses.
+    if (!disk || disk.lock === state.lock) return undefined
     return { diskLock: disk.lock, diskText: disk.text }
   }
 
@@ -1190,18 +1205,25 @@ export class GoalApp {
       // fresh diff there is not execution or transfer of the old consent.
       if (state.sessionID !== sessionID && this.factsOf(state.sessionID).busy && state.status !== "paused") throw new Error("The selected goal is executing elsewhere; pause it before proposing an amendment")
       const disk = this.store.readContract(state.slug)
-      if (!disk?.contract || disk.lock !== state.lock) throw new Error("Disk contract differs from the locked goal; resolve the existing edit before staging")
+      if (!disk) throw new Error("No goal.yaml on disk for the selected goal")
+      if (disk.lock !== state.lock) throw new Error("Disk contract differs from the locked goal; resolve the existing edit before staging")
+      // D9 repair: when the lock still matches but the current validator now
+      // rejects a metadata key, the locked generation is unreadable. Read it
+      // leniently so the owner can stage a valid repair generation instead of
+      // hitting a wall where propose refuses and recover says nothing differs.
+      const prior = disk.contract ?? this.priorContract(disk.text, state.slug)
+      if (!prior) throw new Error(`The locked contract is invalid and cannot be read for repair:\n${formatIssues(disk.issues)}`)
       const next = parseContract(input.yaml, { slug: state.slug })
       if (!next.contract) throw new Error(`Invalid amendment; current contract unchanged:\n${formatIssues(next.issues)}`)
       if (next.lock === state.lock) throw new Error("Nothing changed; no amendment staged")
-      const diff = amendmentDiff(disk.contract, next.contract)
+      const diff = amendmentDiff(prior, next.contract)
       // Owner-set autonomy: inside the launched policy the agent applies the
       // change itself (journalled, owner-revertible). Anything outside it,
       // including the policy itself, is routed to the owner below.
-      const policy = disk.contract.autonomy.amend
-      const change = classifyChange(disk.contract, next.contract)
+      const policy = prior.autonomy.amend
+      const change = classifyChange(prior, next.contract)
       const allowed = policyAllows(policy, change)
-      if (allowed.ok) return { applied: this.applyByPolicy(sessionID, state, disk.contract, next.contract, next.lock, input.yaml, input.rationale, change.classes, false) }
+      if (allowed.ok) return { applied: this.applyByPolicy(sessionID, state, prior, next.contract, next.lock, input.yaml, input.rationale, change.classes, false) }
       const outsidePolicy = policy.length ? allowed.reasons : []
       // A proposal is not permission to mutate the oracle. Stop the target
       // under its OLD contract while the exact diff is being reviewed.
@@ -1574,9 +1596,19 @@ export class GoalApp {
       const state = this.runs.get(request.targetSessionID)
       const disk = this.store.readContract(request.slug)
       const next = parseContract(request.nextText, { slug: request.slug })
-      if (!state || state.runId !== request.runId || state.lock !== request.lock || isTerminal(state.status) || !disk?.contract || disk.lock !== request.lock || !next.contract || next.lock !== request.nextLock) {
+      // A lock match is what binds the review to this generation; the disk
+      // contract may still be unreadable under a tightened validator when the
+      // reviewed change repairs it (D9 repair path).
+      if (!state || state.runId !== request.runId || state.lock !== request.lock || isTerminal(state.status) || !disk || disk.lock !== request.lock || !next.contract || next.lock !== request.nextLock) {
         this.amendmentReviews.update(request.id, { status: "failed", result: "Target/run/contract changed since review; no amendment applied." })
         this.store.ledger(request.slug, { type: "amendment-resolution-failed", decisionId: request.id, reason: "review binding changed" })
+        this.noticeM(request.sessionID, M.amendmentChanged())
+        return
+      }
+      const prior = disk.contract ?? this.priorContract(disk.text, request.slug)
+      if (!prior) {
+        this.amendmentReviews.update(request.id, { status: "failed", result: "The locked contract is invalid and cannot be read; no amendment applied." })
+        this.store.ledger(request.slug, { type: "amendment-resolution-failed", decisionId: request.id, reason: "locked contract unreadable" })
         this.noticeM(request.sessionID, M.amendmentChanged())
         return
       }
@@ -1585,7 +1617,7 @@ export class GoalApp {
       const acceptedAt = Date.now()
       const stopped = structuredClone(state)
       setStatus(stopped, "paused", "owner accepted amendment; resume when ready")
-      const result = amendedState(stopped, disk.contract, next.contract, request.nextLock, `owner accepted decision ${request.id}`, acceptedAt)
+      const result = amendedState(stopped, prior, next.contract, request.nextLock, `owner accepted decision ${request.id}`, acceptedAt)
       const approved = this.amendmentReviews.writeAhead(request.id, { state: result, acceptedAt })
       try {
         const applied = this.store.commitAmendment(approved)
@@ -3580,6 +3612,16 @@ export class GoalApp {
         const divergent = liveGoal && this.divergenceOf(liveGoal)
         if (liveGoal && divergent)
           return { ok: false, actionExecuted: false, target: this.targetOf(liveGoal), message: `${this.divergenceRefusal(liveGoal, divergent)} No ${action} was executed.` }
+        // T163/D9 repair: the locked bytes themselves may fail the CURRENT
+        // validator even though the disk was never edited (a generation locked
+        // by an older, laxer parser). That is not a read-only draft and not a
+        // divergence; name the invalid key and the one supported fix.
+        if (liveGoal) {
+          const disk = this.store.readContract(liveGoal.slug)
+          if (disk && disk.lock === liveGoal.lock && !disk.contract)
+            return { ok: false, actionExecuted: false, target: this.targetOf(liveGoal),
+              message: `The locked contract of "${liveGoal.slug}" is invalid under this plugin version, so no ${action} can run:\n${formatIssues(disk.issues)}\nThe disk bytes ARE the locked generation (SHA256 ${liveGoal.lock.slice(0, 12)}…), so there is nothing to recover. Fix only the named key(s) and stage a validated replacement with goal_propose_amendment {"slug":"${liveGoal.slug}","expectedLock":"${liveGoal.lock}","yaml":"<full corrected goal.yaml>"}; the owner reviews and accepts it, which re-locks the run. No hand-edit and no ${action} was executed.` }
+        }
         return { ok: false, message: "This selected goal is read-only (draft, archived or invalid); review/launch a valid draft instead." }
       }
       const state = [...this.runs.values()].find((s) => s.slug === selected.slug && s.runId === selected.runId) ?? this.store.readRun(selected.slug)

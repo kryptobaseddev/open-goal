@@ -6910,7 +6910,7 @@ import { readFileSync as readFileSync4 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
-  version: "0.9.3",
+  version: "0.9.4",
   description: "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   type: "module",
   license: "MIT",
@@ -7413,8 +7413,11 @@ function parseContract(text, options = {}) {
     err("budget", `budget must be a mapping with ${BUDGET_KEYS.join(", ")}`);
   const budgetRaw = isRecord(raw.budget) ? raw.budget : {};
   for (const key of Object.keys(budgetRaw)) {
-    if (!BUDGET_KEYS.includes(key))
-      err(`budget.${key}`, `unknown key; allowed: ${BUDGET_KEYS.join(", ")}`);
+    if (BUDGET_KEYS.includes(key))
+      continue;
+    if (options.tolerateUnknownBudgetKeys)
+      continue;
+    err(`budget.${key}`, `unknown key; allowed: ${BUDGET_KEYS.join(", ")}`);
   }
   const budget = {};
   if (budgetRaw.turns !== undefined) {
