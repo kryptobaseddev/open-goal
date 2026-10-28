@@ -72,9 +72,17 @@ describe("cleo-goal install --project", () => {
   test("replaces a git or older spec of this plugin in place, keeping its options and other keys", () => {
     const root = project("update")
     mkdirSync(join(root, ".opencode"))
-    writeFileSync(join(root, ".opencode/opencode.json"), JSON.stringify({ theme: "x", plugins: ["other", ["github:kryptobaseddev/opencode-goal#v0.8.0", { a: 1 }], "@cleocode/goal@0.8.0"] }))
+    writeFileSync(join(root, ".opencode/opencode.json"), JSON.stringify({ theme: "x", plugins: ["other", ["github:kryptobaseddev/open-goal#v0.8.0", { a: 1 }], "@cleocode/goal@0.8.0"] }))
     expect(installProject(root, "@cleocode/goal@0.9.0", { home: scratch + "-home" }).action).toBe("updated")
     expect(read(root)).toEqual({ theme: "x", plugins: ["other", ["@cleocode/goal@0.9.0", { a: 1 }]] })
+  })
+
+  test("replaces the pre-rename opencode-goal spec, so the old name cannot linger beside the new one", () => {
+    const root = project("update-legacy")
+    mkdirSync(join(root, ".opencode"))
+    writeFileSync(join(root, ".opencode/opencode.json"), JSON.stringify({ plugins: ["github:kryptobaseddev/opencode-goal#v0.9.2"] }))
+    expect(installProject(root, "@cleocode/goal@0.9.3", { home: scratch + "-home" }).action).toBe("updated")
+    expect(read(root)).toEqual({ plugins: ["@cleocode/goal@0.9.3"] })
   })
 
   test("refuses the home directory, invalid JSON and a JSONC config, writing nothing", () => {
@@ -132,7 +140,7 @@ describe("cleo-goal install --project", () => {
   test("identity drops the version or ref", () => {
     expect(identity("@cleocode/goal@0.9.0")).toBe("@cleocode/goal")
     expect(identity("@cleocode/goal")).toBe("@cleocode/goal")
-    expect(identity("github:kryptobaseddev/opencode-goal#v0.8.0")).toBe("github:kryptobaseddev/opencode-goal")
+    expect(identity("github:kryptobaseddev/open-goal#v0.8.0")).toBe("github:kryptobaseddev/open-goal")
   })
 })
 

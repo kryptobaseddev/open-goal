@@ -182,9 +182,11 @@ Anti-patterns: completing without running tests · `cleo verify --all` without `
 > Do not edit manually. Regenerate with `cleo refresh-memory`.
 <!-- CAAMP:END -->
 
-# opencode-goal — project guide
+# open-goal — project guide
 
 Persistent, host-verified goal mode for **OpenCode 2** (2.0.22+), shipped as a plugin installed from git tags, with a bundled `write-goal` skill. Start every session with [docs/HANDOFF.md](docs/HANDOFF.md) — it has the current state, the owner's decisions, and the next steps. Design: [docs/design.md](docs/design.md). Research: [docs/research/](docs/research/README.md). Observed OpenCode behaviour: [docs/spikes.md](docs/spikes.md) (trust it over any doc).
+
+**Name:** this project is **open-goal**. It was `opencode-goal` until 2026-10; the GitHub repo is `kryptobaseddev/open-goal` (old URLs redirect) and the agent mailbox is **`open-goal-lead@macbook`**. Address `open-goal-*` agents, never `opencode-goal-*`, and use the new name in new code, docs and instructions.
 
 ## Commands
 
@@ -195,7 +197,7 @@ Persistent, host-verified goal mode for **OpenCode 2** (2.0.22+), shipped as a p
 | Unit only | `bun test test/unit` |
 | One host scenario | `bun test test/host/goal.test.ts -t "<name>"` · keep the temp host with `KEEP_HOST=1` · server logs with `OPENCODE_LOG_LEVEL=info` |
 | Typecheck | `bun run typecheck` |
-| Install from a git tag (isolated) | `OCGOAL_GIT_INSTALL=1 OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#<tag>" bun test test/host/git-install.test.ts` |
+| Install from a git tag (isolated) | `OCGOAL_GIT_INSTALL=1 OCGOAL_GIT_SPEC="github:kryptobaseddev/open-goal#<tag>" bun test test/host/git-install.test.ts` |
 | Real TUI check | `bun scripts/tui-smoke.ts &` then `python3 spikes/tui-capture.py 12` (writes `.tmp/spikes/tui-raw.txt`) |
 | Re-run the OpenCode probes | `bun spikes/run.ts` |
 
@@ -224,4 +226,4 @@ Persistent, host-verified goal mode for **OpenCode 2** (2.0.22+), shipped as a p
 
 ## Releasing (the owner's iteration loop)
 
-Bump `package.json` version + `CHANGELOG.md` → commit → `git tag -a vX.Y.Z[-alpha.N]` → `git push origin main --follow-tags` → git-install test against the new tag → `opencode plugin remove "github:kryptobaseddev/opencode-goal#<old>"` → `opencode plugin add "github:kryptobaseddev/opencode-goal#<new>"` → `opencode reload` → `opencode plugin list`. The owner's OpenCode runs the **installed tag**, not this working tree.
+Bump `package.json` version + `CHANGELOG.md` → commit → `git tag -a vX.Y.Z[-alpha.N]` → `git push origin main --follow-tags` → git-install test against the new tag → `opencode plugin remove "github:kryptobaseddev/open-goal#<old>"` → `opencode plugin add "github:kryptobaseddev/open-goal#<new>"` → `opencode reload` → `opencode plugin list`. The owner's OpenCode runs the **installed tag**, not this working tree.

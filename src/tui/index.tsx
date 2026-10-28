@@ -20,7 +20,7 @@ const SIDEBAR_WIDTH = 40
 const PANEL_NAME = "goal-dashboard"
 
 export default {
-  id: "opencode-goal",
+  id: "open-goal",
   async setup(context: Context) {
     const rpc = context.client.rpc(GoalRpc as any) as any
     const [views, setViews] = createStore<Record<string, GoalView | null>>({})

@@ -19,37 +19,46 @@ under T124. This is the local half of the move; the public half is owner-sequenc
 safe to do now. The migration is captured as `scripts/rebrand-to-open-goal.sh` (dry-run by default; refuses an
 existing target or any non-terminal goal run).
 
+## Update — 2026-10-28 (lead session `ses_e7cd53effffe4eTnSrU4iQwCDX`)
+
+The owner asked to finish the changeover: move the lead mailbox, rename the GitHub side, retire the old
+name in instructions, and keep old mbx history usable.
+
+| Step | State |
+|---|---|
+| mbx identity | registered as **`open-goal-lead@macbook`** (owner chose this name over `ocg-lead`), role `lead`, project `/Users/keatonhoskins/projects/open-goal`; **owner-signed lead** (id `01M61JX1CSPKMJ4WVPH3KYS86E`, expires 2026-11-27) — the lead can read project-wide bodies with `mbx_project` and forward mail |
+| Old mailboxes | kept, not deleted. The project key `5f4ab735-ef8e-4c8b-8d64-1eb3021ed2ff` is unchanged, so `opencode-goal-*` history is still visible under the new path; those identities are released and claimable only by someone who deliberately claims them. New work uses `open-goal-*`. |
+| Repo content | renamed in this working tree: README/AGENTS/CLAUDE/GEMINI, `package.json` repository/homepage/bugs, `docs/design.md`, the `write-goal` skill, scripts and tests. Plugin id and RPC id are `open-goal`; `install` still recognises the old git spec and plugin id so an upgrade replaces it. Historical docs, changelog entries and `.cleo` evidence are left as written. |
+| npm trusted publisher | **still outstanding** — the local npm token is invalid (`npm whoami` → 401), so `npm trust list @cleocode/goal` cannot run. Owner must `npm login` first. |
+| GitHub repo rename | **still outstanding**, and must come *after* the trusted-publisher update (see below). |
+| `dist/` | rebuilt from the renamed source by the build script; regenerate before tagging. |
+
+Data-format schema ids (`opencode-goal/provenance/v1`, `opencode-goal/handoff/v1`,
+`opencode-goal/git-history/v1`) are deliberately unchanged: they are stored in existing evidence and
+verifying them against a renamed schema would invalidate historical runs.
+
 ## Outstanding
 
-**1. The `ocg-lead` persona is NOT registered.** The mbx MCP disconnected from this session during the move
-(`agentmbx whoami` works via the CLI, but the `mbx_*` tools are gone from the tool catalog), and registration
-needs the MCP tool — `whoami --as` only reads the identity a session already holds. Fix: reload/restart the
-session so the MCP reconnects, then run:
-
-```
-mbx_identity {"action":"register","name":"ocg-lead","role":"lead",
-              "description":"OCG lead: own the open-goal project; the 0.9.3 -> 0.10.0 -> 0.11.0 goal chain."}
-```
-
-Then have the owner designate it **lead of `open-goal`**. Note the naming tension: the owner asked for the
-handle `ocg-lead`, while the folder is now `open-goal`, so mbx's `<project>-<role>` convention would produce
-`open-goal-lead`. `ocg` remains the short/bin name, so `ocg-lead` is defensible as a handle — but it is the
-owner's call which of the two to standardise on.
+**1. mbx persona — done.** The lead identity is `open-goal-lead@macbook` and is the owner-signed lead of this
+project. No `ocg-lead` identity is needed; do not register one.
 
 **2. The public rename, in this order** (doing 2b before 2c breaks publishing):
 
 - a. `git remote set-url` is **not** needed yet; leave it until the repo is renamed.
-- b. Update the npm trusted publisher for `@cleocode/goal` to `kryptobaseddev/open-goal`.
-- c. Rename the GitHub repo `kryptobaseddev/opencode-goal` → `kryptobaseddev/open-goal`.
-- d. Then `git remote set-url origin` and update `package.json` `repository.url`.
+- b. Update the npm trusted publisher for `@cleocode/goal` to `kryptobaseddev/open-goal` —
+  **owner action**: `npm login`, then `npm trust github @cleocode/goal --file .github/workflows/release.yml --repo kryptobaseddev/open-goal --allow-publish`.
+- c. Rename the GitHub repo `kryptobaseddev/opencode-goal` → `kryptobaseddev/open-goal`
+  (`gh repo rename open-goal -R kryptobaseddev/opencode-goal`).
+- d. Then `git remote set-url origin git@github.com:kryptobaseddev/open-goal.git` and push.
 - e. `mbx doctor` will show the cloud origin change — expected, the project key stays the same.
 
 Skipping b before c means the next OIDC release fails: npm binds trusted publishing to `owner/repo`.
 
-**3. Naming still inconsistent inside the repo** — `AGENTS.md` is headed "opencode-goal — project guide" and
-its git-install recipe still uses `github:kryptobaseddev/opencode-goal#<tag>`. Both are correct *today* because
-the GitHub repo has not been renamed; update them in step 2d, not before. `AGENTS.md` is CAAMP-managed, so
-prefer editing the CAAMP source over the generated file.
+**3. Naming inside the repo — done** (2026-10-28). `AGENTS.md` is headed "open-goal — project guide", the
+git-install recipes use `github:kryptobaseddev/open-goal#<tag>`, and `package.json` points at the new URLs.
+The CAAMP block above the project guide is generated text; its `CAAMP:SOURCE` comments still name the old
+absolute path and are harmless historical provenance — leave them rather than hand-editing generated
+content.
 
 ## Known staleness that is NOT a defect
 

@@ -7,7 +7,7 @@ import { GoalApp } from "./app"
 const instances = new Map<string, GoalApp>()
 
 export default {
-  id: "opencode-goal",
+  id: "open-goal",
   async setup(ctx: Plugin.Context) {
     const key = ctx.location.directory
     const previous = instances.get(key)

@@ -260,7 +260,7 @@ async function runFlow(flow: FlowId, state: { qaRoot?: string }): Promise<FlowRu
   const emptyRaw = (): RawOutcome => ({ ownerMessages: [], forms: [], toolCalls: [], results: [] })
   if (NEEDS_ROOT.includes(flow) && !state.qaRoot)
     return { exit: 1, ms: 0, requestIds: [], readCoordinates: [], raw: emptyRaw(), note: `${flow} needs the shared QA root the interview flow creates, and there is none yet` }
-  const env: Record<string, string> = { ...(process.env as Record<string, string>), OCGOAL_GIT_SPEC: `github:kryptobaseddev/opencode-goal#${ref}`, OPENCODE_SESSION_ID: sourceSessionID! }
+  const env: Record<string, string> = { ...(process.env as Record<string, string>), OCGOAL_GIT_SPEC: `github:kryptobaseddev/open-goal#${ref}`, OPENCODE_SESSION_ID: sourceSessionID! }
   if (flow === "interview") {
     // ALWAYS a fresh isolated project: the dependents resume the root this run
     // creates. (Passing QA_RESUME_ROOT here means "retry an existing root", which

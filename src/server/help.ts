@@ -7,7 +7,7 @@ export type HelpFacts = { version: string }
 
 export function goalHelp({ version }: HelpFacts): string {
   return [
-    `# opencode-goal ${version} — the goal loop, for agents and owners`,
+    `# open-goal ${version} — the goal loop, for agents and owners`,
     "",
     "## Commands (owner)",
     "- `/goal new <what you want done>` — the write-goal interview (skill attached; similar-goal probe runs first)",

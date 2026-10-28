@@ -6966,9 +6966,9 @@ var package_default = {
   ],
   repository: {
     type: "git",
-    url: "git+https://github.com/kryptobaseddev/opencode-goal.git"
+    url: "git+https://github.com/kryptobaseddev/open-goal.git"
   },
-  homepage: "https://github.com/kryptobaseddev/opencode-goal#readme",
+  homepage: "https://github.com/kryptobaseddev/open-goal#readme",
   keywords: [
     "opencode",
     "opencode-plugin",
@@ -6986,7 +6986,7 @@ var package_default = {
     yaml: "2.8.1"
   },
   bugs: {
-    url: "https://github.com/kryptobaseddev/opencode-goal/issues"
+    url: "https://github.com/kryptobaseddev/open-goal/issues"
   }
 };
 
@@ -6996,7 +6996,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 var INSTALL_SCHEMA_VERSION = 1;
 var PACKAGE_NAME = "@cleocode/goal";
-var IDENTITIES = [PACKAGE_NAME, "github:kryptobaseddev/opencode-goal", "opencode-goal"];
+var IDENTITIES = [PACKAGE_NAME, "github:kryptobaseddev/open-goal", "github:kryptobaseddev/opencode-goal", "open-goal", "opencode-goal"];
 var PROJECT_CONFIG = join(".opencode", "opencode.json");
 
 class InstallError extends Error {
@@ -7725,15 +7725,11 @@ function git(cwd, args) {
   return { ok: result.status === 0, out: result.stdout ?? "" };
 }
 var isRepo = (cwd) => git(cwd, ["rev-parse", "--is-inside-work-tree"]).out.trim() === "true";
-function worktreeSignature(cwd) {
-  return git(cwd, ["worktree", "list", "--porcelain"]).out.split(`
-`).map((line) => line.trim()).filter(Boolean).join(`
-`);
-}
-function fingerprint(cwd) {
-  if (!isRepo(cwd))
-    return;
-  const head = git(cwd, ["rev-parse", "HEAD"]).out;
+var topLevel = (cwd) => {
+  const r = git(cwd, ["rev-parse", "--show-toplevel"]);
+  return r.ok ? r.out.trim() : undefined;
+};
+function treeState(cwd) {
   const diff = git(cwd, ["diff", "HEAD", "--no-color", "--", ".", GOAL_STATE]).out;
   const untracked = git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", GOAL_STATE]).out;
   const contents = untracked.split(`
@@ -7745,8 +7741,31 @@ function fingerprint(cwd) {
       return file;
     }
   });
-  return createHash2("sha256").update(head).update(diff).update(contents.join(`
-`)).update(worktreeSignature(cwd)).digest("hex").slice(0, 20);
+  return createHash2("sha256").update(diff).update(contents.join(`
+`)).digest("hex").slice(0, 20);
+}
+function worktreeSignature(cwd) {
+  const self = topLevel(cwd) ?? cwd;
+  const blocks = git(cwd, ["worktree", "list", "--porcelain"]).out.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+  return blocks.map((block) => {
+    const lines = block.split(`
+`).map((line) => line.trim()).filter(Boolean);
+    const path = lines.find((line) => line.startsWith("worktree "))?.slice("worktree ".length);
+    if (!path)
+      return block;
+    if (path === self)
+      return block;
+    return `${block}
+${treeState(path)}`;
+  }).join(`
+
+`);
+}
+function fingerprint(cwd) {
+  if (!isRepo(cwd))
+    return;
+  const head = git(cwd, ["rev-parse", "HEAD"]).out;
+  return createHash2("sha256").update(head).update(treeState(cwd)).update(worktreeSignature(cwd)).digest("hex").slice(0, 20);
 }
 function changedSince(cwd, base) {
   if (!isRepo(cwd))

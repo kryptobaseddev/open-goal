@@ -34,7 +34,7 @@ async function inspectInstalled(spec: string) {
   try {
     const entry: any = await until(async () => {
       const listed: any = await host.client.plugin.list({ location: host.location } as any)
-      return (listed?.data ?? listed).find((p: any) => p.id === "opencode-goal" && p.state?.status === "active")
+      return (listed?.data ?? listed).find((p: any) => ["open-goal", "opencode-goal"].includes(p.id) && p.state?.status === "active")
     }, 120000)
     const info: any = await host.client.server.info()
     const rpc: any = (host.client as any).rpc(GoalRpc)
@@ -89,7 +89,7 @@ test("the published release installs at its exact tag commit and all production 
   const version = JSON.parse(readFileSync(join(project, "package.json"), "utf8")).version
   const ref = process.env.OCGOAL_RELEASE_REF ?? `v${version}`
   const revision = git(project, "rev-parse", "--verify", `${ref}^{commit}`)
-  const spec = process.env.OCGOAL_GIT_SPEC ?? `github:kryptobaseddev/opencode-goal#${ref}`
+  const spec = process.env.OCGOAL_GIT_SPEC ?? `github:kryptobaseddev/open-goal#${ref}`
   const observed = await inspectInstalled(spec)
   expect(artifactDiscrepancies(observed, { revision, artifacts: hashesAtCommit(project, revision) })).toEqual([])
 }, 180000)

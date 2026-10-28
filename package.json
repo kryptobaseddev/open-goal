@@ -56,9 +56,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kryptobaseddev/opencode-goal.git"
+    "url": "git+https://github.com/kryptobaseddev/open-goal.git"
   },
-  "homepage": "https://github.com/kryptobaseddev/opencode-goal#readme",
+  "homepage": "https://github.com/kryptobaseddev/open-goal#readme",
   "keywords": [
     "opencode",
     "opencode-plugin",
@@ -76,6 +76,6 @@
     "yaml": "2.8.1"
   },
   "bugs": {
-    "url": "https://github.com/kryptobaseddev/opencode-goal/issues"
+    "url": "https://github.com/kryptobaseddev/open-goal/issues"
   }
 }

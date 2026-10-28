@@ -2,7 +2,7 @@
 
 Status: **v0.1.0-alpha.1 built** (see “As built” at the end for where the code differs from this proposal) · Target host: OpenCode **2.0.22+** (V2 plugin API only) · Companion: [research/landscape.md](research/landscape.md), [spikes.md](spikes.md), [HANDOFF.md](HANDOFF.md)
 
-Names: skill **`write-goal`**, plugin **`opencode-goal`** (github.com/kryptobaseddev/opencode-goal, installed from git tags; no npm package).
+Names: skill **`write-goal`**, plugin **`open-goal`** (github.com/kryptobaseddev/open-goal, installed from git tags; no npm package).
 
 ---
 
@@ -45,13 +45,13 @@ Non-goals for v1: OpenCode 1.x support; web/desktop UI (they don't load TUI plug
                                      evidence/        host check outputs    ┘
                                      │ goal_start (after an approved form) or /goal start <slug>
                                      ▼
- OpenCode 2 server ─ plugin "opencode-goal"
+ OpenCode 2 server ─ plugin "open-goal"
    contract loader/validator/lock · run store + ledger · loop engine (event.subscribe)
    context + compaction hooks · tool guard · goal_* tools · verification pipeline
    hidden goal-verifier agent · /goal command · GoalRpc (methods + events)
                                      │ RPC (works with a remote server)
                                      ▼
- OpenCode 2 TUI ─ plugin "opencode-goal/tui"
+ OpenCode 2 TUI ─ plugin "open-goal/tui"
    sidebar.content card · prompt.footer.status pill · session.composer.top banner
    session.panel "goal" dashboard · keymap layer · dialogs · attention.notify
 ```
@@ -154,7 +154,7 @@ Lives in this repo as `skills/write-goal/` (portable SKILL.md; `references/schem
 ### 6.1 Module layout (no monolith)
 
 ```
-src/server/index.ts        Plugin.define({id:"opencode-goal", setup}) — wiring only
+src/server/index.ts        Plugin.define({id:"open-goal", setup}) — wiring only
 src/contract/              schema, parse, validate, lock (sha256), render (system block, tail note)
 src/store/                 run.json (atomic tmp+rename+fsync) · ledger.jsonl (append, terminal-first) · lease
 src/engine/                state machine · turn collector · guards · scheduler (cooldown, waits, backoff)
@@ -256,7 +256,7 @@ turn 7/40 · 42m/3h · 1.2M/3M · $4/$15
 - **Panel** (`session.panel` "goal", fullscreen toggle): Contract · Board (per-criterion evidence, trust level, last run) · Timeline (ledger) · Verdicts · Amendments (accept/reject).
 - **Keymap layer**: `goal.panel`, `goal.pause`, `goal.resume`, `goal.verify`, `goal.abort` (confirm dialog), `goal.open-contract`.
 - **Attention** (`attention.notify`, `when: blurred`): complete → sound `done`; blocked / needs_review / waiting:user → `question`; failed → `error`.
-- **Data**: `GoalRpc = Rpc.define({id: "opencode-goal", methods: {snapshot, list, act}, events: {updated, ui}})`; the TUI subscribes to `updated`, re-syncs on `server.connected`, uses `data.on("session.usage.updated")` for live spend, and ticks clocks locally. No file polling, no transcript scraping. UI preferences (collapsed sections) live in `context.storage.store`.
+- **Data**: `GoalRpc = Rpc.define({id: "open-goal", methods: {snapshot, list, act}, events: {updated, ui}})`; the TUI subscribes to `updated`, re-syncs on `server.connected`, uses `data.on("session.usage.updated")` for live spend, and ticks clocks locally. No file polling, no transcript scraping. UI preferences (collapsed sections) live in `context.storage.store`.
 
 ## 8. Testing
 

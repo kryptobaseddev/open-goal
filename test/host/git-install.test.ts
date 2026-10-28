@@ -5,7 +5,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { startHost, until } from "./harness"
 
-const SPEC = process.env.OCGOAL_GIT_SPEC ?? "github:kryptobaseddev/opencode-goal#v0.1.0-alpha.1"
+const SPEC = process.env.OCGOAL_GIT_SPEC ?? "github:kryptobaseddev/open-goal#v0.1.0-alpha.1"
 
 describe.skipIf(!process.env.OCGOAL_GIT_INSTALL)("install from git", () => {
   test(`OpenCode installs ${SPEC} and registers /goal, the tools and the skill`, async () => {
@@ -26,7 +26,7 @@ describe.skipIf(!process.env.OCGOAL_GIT_INSTALL)("install from git", () => {
       // palette commands, no sidebar, no panel, while the server side worked.
       // Installs land in the harness's shared package cache (XDG_CACHE_HOME).
       const cacheRoot = join(import.meta.dir, "..", "..", ".tmp", "host-cache", "opencode", "npm")
-      const dirs = readdirSync(cacheRoot).filter((d) => d.startsWith("git-opencode-goal-"))
+      const dirs = readdirSync(cacheRoot).filter((d) => d.startsWith("git-open-goal-") || d.startsWith("git-opencode-goal-"))
       const stamps = dirs.flatMap((d) => readdirSync(join(cacheRoot, d)).map((ts) => join(cacheRoot, d, ts)))
       const newest = stamps.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs).at(0)!
       expect(existsSync(join(newest, "node_modules", "@opentui", "solid"))).toBe(true)

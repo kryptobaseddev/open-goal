@@ -87,7 +87,7 @@ try {
       await writeFile(join(out, `${slug}.ledger.jsonl`), await host.readProject(`.opencode/goals/${slug}/ledger.jsonl`))
     }
     const serverLog = join(host.env.XDG_DATA_HOME!, "opencode/log/opencode.log")
-    if (await Bun.file(serverLog).exists()) await writeFile(join(out, "plugin-lifecycle.log"), (await Bun.file(serverLog).text()).split("\n").filter((line) => line.includes("opencode-goal") || line.includes('component=location')).join("\n"))
+    if (await Bun.file(serverLog).exists()) await writeFile(join(out, "plugin-lifecycle.log"), (await Bun.file(serverLog).text()).split("\n").filter((line) => line.includes("open-goal") || line.includes("opencode-goal") || line.includes('component=location')).join("\n"))
     const focused: any = await Bun.file(observer).json().catch(() => null)
     const pass = exit === 0 && other.runId === second.runId && other.status === "waiting" && current.sessionID !== one && current.sessionID !== primary && focused?.route?.sessionID === current.sessionID
     await writeFile(join(out, "result.json"), JSON.stringify({ pass, ptyExit: exit, current, other, focused, artifacts: out }, null, 2))

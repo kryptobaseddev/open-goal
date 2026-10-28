@@ -28,7 +28,7 @@ await writeFile(join(root, "README.md"), "# Isolated real-model goal QA\nOnly QA
 await writeFile(join(root, ".gitignore"), ".opencode/goals/*/run.json\n.opencode/goals/*/ledger.jsonl\n.opencode/goals/*/evidence/\n.opencode/goals/.owner-*.json*\nqa-evidence/\n")
 // Test a newly published immutable patch before changing the original
 // goal's serving engine. This overrides only the isolated QA location.
-if (process.env.OCGOAL_GIT_SPEC) await writeFile(join(root, ".opencode/opencode.json"), JSON.stringify({ plugins: ["-opencode-goal", process.env.OCGOAL_GIT_SPEC] }, null, 2))
+if (process.env.OCGOAL_GIT_SPEC) await writeFile(join(root, ".opencode/opencode.json"), JSON.stringify({ plugins: ["-open-goal", process.env.OCGOAL_GIT_SPEC] }, null, 2))
 }
 function git(cwd: string, ...args: string[]) {
   const r = Bun.spawnSync(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe", env: { ...process.env, GIT_AUTHOR_NAME: "Goal QA", GIT_AUTHOR_EMAIL: "goal-qa@test.invalid", GIT_COMMITTER_NAME: "Goal QA", GIT_COMMITTER_EMAIL: "goal-qa@test.invalid" } })

@@ -9,7 +9,7 @@ export type { LaunchView } from "./engine/launches"
 const targetObject = { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 256 }, lock: { type: "string", minLength: 64, maxLength: 64 }, runId: { type: "string", minLength: 1, maxLength: 128 }, sessionID: { type: "string", minLength: 1, maxLength: 256 } }, required: ["key", "lock"], additionalProperties: false } as const
 
 export const GoalRpc = {
-  id: "opencode-goal",
+  id: "open-goal",
   methods: {
     provenance: {
       input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 } }, additionalProperties: false },

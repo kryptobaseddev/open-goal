@@ -16,7 +16,7 @@ import { createStore, reconcile } from "solid-js/store";
 var anyObject = { type: "object", additionalProperties: true };
 var targetObject = { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 256 }, lock: { type: "string", minLength: 64, maxLength: 64 }, runId: { type: "string", minLength: 1, maxLength: 128 }, sessionID: { type: "string", minLength: 1, maxLength: 256 } }, required: ["key", "lock"], additionalProperties: false };
 var GoalRpc = {
-  id: "opencode-goal",
+  id: "open-goal",
   methods: {
     provenance: {
       input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 } }, additionalProperties: false },
@@ -605,7 +605,7 @@ function pointerSelect(control, event, rowHeight) {
 var SIDEBAR_WIDTH = 40;
 var PANEL_NAME = "goal-dashboard";
 var tui_default = {
-  id: "opencode-goal",
+  id: "open-goal",
   async setup(context) {
     const rpc = context.client.rpc(GoalRpc);
     const [views, setViews] = createStore({});

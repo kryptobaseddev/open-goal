@@ -21,7 +21,7 @@ const root = realpathSync(await mkdtemp(join(tmpdir(), "opencode", "real-model-a
 const evidence = join(root, "qa-evidence"), location = { directory: root }
 await mkdir(join(root, ".opencode/goals/qa-chat-amend"), { recursive: true })
 await mkdir(evidence, { recursive: true })
-await writeFile(join(root, ".opencode/opencode.json"), JSON.stringify({ plugins: ["-opencode-goal", process.env.OCGOAL_GIT_SPEC] }))
+await writeFile(join(root, ".opencode/opencode.json"), JSON.stringify({ plugins: ["-open-goal", process.env.OCGOAL_GIT_SPEC] }))
 const yaml = `schema: goal/v1
 id: qa-chat-amend
 title: Deployed Composer acceptance QA

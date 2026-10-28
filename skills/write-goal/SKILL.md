@@ -51,7 +51,7 @@ Map the decisions as a tree. Each round, ask the **frontier** — every decision
 Log every question and answer to `decisions.jsonl` (one JSON object per line: `{"t","q","options","a","by":"owner"|"assumed"}`). Anything you decide without asking becomes an `assumptions` entry with a rationale and `reversible` — never a silent default.
 
 ### 4 · Draft `goal.yaml`
-Start from `assets/goal.template.yaml` (or the shape below). Then validate: call `goal_validate({slug})` when the opencode-goal plugin is present and fix every error; otherwise self-check against the rules below. Repeat until clean.
+Start from `assets/goal.template.yaml` (or the shape below). Then validate: call `goal_validate({slug})` when the open-goal plugin is present and fix every error; otherwise self-check against the rules below. Repeat until clean.
 
 ### 5 · Review
 Show the owner the contract compactly: outcome, a table of criteria (id · statement · check), invariants, protected paths, non-goals, budget. Ask: **Approve** (Recommended) / Revise criteria / Revise scope / Save as draft.

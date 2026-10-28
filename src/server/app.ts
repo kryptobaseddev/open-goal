@@ -3179,7 +3179,7 @@ export class GoalApp {
   private async provenance(sessionID?: string): Promise<RuntimeProvenance> {
     const listed: any = await this.ctx.plugin.list({ location: { directory: this.root } } as any)
     const entries = Array.isArray(listed) ? listed : listed?.data ?? []
-    const entry = entries.find((p: any) => p.id === "opencode-goal")
+    const entry = entries.find((p: any) => p.id === "open-goal" || p.id === "opencode-goal")
     const source = entry?.source ?? { type: "unknown" }
     const state = sessionID ? this.runs.get(sessionID) : undefined
     const result: RuntimeProvenance = {

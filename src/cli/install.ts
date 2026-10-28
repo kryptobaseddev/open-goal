@@ -9,7 +9,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path"
 export const INSTALL_SCHEMA_VERSION = 1
 export const PACKAGE_NAME = "@cleocode/goal"
 /** Specs that name this plugin, whatever the version: the npm package and the git repo it was installed from before npm. */
-const IDENTITIES = [PACKAGE_NAME, "github:kryptobaseddev/opencode-goal", "opencode-goal"]
+const IDENTITIES = [PACKAGE_NAME, "github:kryptobaseddev/open-goal", "github:kryptobaseddev/opencode-goal", "open-goal", "opencode-goal"]
 export const PROJECT_CONFIG = join(".opencode", "opencode.json")
 
 type Options = Record<string, unknown>
