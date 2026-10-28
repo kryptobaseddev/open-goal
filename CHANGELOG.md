@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.8 — 2026-10-28
+
+- **Fixed — a paused run that exists only on disk can be repaired by amendment.** `goal_propose_amendment` looked the run up only in the in-memory map, so after a plugin reload window (or when another session recovered the run) a one-key repair answered "No live run for the selected goal" even though `run.json` was intact. It now falls back to `run.json` exactly as `goal_manage` does, mirrors the run, and refuses to shadow a different live goal in that session. Every guard is unchanged (owner authority, executing amendment, stale lock, verifying, busy-elsewhere, divergence, strictly parsed next contract).
+- **Fixed — recovery can read a locked generation written under an older validator.** `contractOf()` strict-parsed the locked evidence snapshot, so `goal_recover_divergence` answered "The locked contract snapshot is unavailable" and resume could not read the prior when the generation carried a now-unknown `budget.*` key (the D10 shape). It now falls back to the tolerant prior loader (unknown `budget.*` keys only) when the snapshot lock matches the run. The contract that runs is still parsed strictly; no schema, criterion or check changes.
+- **Regression** `test/host/recovery-hardening.test.ts`: three host scenarios (disk-only paused amendment stages and re-locks; invalid locked snapshot + divergent disk recovers; invalid locked snapshot resumes). They fail on the unfixed engine and pass here. Reported from live runs `cbl514-scrutiny-ready` (01M61Q6A…) and `tbl-six-class-production-run` (01M626VS…).
+- **Still open, named:** stale-writer guard for a dying process's final `run.json` write, reload atomicity for the tool surface, and the same disk fallback for `goal_recover_divergence`.
+
 ## 0.9.7 — 2026-10-28
 
 - **Fixed — the installed-release proof matches what the package actually ships.** `scripts/check-installed-goal.ts` compares every production artifact in the tag with the bytes the running plugin loaded. `isArtifactPath` counted `skills/*/evals/**` as production artifacts, but `package.json`'s `files` deliberately excludes them (`!skills/*/evals`), so npm never installs them and the comparison reported them as missing for every real install — making the release proof impossible to satisfy. The artifact set now matches the packed files; **every shipped entrypoint, `src/**`, `dist/**` and `skills/**` file is still byte-compared**, and an unexpected file is still rejected.

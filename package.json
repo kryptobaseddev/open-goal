@@ -1,6 +1,6 @@
 {
   "name": "@cleocode/goal",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "description": "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   "type": "module",
   "license": "MIT",
