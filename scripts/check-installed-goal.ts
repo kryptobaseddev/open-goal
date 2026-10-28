@@ -4,7 +4,7 @@
 // (goal_provenance), and verifies the serving PID belongs to this process's
 // ancestry. Never discover/fall back to the default shared service.
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs"
-import { join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import { artifactDiscrepancies, captureArtifactHashes, hashArtifact, isArtifactPath, type RuntimeProvenance } from "../src/verify/artifact"
 
 function option(name: string): string | undefined {
@@ -36,8 +36,21 @@ function ancestors(): Set<number> {
 
 try {
   const root = realpathSync(process.cwd())
+  // A goal contract may bind an execution `workspace` (a linked worktree).
+  // Host checks then run at that worktree root, but the goal folders — and the
+  // project's own package.json — live in the project checkout. Resolve the
+  // project root from the shared git dir so an installed-release check works
+  // from either checkout without weakening what it proves.
+  const projectRoot = (() => {
+    try {
+      const common = realpathSync(decode(git("rev-parse", "--path-format=absolute", "--git-common-dir")))
+      return basename(common) === ".git" ? dirname(common) : root
+    } catch {
+      return root
+    }
+  })()
   const minVersion = option("--min-version") ?? "0.3.3"
-  const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version
+  const version = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8")).version
   const ref = option("--ref") ?? `v${version}`
   if (!/^v\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(ref)) throw new Error("Expected a release tag, not a mutable branch")
   const revision = decode(git("rev-parse", "--verify", `${ref}^{commit}`))
@@ -47,7 +60,7 @@ try {
     const published = rows.find((row) => row[1] === `refs/tags/${ref}^{}`)?.[0] ?? rows.find((row) => row[1] === `refs/tags/${ref}`)?.[0]
     if (published !== revision) throw new Error("Published release tag does not equal the expected local immutable commit")
   }
-  const goals = join(root, ".opencode/goals")
+  const goals = join(projectRoot, ".opencode/goals")
   const context = process.env.OCGOAL_CHECK_CONTEXT ? JSON.parse(process.env.OCGOAL_CHECK_CONTEXT) : undefined
   const sessionID = context?.sessionID ?? process.env.OPENCODE_SESSION_ID
   if (!sessionID) throw new Error("No actual goal-session binding; refusing an unscoped shared-service lookup")
