@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.7 — 2026-10-28
+
+- **Fixed — the installed-release proof matches what the package actually ships.** `scripts/check-installed-goal.ts` compares every production artifact in the tag with the bytes the running plugin loaded. `isArtifactPath` counted `skills/*/evals/**` as production artifacts, but `package.json`'s `files` deliberately excludes them (`!skills/*/evals`), so npm never installs them and the comparison reported them as missing for every real install — making the release proof impossible to satisfy. The artifact set now matches the packed files; **every shipped entrypoint, `src/**`, `dist/**` and `skills/**` file is still byte-compared**, and an unexpected file is still rejected.
+- **Packaging.** Same runtime, same CLI; only the version label and the artifact-set definition changed.
+
 ## 0.9.6 — 2026-10-28
 
 - **Packaging only — a git-tag install can be prepared by npm again.** `opencode plugin add github:kryptobaseddev/open-goal#vX.Y.Z` prepares a git dependency with npm, and npm installs the package's devDependencies before packing it. `@opencode/plugin` pulls the AWS Bedrock SDK, and npm's fresh resolution selected `@aws-sdk/*` versions whose registry tarballs were not available, so the preparation failed with `git dep preparation failed` (bun resolves the same tree fine, which is why CI and local installs were unaffected). `overrides` now pin that AWS dev tree to the exact versions this repository's `bun.lock` already resolves — all present and verified. **No runtime dependency, source or behaviour change**; `bun install` resolves the same versions and the published tarball is unchanged apart from the version.
