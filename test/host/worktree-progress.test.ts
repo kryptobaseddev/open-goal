@@ -45,3 +45,26 @@ test("a commit in a linked .worktrees worktree changes the run fingerprint", () 
   expect(git(root, "rev-parse", "HEAD")).toBe(rootHead) // the root tree did not move
   expect(after).not.toBe(before)
 })
+
+test("uncommitted work in a linked worktree also changes the run fingerprint", () => {
+  const root = mkdtempSync(join(tmpdir(), "ocgoal-worktree-dirty-"))
+  git(root, "init", "-q", "-b", "main")
+  writeFileSync(join(root, "README.md"), "# root\n")
+  git(root, "add", "-A")
+  git(root, "commit", "-q", "-m", "root init")
+
+  const worktree = join(root, ".worktrees", "feature")
+  git(root, "worktree", "add", "-q", "-b", "feature", worktree)
+
+  const before = fingerprint(root)
+  // Real work in progress, not yet committed: the run must still see progress.
+  writeFileSync(join(worktree, "work.txt"), "feature work\n")
+
+  const after = fingerprint(root)
+  expect(after).toBeTruthy()
+  expect(after).not.toBe(before)
+
+  // Editing the same file again (same path, different bytes) must also count.
+  writeFileSync(join(worktree, "work.txt"), "feature work, revised\n")
+  expect(fingerprint(root)).not.toBe(after)
+})

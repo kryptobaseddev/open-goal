@@ -27,22 +27,9 @@ export const headCommit = (cwd: string): string | undefined => {
   return r.ok ? r.out.trim() : undefined
 }
 
-/** T116: linked worktrees live under the project but their commits are invisible
- * to the root worktree's diff, so the last goal run recorded changed:false and
- * tripped the stall auto-pause three times. `git worktree list --porcelain`
- * names every worktree's HEAD and branch; a commit in any of them changes it. */
-export function worktreeSignature(cwd: string): string {
-  return git(cwd, ["worktree", "list", "--porcelain"])
-    .out.split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n")
-}
-
-/** Hash of HEAD + staged/unstaged diff + untracked file list + linked-worktree HEADs, excluding goal state. */
-export function fingerprint(cwd: string): string | undefined {
-  if (!isRepo(cwd)) return undefined
-  const head = git(cwd, ["rev-parse", "HEAD"]).out
+/** Hash of one worktree's staged/unstaged diff plus untracked file sizes and
+ *  mtimes, excluding goal state. Same rule the root worktree has always used. */
+function treeState(cwd: string): string {
   const diff = git(cwd, ["diff", "HEAD", "--no-color", "--", ".", GOAL_STATE]).out
   const untracked = git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", GOAL_STATE]).out
   const contents = untracked
@@ -57,7 +44,35 @@ export function fingerprint(cwd: string): string | undefined {
         return file
       }
     })
-  return createHash("sha256").update(head).update(diff).update(contents.join("\n")).update(worktreeSignature(cwd)).digest("hex").slice(0, 20)
+  return createHash("sha256").update(diff).update(contents.join("\n")).digest("hex").slice(0, 20)
+}
+
+/** T116: linked worktrees live under the project but their work is invisible to
+ *  the root worktree's diff, so a run recorded changed:false and tripped the
+ *  stall auto-pause. `git worktree list --porcelain` names every worktree; the
+ *  signature now carries HEAD/branch AND the dirty state of each linked
+ *  worktree, so uncommitted work counts as progress too, not only commits.
+ *  The cwd worktree is skipped because `fingerprint` hashes it separately. */
+export function worktreeSignature(cwd: string): string {
+  const self = topLevel(cwd) ?? cwd
+  const blocks = git(cwd, ["worktree", "list", "--porcelain"]).out.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean)
+  return blocks
+    .map((block) => {
+      const lines = block.split("\n").map((line) => line.trim()).filter(Boolean)
+      const path = lines.find((line) => line.startsWith("worktree "))?.slice("worktree ".length)
+      if (!path) return block
+      if (path === self) return block
+      return `${block}\n${treeState(path)}`
+    })
+    .join("\n\n")
+}
+
+/** Hash of HEAD + staged/unstaged diff + untracked file list + every linked
+ *  worktree's HEAD and dirty state, excluding goal state. */
+export function fingerprint(cwd: string): string | undefined {
+  if (!isRepo(cwd)) return undefined
+  const head = git(cwd, ["rev-parse", "HEAD"]).out
+  return createHash("sha256").update(head).update(treeState(cwd)).update(worktreeSignature(cwd)).digest("hex").slice(0, 20)
 }
 
 /** T109: a bounded, host-computed git history digest. The verifier child has only
