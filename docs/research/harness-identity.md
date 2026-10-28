@@ -2,8 +2,12 @@
 
 Status: **implemented in 0.9.5** (saga T124, epics T125/T129/T133).
 Read-with: the locked contract `.opencode/goals/harness-identity/goal.yaml` and the
-read-only CLEO contract `../cleocode/packages/contracts/src/goal-runtime.ts` (CLEO
-owns that file; this project never edits it).
+read-only CLEO contract at
+`/Users/keatonhoskins/projects/cleocode/packages/contracts/src/goal-runtime.ts`
+(that is `../cleocode/...` from the project checkout; this note states the absolute
+path because the goal workspace is `.worktrees/harness-identity`, where a relative
+`../cleocode` would point at the wrong directory). CLEO owns that file; this
+project never edits it.
 
 The engine used to be OpenCode-branded in its state and status surfaces: a run
 said `sessionID`, `runId`, `lock` and nothing about *what produced it*. A second
@@ -99,7 +103,8 @@ matrix and widens the names. This goal only needs the OpenCode set.
 
 ## 4. The CLEO contract (T13875)
 
-The read side is `GoalRuntimeStatus` in `../cleocode/packages/contracts/src/goal-runtime.ts`.
+The read side is `GoalRuntimeStatus` in
+`/Users/keatonhoskins/projects/cleocode/packages/contracts/src/goal-runtime.ts`.
 The file currently declares only the schema version and the run shape:
 
 > `export const GOAL_RUNTIME_SCHEMA_VERSION = 1;`
