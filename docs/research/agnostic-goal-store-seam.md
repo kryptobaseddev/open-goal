@@ -166,6 +166,7 @@ from every existing project so the default stays unchanged.
 ## Checks run for this note
 
 `bun test test/unit/store-path-seam.test.ts test/unit/store-layout-compat.test.ts
-test/unit/store-migration-plan.test.ts` — 44 pass, 0 fail. `bun test test/unit`
-— 345 pass, 0 fail. `bun run typecheck` — `check:tui`, `check:cli` and
+test/unit/store-migration-plan.test.ts` — 45 pass, 0 fail. `bun test test/unit`
+— 346 pass, 0 fail (11 consecutive runs after one unreproduced flake in the
+first post-build run). `bun run typecheck` — `check:tui`, `check:cli` and
 `tsc --noEmit` clean (the CLI bundle was regenerated for the new import).
