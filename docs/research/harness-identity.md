@@ -1,13 +1,12 @@
 # Harness identity — every run says which harness produced it
 
 Status: **implemented in 0.9.5** (saga T124, epics T125/T129/T133).
-Read-with: the locked contract `.opencode/goals/harness-identity/goal.yaml` and the
-read-only CLEO contract at
-`/Users/keatonhoskins/projects/cleocode/packages/contracts/src/goal-runtime.ts`
-(that is `../cleocode/...` from the project checkout; this note states the absolute
-path because the goal workspace is `.worktrees/harness-identity`, where a relative
-`../cleocode` would point at the wrong directory). CLEO owns that file; this
-project never edits it.
+Read-with: the locked contract `.opencode/goals/harness-identity/goal.yaml` and
+`docs/research/reference/cleo-goal-runtime.contract.txt` — a verbatim copy of the
+CLEO contract file (the CLEO contracts package in the separate CLEO repository, which CLEO owns
+and this project never edits). The copy lives inside
+this project so it can be read from the goal workspace; Appendix A reproduces the
+same text.
 
 The engine used to be OpenCode-branded in its state and status surfaces: a run
 said `sessionID`, `runId`, `lock` and nothing about *what produced it*. A second
@@ -103,8 +102,8 @@ matrix and widens the names. This goal only needs the OpenCode set.
 
 ## 4. The CLEO contract (T13875)
 
-The read side is `GoalRuntimeStatus` in
-`/Users/keatonhoskins/projects/cleocode/packages/contracts/src/goal-runtime.ts`.
+The read side is `GoalRuntimeStatus`, verbatim in
+`docs/research/reference/cleo-goal-runtime.contract.txt`.
 The file currently declares only the schema version and the run shape:
 
 > `export const GOAL_RUNTIME_SCHEMA_VERSION = 1;`
@@ -170,12 +169,11 @@ surface that carries it.
 
 ## Appendix A — verbatim copy of the CLEO contract file
 
-Read on 2026-10-28 from the read-only CLEO checkout at
-`/Users/keatonhoskins/projects/cleocode/packages/contracts/src/goal-runtime.ts`
-(`../cleocode/...` from the project checkout; this goal's workspace is a
-worktree, so the absolute path removes the ambiguity). It is reproduced verbatim
-here so the quotes above can be checked from inside this project. The CLEO file
-remains the authority; this project never edits it.
+Copied on 2026-10-28 from the CLEO contracts package in the separate CLEO
+repository, which CLEO owns and this project never edits. It is reproduced
+verbatim here and at `docs/research/reference/cleo-goal-runtime.contract.txt` so
+the quotes above can be checked from inside this project. The CLEO file remains
+the authority.
 
 ```ts
 /**
