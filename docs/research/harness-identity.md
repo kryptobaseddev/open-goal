@@ -1,8 +1,9 @@
 # Harness identity — every run says which harness produced it
 
 Status: **implemented in 0.9.5** (saga T124, epics T125/T129/T133).
-Read-with: `../cleocode/packages/contracts/src/goal-runtime.ts` (read-only; CLEO owns it)
-and `docs/research/agnostic-ocg-roadmap.md` (why this is goal 1 of 3).
+Read-with: the locked contract `.opencode/goals/harness-identity/goal.yaml` and the
+read-only CLEO contract `../cleocode/packages/contracts/src/goal-runtime.ts` (CLEO
+owns that file; this project never edits it).
 
 The engine used to be OpenCode-branded in its state and status surfaces: a run
 said `sessionID`, `runId`, `lock` and nothing about *what produced it*. A second
@@ -24,8 +25,9 @@ export type HarnessIdentity = {
 
 - **Optional and additive.** `schemaVersion` stays `1`. A run written before the
   field existed has no `harness` key and still parses; every existing field is
-  unchanged. Nothing is backfilled — an old run is honestly "unknown", not
-  retro-labelled.
+  unchanged. The OpenCode start path never backfills an old run — it stays
+  unlabelled rather than retro-labelled. The tick path does label a run that has
+  none (it is that run's first writer), once.
 - **Declared, never sniffed.** The OpenCode engine records `opencode`; the CLEO
   Stop dispatcher names its harness through `CLEO_HOOK_PROVIDER`; everything else
   is `unknown`. A transcript (a Stop payload) is harness-written data and never
@@ -94,7 +96,6 @@ dispatcher path records `capabilities: null` because CLEO does not tell it.
 reads a transcript to learn what happened. The capability vocabulary is the one
 the adapter-seam goal (0.10.0) formalises; that goal turns this list into a
 matrix and widens the names. This goal only needs the OpenCode set.
-
 ## 4. The CLEO contract (T13875)
 
 The read side is `GoalRuntimeStatus` in `../cleocode/packages/contracts/src/goal-runtime.ts`.
@@ -123,20 +124,24 @@ readonly harness?: {
 ```
 
 Because it is optional, a CLEO that has not landed T13875 ignores it; a CLEO that
-has reads it. Neither needs a schema bump.
+has reads it. Neither needs a schema bump. One coordination point: T13875's
+acceptance says `capabilities: string[]`, while this build deliberately emits
+`null` on the dispatcher path (the dispatcher does not know the set; see A1).
+CLEO's landed type should therefore allow `string[] | null` — nothing else in the
+shape differs.
 
 ## 5. Doctor output
 
 `cleo doctor goal-runtime` today reports the runtime it found, without the
-harness (CLEO T135 "Show harness in cleo doctor goal-runtime" is still pending on
-the CLEO side). Verbatim:
+harness: CLEO T13875's third acceptance ("cleo doctor goal-runtime shows the
+harness when present") is still pending on the CLEO side. Verbatim:
 
 > `"status":"ok","message":"CLEO Goal 0.9.4 at /Users/keatonhoskins/.local/share/mise/shims/cleo-goal, goal harness-identity (running)"`
 
 > `"details":{"bin":"/Users/keatonhoskins/.local/share/mise/shims/cleo-goal","version":"0.9.4","latest":null,"goal":"harness-identity","goalStatus":"running"}`
 
 That is the honest state: the runtime version and the live goal are reported; the
-harness line arrives with T135, and until then `cleo-goal status --json` is the
+harness line arrives with T13875, and until then `cleo-goal status --json` is the
 surface that carries it.
 
 ## 6. How this is proven

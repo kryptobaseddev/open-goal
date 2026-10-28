@@ -15,10 +15,9 @@
 // wrote; it never renames the harness. There is deliberately no second
 // convention: no `OCGOAL_HARNESS` variable and no `--harness` flag.
 //
-// The capability names are the seam vocabulary of the next goal
-// (`docs/research/harness-adapter.md`): one list of claims a harness either can
-// or cannot back with a surface. This goal only needs the OpenCode set, so the
-// list is declared here and documented in `docs/research/harness-identity.md`.
+// The capability names are the seam vocabulary the adapter-seam goal (0.10.0)
+// formalises into a matrix; this goal declares the OpenCode set only. The list
+// is documented in `docs/research/harness-identity.md`.
 
 /** The harnesses this version names. `unknown` is a real answer, not a fallback. */
 export type HarnessName = "opencode" | "claude" | "codex" | "unknown"
