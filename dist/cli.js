@@ -6910,7 +6910,7 @@ import { readFileSync as readFileSync4 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
-  version: "0.9.4",
+  version: "0.9.5",
   description: "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   type: "module",
   license: "MIT",
@@ -7706,6 +7706,7 @@ function goalStatus(store, now = Date.now()) {
     title: run.title,
     status: run.status,
     ...run.priority ? { priority: run.priority } : {},
+    ...run.harness ? { harness: run.harness } : {},
     turn: run.turn,
     reason: run.reason ?? null,
     criteria,
@@ -8251,6 +8252,22 @@ function recordTurn(state, _contract, inputs) {
   return { turn: state.turn, changed, progress, claimHonoured, ...mined ? { mined } : {}, couldNotSee };
 }
 
+// src/engine/harness-identity.ts
+var CLEO_HOOK_PROVIDER = "CLEO_HOOK_PROVIDER";
+function harnessFromHookProvider(value) {
+  switch ((value ?? "").trim()) {
+    case "claude-code":
+      return "claude";
+    case "codex":
+      return "codex";
+    default:
+      return "unknown";
+  }
+}
+function dispatcherIdentity(env = {}) {
+  return { name: harnessFromHookProvider(env[CLEO_HOOK_PROVIDER]), version: null, capabilities: null };
+}
+
 // src/engine/tick.ts
 var TICK_LIMITS = { blockerRepeats: 3, stallTurns: 3, recoveryAt: 2, backstopTurns: 200 };
 var TICK_COOLDOWN_MS = 1500;
@@ -8316,6 +8333,14 @@ async function tick(deps) {
   const record = recordTurn(live, contract, { fingerprint: deps.fingerprint ?? (() => {
     return;
   }), ...deps.payload ? { payload: deps.payload } : {}, ...deps.readTranscript ? { readTranscript: deps.readTranscript } : {}, now });
+  const identity = dispatcherIdentity(deps.env ?? process.env);
+  if (!live.harness) {
+    live.harness = identity;
+    deps.store.ledger(live.slug, { type: "harness", name: identity.name, version: identity.version, capabilities: identity.capabilities, source: "tick" });
+    log.push(`recorded harness ${identity.name}${identity.name === "unknown" ? " (no CLEO_HOOK_PROVIDER declared)" : ""}`);
+  } else if (live.harness.name !== identity.name && identity.name !== "unknown") {
+    log.push(`harness is already recorded as ${live.harness.name}; the dispatcher declared ${identity.name} - keeping the producer`);
+  }
   deps.store.ledger(live.slug, {
     type: "turn",
     turn: live.turn,

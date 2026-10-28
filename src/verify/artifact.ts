@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto"
 import { lstatSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
+import type { HarnessIdentity } from "../engine/harness-identity"
 
 export type ArtifactHashes = Record<string, string>
 export type ArtifactSource = { type: string; target?: string; version?: string; outdated?: boolean; path?: string }
@@ -24,6 +25,8 @@ export type RuntimeProvenance = {
   sessionID?: string
   runId?: string
   lock?: string
+  /** v0.9.5: the harness serving this run, as the run recorded it. */
+  harness?: HarnessIdentity
 }
 
 const entrypoints = ["package.json", "server.ts", "tui.tsx", "rpc.ts"]

@@ -82,7 +82,13 @@ try {
     revision, artifacts, sessionID, runId: state.runId, lock: state.lock,
     serverPID: context?.serverPID ?? actual.serverPID, minVersion,
   })
-  if (realpathSync(actual.location) !== root) errors.push("runtime location differs from the goal project")
+  // The runtime serves the PROJECT checkout; host checks run at the execution
+  // workspace (a linked worktree) when the contract binds one. Compare against
+  // the project root resolved above, not this check's cwd: the plugin cannot
+  // serve a worktree that has no goal store of its own. A non-workspace goal has
+  // projectRoot === root, so this is unchanged there, and a runtime serving any
+  // other project is still refused.
+  if (realpathSync(actual.location) !== projectRoot) errors.push("runtime location differs from the goal project")
   // The files have not been changed after their loaded-byte capture either.
   const disk = captureArtifactHashes(actual.packageRoot)
   if (JSON.stringify(disk) !== JSON.stringify(actual.artifacts)) errors.push("installed artifact bytes changed after setup")
