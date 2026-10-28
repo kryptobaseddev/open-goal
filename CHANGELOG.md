@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.9.3 — 2026-10-28
 
+- **Fixed — uncommitted work in a linked worktree now counts as progress (T116).** The fingerprint already covered a linked worktree's commits; it now also hashes each linked worktree's staged/unstaged diff and untracked sizes/mtimes. A run that works only in `.worktrees/<slug>` no longer records `changed:false` and auto-pauses as stalled. Measured cost on this repo with 6 worktrees: ~200 ms per fingerprint.
 - **Renamed to open-goal.** The GitHub repo, package metadata, README/AGENTS instructions, plugin id and RPC id are now `open-goal` (was `opencode-goal`). The npm package name stays `@cleocode/goal`; the goal-format schema ids (`opencode-goal/provenance/v1`, `opencode-goal/handoff/v1`) are unchanged on purpose so existing evidence still verifies. Install identity matching still accepts the old git spec and plugin id, so upgrading replaces the old entry instead of running both. GitHub redirects the old repo URL; new links use `kryptobaseddev/open-goal`.
 - **Fixed — an unknown `budget` key no longer fails open (D9).** The parser recognised only `turns`, `wall`, `tokens` and `cost_usd` and silently dropped anything else, so a contract written with `max_turns`/`max_tokens`/`max_cost_usd` ran with no budget at all and every "raise the budget" amendment was a no-op. Unknown keys are now a validation error naming the allowed keys, and a non-mapping `budget` is an error too.
 - **Fixed — the turn backstop is no longer reported as an exhausted budget (D9).** A run with no `budget.turns` still stops at the 200-turn backstop, but it now stops with its own `backstop_limited` status, decision kind and ledger event, and every surface (banner, action-required line, quick actions, post-goal summary) names the real remedy: set `budget.turns`. Previously the status said `budget_limited` while the header said "no budget set", which cost one live goal five owner round-trips.
