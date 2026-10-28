@@ -96,6 +96,7 @@ dispatcher path records `capabilities: null` because CLEO does not tell it.
 reads a transcript to learn what happened. The capability vocabulary is the one
 the adapter-seam goal (0.10.0) formalises; that goal turns this list into a
 matrix and widens the names. This goal only needs the OpenCode set.
+
 ## 4. The CLEO contract (T13875)
 
 The read side is `GoalRuntimeStatus` in `../cleocode/packages/contracts/src/goal-runtime.ts`.
