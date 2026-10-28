@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { artifactDiscrepancies, captureArtifactHashes, isArtifactPath, versionAtLeast, type RuntimeProvenance } from "../../src/verify/artifact"
 
@@ -51,6 +52,10 @@ test("skill eval fixtures are not production artifacts: the package does not shi
   expect(isArtifactPath("skills/write-goal/SKILL.md")).toBe(true)
   expect(isArtifactPath("src/server/app.ts")).toBe(true)
   expect(Object.keys(artifacts).some((p) => p.includes("/evals/"))).toBe(false)
+  // Drift guard: the exclusion above must stay in step with the packed file set.
+  // If the package starts shipping evals, this fails and the predicate must move.
+  const pkg = JSON.parse(readFileSync(join(import.meta.dir, "../../package.json"), "utf8"))
+  expect(pkg.files).toContain("!skills/*/evals")
 })
 
 test("semantic minimum does not mistake prerelease or malformed labels for a stable release", () => {
