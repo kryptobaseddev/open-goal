@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.5 — 2026-10-28
+
+- **Every run records which harness produced it (T125).** `RunState.harness` is `{name, version, capabilities[]}`: the OpenCode engine records `name: "opencode"`, its serving package version, and the surfaces it can actually drive. The ledger's `start` event carries the same identity, so a repaired run keeps its producer. `goal_status`, the RPC snapshot/view and `goal_provenance` expose it. The field is optional and additive — `schemaVersion` stays 1, and a run written before it existed parses unchanged and is not retro-labelled.
+- **`cleo-goal status --json` reports the harness (T130).** Present when the run recorded one, omitted when it did not; no schema bump. A CLEO that has not yet landed T13875 ignores it.
+- **The Stop-dispatched tick records the harness CLEO declares (T131).** `CLEO_HOOK_PROVIDER=claude-code` records `claude`, `codex` records `codex`, and absent or any other value records `unknown`. Version and capabilities stay `null` on that path because the dispatcher does not supply them, and the Stop payload/transcript is never consulted for identity. The first writer wins: a later tick never renames the harness that produced the run. No `OCGOAL_HARNESS` variable and no `--harness` flag.
+- **`scripts/check-installed-goal.ts` works for a workspace-bound goal (T124).** The check now compares the serving runtime's location with the project checkout (where the plugin actually serves), not the linked worktree the host checks run in. A non-workspace goal is unaffected (`projectRoot === root`), and the check still rejects a runtime serving any other project.
+- **Documentation.** `docs/research/harness-identity.md` records the field, the dispatcher signal, every capability's meaning, the CLEO T13875 contract quote, and the current `cleo doctor goal-runtime` output.
+
 ## 0.9.4 — 2026-10-28
 
 - **Fixed — a contract locked before a validator tightening no longer bricks its run (D10).** A run whose locked generation carries a key the current validator rejects (the reported case: a free-text `budget.rationale` locked under 0.9.2) used to be unresumable: resume called it read-only, `goal_propose_amendment` claimed the disk differed, and `goal_recover_divergence` correctly said nothing differed. The locked bytes are now read leniently **only** to form the prior side of a repair amendment, the repair can be staged and owner-reviewed, and the resume refusal names the failing key and the exact `goal_propose_amendment` call instead of a generic read-only message. Strict validation of new and repaired contracts is unchanged.

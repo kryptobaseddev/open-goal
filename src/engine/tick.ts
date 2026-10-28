@@ -22,6 +22,7 @@ import { renderTailNote } from "../contract/render"
 import { budgetUse, setStatus, TERMINAL as TERMINAL_STATUSES, type RunState } from "./state"
 import { continuationTail, decide, type LoopLimits, type LoopSignals } from "./loop"
 import { recordTurn } from "./tick-record"
+import { dispatcherIdentity } from "./harness-identity"
 import type { VerifyOutcome } from "../verify/pipeline"
 
 /** The plugin's own defaults, so a tick agrees with the adapter unless overridden. */
@@ -49,6 +50,8 @@ export type TickDeps = {
   verify?: (state: RunState, contract: Contract, contractText: string) => Promise<VerifyOutcome>
   /** The raw harness Stop payload, when the harness passed one. */
   payload?: string
+  /** The dispatcher's environment. Defaults to the real one. */
+  env?: Record<string, string | undefined>
   readTranscript?: (path: string) => string | undefined
   limits?: LoopLimits
   cooldownMs?: number
@@ -130,6 +133,18 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
 
   // ── 1. RECORD the turn, through OCG's own store, in the adapter's own shape.
   const record = recordTurn(live, contract, { fingerprint: deps.fingerprint ?? (() => undefined), ...(deps.payload ? { payload: deps.payload } : {}), ...(deps.readTranscript ? { readTranscript: deps.readTranscript } : {}), now })
+  // ── 1a. DECLARE the harness that produced this run, once. CLEO's dispatcher
+  // names it (`CLEO_HOOK_PROVIDER`); absent or unrecognised is `unknown`, never a
+  // guess from the payload. A run already carries its producer, so it is never
+  // renamed by a later tick.
+  const identity = dispatcherIdentity(deps.env ?? process.env)
+  if (!live.harness) {
+    live.harness = identity
+    deps.store.ledger(live.slug, { type: "harness", name: identity.name, version: identity.version, capabilities: identity.capabilities, source: "tick" })
+    log.push(`recorded harness ${identity.name}${identity.name === "unknown" ? " (no CLEO_HOOK_PROVIDER declared)" : ""}`)
+  } else if (live.harness.name !== identity.name && identity.name !== "unknown") {
+    log.push(`harness is already recorded as ${live.harness.name}; the dispatcher declared ${identity.name} - keeping the producer`)
+  }
   deps.store.ledger(live.slug, {
     type: "turn",
     turn: live.turn,

@@ -2,6 +2,7 @@
 // function), so neither side needs @opencode/plugin at runtime.
 const anyObject = { type: "object", additionalProperties: true } as const
 import type { Handoff } from "./engine/state"
+import type { HarnessIdentity } from "./engine/harness-identity"
 import type { LaunchView } from "./engine/launches"
 export type { LaunchView } from "./engine/launches"
 // V2 RPC's schema adapter rejects regex patterns. Length is declared here;
@@ -120,6 +121,8 @@ export type GoalView = {
   /** T106: the tuple goal_manage accepts, so a caller never loses a round to
    * discovery after a generation change — key, runId, sessionID and lock. */
   target?: GoalTarget
+  /** v0.9.5: the harness that produced this run (absent on older runs). */
+  harness?: HarnessIdentity
   turn: number
   timeline: TimelineEntry[]
   activeMs: number
