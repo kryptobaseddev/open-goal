@@ -36,6 +36,11 @@ export class StoreRootError extends Error {}
 
 const REL_SEPARATORS = /[\\/]+/
 
+/** A store root may not BE a harness state directory: `.cleo` and `.opencode`
+ *  hold other state (the CLEO store, this plugin's config), so a goal folder
+ *  there would collide with it. Their `goals/` subdirectories are fine. */
+const RESERVED_ROOTS = new Set([".cleo", ".opencode", ".git", "node_modules"])
+
 const posix = (path: string) => path.split(sep).join("/")
 
 const inside = (child: string, parent: string) => {
@@ -60,6 +65,7 @@ function configuredRel(value: string): string {
   const segments = normalized.split("/")
   if (segments.includes(".git")) throw new StoreRootError(`the configured goal-store root may not live inside .git: ${raw}`)
   if (segments.includes("node_modules")) throw new StoreRootError(`the configured goal-store root may not live inside node_modules: ${raw}`)
+  if (RESERVED_ROOTS.has(normalized)) throw new StoreRootError(`the configured goal-store root may not be the harness state directory ${normalized}; name a goals directory inside it`)
   return normalized
 }
 
