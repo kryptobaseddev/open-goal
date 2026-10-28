@@ -28,6 +28,7 @@ import { restartDecision } from "../engine/interrupt-policy"
 import { staleDecision } from "../engine/stale-decisions"
 import { cleoFacts, cleoHealth, cleoHealthReport, cleoLinkEvent, CLEO_INIT_COMMAND, CLEO_INSTALL_COMMAND, type Runner } from "../engine/cleo-link"
 import { bridgeReport, acsByGateFromProves, junitToVitestJson, runBridge, sha256Hex, suggestLinkedTasks, type BridgeReport, type CleoRun, type TaskOutcome } from "../engine/cleo-bridge"
+import { OPENCODE_ADAPTER, type HarnessAdapter } from "../engine/harness"
 import type { CleoTaskLink } from "../contract/types"
 import { buildPostGoalSummary } from "../summary/build"
 import { completionAudit } from "../summary/audit"
@@ -159,7 +160,7 @@ export class GoalApp {
   /** v0.8.0: lazily created AgentMBX transport (only with an identity). */
   private peerChannelInstance?: PeerChannel
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context, readonly adapter: HarnessAdapter = OPENCODE_ADAPTER) {
     this.root = ctx.location.directory
     this.rootReal = canonical(this.root)
     this.store = new Store(this.root)
@@ -2177,6 +2178,12 @@ export class GoalApp {
     if (state.status !== "running") setStatus(state, "running")
     state.activity = { kind: "turn", since: Date.now(), detail: kind }
     let note = renderTailNote(state, contract, kind as TailKind)
+    // The seam: the continuation this path sends is the OpenCode adapter's
+    // session-prompt surface. The text is the same as before; the seam owns the
+    // mechanism, so a harness without one can say so instead of inventing it.
+    const continuation = this.adapter.continuation(kind as TailKind, note)
+    if (continuation.kind === "session-prompt") note = continuation.reason
+    else this.store.ledger(state.slug, { type: "continuation-unsupported", harness: this.adapter.name, kind })
     // v0.8.0 D1: the kickoff carries the handoff digest. It is volatile tail
     // content for turn 1 only, so the system block stays byte-stable.
     if (kind === "kickoff" && state.handoff?.file) {
