@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.6 — 2026-10-28
+
+- **Packaging only — a git-tag install can be prepared by npm again.** `opencode plugin add github:kryptobaseddev/open-goal#vX.Y.Z` prepares a git dependency with npm, and npm installs the package's devDependencies before packing it. `@opencode/plugin` pulls the AWS Bedrock SDK, and npm's fresh resolution selected `@aws-sdk/*` versions whose registry tarballs were not available, so the preparation failed with `git dep preparation failed` (bun resolves the same tree fine, which is why CI and local installs were unaffected). `overrides` now pin that AWS dev tree to the exact versions this repository's `bun.lock` already resolves — all present and verified. **No runtime dependency, source or behaviour change**; `bun install` resolves the same versions and the published tarball is unchanged apart from the version.
+
 ## 0.9.5 — 2026-10-28
 
 - **Every run records which harness produced it (T125).** `RunState.harness` is `{name, version, capabilities[]}`: the OpenCode engine records `name: "opencode"`, its serving package version, and the surfaces it can actually drive. The ledger's `start` event carries the same identity, so a repaired run keeps its producer. `goal_status`, the RPC snapshot/view and `goal_provenance` expose it. The field is optional and additive — `schemaVersion` stays 1, and a run written before it existed parses unchanged and is not retro-labelled.
