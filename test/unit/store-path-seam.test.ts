@@ -109,6 +109,7 @@ describe("an invalid root fails closed", () => {
     ["the project root", "."],
     ["inside .git", ".git/goals"],
     ["inside node_modules", "node_modules/goals"],
+    ["the CLEO state directory", ".cleo"],
     ["the legacy store", LEGACY_GOALS_REL],
     ["inside the legacy store", `${LEGACY_GOALS_REL}/nested`],
     ["the legacy archive", LEGACY_ARCHIVE_REL],

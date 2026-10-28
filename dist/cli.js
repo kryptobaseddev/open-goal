@@ -7825,6 +7825,7 @@ var DEFAULT_RESOLVED_LAYOUT = "legacy-opencode";
 class StoreRootError extends Error {
 }
 var REL_SEPARATORS = /[\\/]+/;
+var RESERVED_ROOTS = new Set([".cleo", ".opencode", ".git", "node_modules"]);
 var posix = (path) => path.split(sep2).join("/");
 var inside2 = (child, parent) => {
   const rel = relative2(parent, child);
@@ -7847,6 +7848,8 @@ function configuredRel(value) {
     throw new StoreRootError(`the configured goal-store root may not live inside .git: ${raw}`);
   if (segments.includes("node_modules"))
     throw new StoreRootError(`the configured goal-store root may not live inside node_modules: ${raw}`);
+  if (RESERVED_ROOTS.has(normalized))
+    throw new StoreRootError(`the configured goal-store root may not be the harness state directory ${normalized}; name a goals directory inside it`);
   return normalized;
 }
 function assertClearOfLegacy(rel) {
