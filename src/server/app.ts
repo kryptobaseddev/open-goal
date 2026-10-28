@@ -391,8 +391,18 @@ export class GoalApp {
     const currentSnapshot = join(this.store.dir(state.slug), "evidence", state.runId, `contract-${state.lock}.yaml`)
     const snapshot = existsSync(currentSnapshot) ? currentSnapshot : join(this.store.dir(state.slug), "evidence", state.runId, "contract.yaml")
     if (existsSync(snapshot)) {
-      const parsed = parseContract(readFileSync(snapshot, "utf8"), { slug: state.slug })
+      const raw = readFileSync(snapshot, "utf8")
+      const parsed = parseContract(raw, { slug: state.slug })
       if (parsed.contract && parsed.lock === state.lock) return parsed.contract
+      // T124/B: the locked snapshot may predate a validator tightening (D10),
+      // so the strict parse fails on metadata such as `budget.rationale`. This
+      // snapshot is only ever the PRIOR side of a recovery diff — the contract
+      // that runs is always parsed strictly — so fall back to the tolerant
+      // loader, which accepts unknown `budget.*` keys and nothing else.
+      if (parsed.lock === state.lock) {
+        const tolerant = this.priorContract(raw, state.slug)
+        if (tolerant) return tolerant
+      }
     }
     return undefined
   }
@@ -1196,8 +1206,19 @@ export class GoalApp {
 
   private async proposeAmendment(sessionID: string, input: { slug: string; expectedLock: string; yaml: string; rationale: string }) {
     const outcome = await this.serial(() => {
-      const state = [...this.runs.values()].find((s) => s.slug === input.slug)
+      // T124/A: a paused run may exist only on disk — during the reload window,
+      // or when another session recovered it. Fall back to run.json exactly as
+      // goal_manage does; otherwise a one-key repair is unreachable even though
+      // the run is intact. Mirror it so the later review acceptance binds to
+      // this exact run, but never shadow a different live run of that session.
+      const mirrored = [...this.runs.values()].find((s) => s.slug === input.slug)
+      const state = mirrored ?? this.store.readRun(input.slug)
       if (!state) throw new Error("No live run for the selected goal")
+      if (!mirrored) {
+        const held = this.runs.get(state.sessionID)
+        if (!held || held.runId === state.runId || isTerminal(held.status)) this.runs.set(state.sessionID, state)
+        else throw new Error("The selected goal's session is running another goal; attach this goal to a session before staging an amendment")
+      }
       const unavailable = ownerCan(state, "amend")
       if (unavailable) throw new Error(unavailable)
       if (this.amendmentReviews.all().some((p) => p.slug === state.slug && p.status === "executing")) throw new Error("An owner-accepted amendment is committing; recover it before another proposal")
