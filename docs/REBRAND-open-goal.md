@@ -29,8 +29,8 @@ name in instructions, and keep old mbx history usable.
 | mbx identity | registered as **`open-goal-lead@macbook`** (owner chose this name over `ocg-lead`), role `lead`, project `/Users/keatonhoskins/projects/open-goal`; **owner-signed lead** (id `01M61JX1CSPKMJ4WVPH3KYS86E`, expires 2026-11-27) — the lead can read project-wide bodies with `mbx_project` and forward mail |
 | Old mailboxes | kept, not deleted. The project key `5f4ab735-ef8e-4c8b-8d64-1eb3021ed2ff` is unchanged, so `opencode-goal-*` history is still visible under the new path; those identities are released and claimable only by someone who deliberately claims them. New work uses `open-goal-*`. |
 | Repo content | renamed in this working tree: README/AGENTS/CLAUDE/GEMINI, `package.json` repository/homepage/bugs, `docs/design.md`, the `write-goal` skill, scripts and tests. Plugin id and RPC id are `open-goal`; `install` still recognises the old git spec and plugin id so an upgrade replaces it. Historical docs, changelog entries and `.cleo` evidence are left as written. |
-| npm trusted publisher | **still outstanding** — the local npm token is invalid (`npm whoami` → 401), so `npm trust list @cleocode/goal` cannot run. Owner must `npm login` first. |
-| GitHub repo rename | **still outstanding**, and must come *after* the trusted-publisher update (see below). |
+| GitHub repo rename | **done 2026-10-28**: `kryptobaseddev/opencode-goal` → `kryptobaseddev/open-goal`; the old URL redirects; the remote is `https://github.com/kryptobaseddev/open-goal.git` and `main` is pushed. |
+| npm trusted publisher | **done 2026-10-28**: `npm trust github @cleocode/goal --file release.yml --repo kryptobaseddev/open-goal --allow-publish` succeeded (trust id `d0a1062a-91c1-463f-8f14-a5d4e7826354`, permissions publish + stage publish). Note the order had to be inverted: npm validates that the GitHub repo exists, so the repo rename came first and the publisher second; no release was cut in between. |
 | `dist/` | rebuilt from the renamed source by the build script; regenerate before tagging. |
 
 Data-format schema ids (`opencode-goal/provenance/v1`, `opencode-goal/handoff/v1`,
@@ -44,15 +44,20 @@ project. No `ocg-lead` identity is needed; do not register one.
 
 **2. The public rename, in this order** (doing 2b before 2c breaks publishing):
 
-- a. `git remote set-url` is **not** needed yet; leave it until the repo is renamed.
-- b. Update the npm trusted publisher for `@cleocode/goal` to `kryptobaseddev/open-goal` —
-  **owner action**: `npm login`, then `npm trust github @cleocode/goal --file .github/workflows/release.yml --repo kryptobaseddev/open-goal --allow-publish`.
-- c. Rename the GitHub repo `kryptobaseddev/opencode-goal` → `kryptobaseddev/open-goal`
-  (`gh repo rename open-goal -R kryptobaseddev/opencode-goal`).
-- d. Then `git remote set-url origin git@github.com:kryptobaseddev/open-goal.git` and push.
-- e. `mbx doctor` will show the cloud origin change — expected, the project key stays the same.
+All four steps are **done**:
 
-Skipping b before c means the next OIDC release fails: npm binds trusted publishing to `owner/repo`.
+- a. `git remote set-url origin https://github.com/kryptobaseddev/open-goal.git` — done.
+- b. Rename the GitHub repo (`gh repo rename open-goal --repo kryptobaseddev/opencode-goal --yes`) — done;
+  the old URL redirects.
+- c. Update the npm trusted publisher (`npm trust github @cleocode/goal --file release.yml --repo
+  kryptobaseddev/open-goal --allow-publish`) — done, after a browser 2FA approval. `--file` takes the bare
+  filename, not a path.
+- d. Push `main` — done.
+
+**Correction to the earlier ordering advice:** npm validates that the target GitHub repo exists, so the
+trusted-publisher move returned E404 until the repo was renamed. The safe order is repo rename → push →
+trusted-publisher move, with **no release** until the publisher is updated. Skipping the publisher update
+still breaks the next OIDC release, because npm binds publishing to `owner/repo`.
 
 **3. Naming inside the repo — done** (2026-10-28). `AGENTS.md` is headed "open-goal — project guide", the
 git-install recipes use `github:kryptobaseddev/open-goal#<tag>`, and `package.json` points at the new URLs.
