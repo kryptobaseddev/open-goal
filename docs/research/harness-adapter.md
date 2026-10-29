@@ -2,9 +2,10 @@
 
 Status: **S1, S2 and S3 landed** (interface and capability model, the OpenCode
 path behind the seam, the tick adapter, and a real Claude project through CLEO's
-Stop dispatcher). Written 2026-10-28 for the `adapter-seam` goal (release
-0.10.0). It states what the code declares today, so the note never claims more
-than the seam delivers.
+Stop dispatcher). Written 2026-10-28 for the `adapter-seam` goal; the seam ships
+in 0.10.0 and 0.10.1 is its packaging-only install fix (a top-level `build`
+script made OpenCode's git plugin preparation fail). It states what the code
+declares today, so the note never claims more than the seam delivers.
 
 Before this seam, "a harness" meant the OpenCode plugin plus an env var for
 everything else. The seam makes the difference explicit: one interface, two
