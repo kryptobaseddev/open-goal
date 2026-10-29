@@ -167,6 +167,9 @@ criteria are host checks (command, file, contains, absent, diff). It has:
 - **No verifier child.** Verification runs the host checks only
   (`verifyClaim`). A `verifier` criterion — anything asking for an independent
   read-only verifier — needs OpenCode, so such a goal is not a host-only goal.
+  The tick fails such a criterion closed with `verifier unavailable; failing
+  closed`, and `test/unit/harness-matrix.test.ts` drives exactly that case so the
+  claim is not just prose.
 - **Cannot start a goal.** CLEO starts it and owns the session; the tick only
   continues, records and verifies.
 - **No OCG tools.** The agent claims through `ocg claim`, not `goal_claim`.
