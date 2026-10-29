@@ -234,6 +234,28 @@ supplies the declaration and `src/engine/harness-identity.ts` now derives the
 recorded shape from the adapter instead of repeating it. There is one
 `OPENCODE_CAPABILITIES` list, one provider mapping and one `HarnessName` union.
 
+## Adding a harness
+
+The seam is meant to make this a declaration plus a test, not a copy of
+OpenCode's behaviour:
+
+1. **Declare the name.** `HarnessName` in `src/engine/harness.ts` is the union the
+   run can record. Add a name only when something can actually declare it — a
+   dispatcher value (as `CLEO_HOOK_PROVIDER` does for `claude-code`) or a new
+   entry path. Hermes and Kimi are named for the matrix but have no dispatcher
+   value, so a tick under them records `unknown` instead of guessing.
+2. **Declare the capabilities.** Build the adapter from `tickAdapterFor(...)` (or
+   a new in-process shape) with a `HarnessCapabilities` object whose `true` keys
+   each have a surface behind them. `test/unit/harness-adapter.test.ts` fails a
+   declaration with no surface for any name in `HARNESS_NAMES`.
+3. **Pin the row.** Add the row to the table in this note and to `MATRIX` in
+   `test/unit/harness-matrix.test.ts`; the two must agree exactly. Then add the
+   install proof: `cleo goal install --harness <h>` plus a real Stop through the
+   dispatcher, the way `test/host/claude-harness.test.ts` does for Claude.
+
+Nothing in `GoalApp` changes: it already takes identity, tools, verifier and
+admission from the declaration.
+
 ## What is still not abstracted (honest scope)
 
 - **The TUI** stays OpenCode-specific (assumption A1/A4): a harness with no TUI

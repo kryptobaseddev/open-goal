@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test"
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import {
   HARNESS_NAMES,
   OPENCODE_ADAPTER,
@@ -9,6 +12,7 @@ import {
   tickAdapter,
   type HarnessAdapter,
 } from "../../src/engine/harness"
+import { GoalApp } from "../../src/server/app"
 
 // v0.10.0 C1 - one HarnessAdapter interface, implemented by the OpenCode
 // in-process path and the CLEO tick. These tests hold the interface and its
@@ -102,6 +106,23 @@ describe("the HarnessAdapter seam (C1)", () => {
       expect(adapter.capabilities.tools).toBe(name === "opencode")
       expect(adapter.capabilities.version).toBe(name === "opencode")
       expect(adapter.capabilities.transcript).toBe(name !== "opencode")
+    }
+  })
+
+  test("the constructed engine holds the in-process adapter, and refuses one that cannot admit", async () => {
+    // C1 says "when the engine is constructed". The interface tests above prove
+    // the shapes; this proves the object the engine actually holds is the seam,
+    // and that a tick adapter cannot be smuggled into the in-process engine.
+    const root = mkdtempSync(join(tmpdir(), "ocg-adapter-seam-"))
+    try {
+      const ctx = { location: { directory: root }, options: {} } as any
+      const app = new GoalApp(ctx)
+      expect(app.adapter).toBe(OPENCODE_ADAPTER)
+      expect(isHarnessAdapter(app.adapter)).toBe(true)
+      const tickApp = new GoalApp(ctx, tickAdapter({ CLEO_HOOK_PROVIDER: "claude-code" }))
+      await expect(tickApp.start()).rejects.toThrow("cannot admit a goal into the in-process engine")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
     }
   })
 
