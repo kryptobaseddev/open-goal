@@ -4,6 +4,7 @@
 import { parseContract } from "../contract/parse"
 import type { Contract } from "../contract/types"
 import { budgetUse, isTerminal, type RunState, type Status } from "../engine/state"
+import type { HarnessIdentity } from "../engine/harness-identity"
 import type { Store } from "../engine/store"
 
 export const STATUS_SCHEMA_VERSION = 1
@@ -25,6 +26,12 @@ export type GoalStatusJson = {
   title: string
   status: Status | "none"
   priority?: "low" | "medium" | "high"
+  /**
+   * v0.9.5: which harness produced this run and what it can do. Optional and
+   * additive: `schemaVersion` stays 1 and a run that predates the field simply
+   * omits it, so an older CLEO reads the same shape it always did.
+   */
+  harness?: HarnessIdentity
   turn: number
   reason: string | null
   criteria: StatusCriterion[]
@@ -103,6 +110,7 @@ export function goalStatus(store: Store, now = Date.now()): GoalStatusJson {
     title: run.title,
     status: run.status,
     ...(run.priority ? { priority: run.priority } : {}),
+    ...(run.harness ? { harness: run.harness } : {}),
     turn: run.turn,
     reason: run.reason ?? null,
     criteria,

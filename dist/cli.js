@@ -6910,7 +6910,7 @@ import { readFileSync as readFileSync4 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
-  version: "0.9.4",
+  version: "0.9.8",
   description: "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   type: "module",
   license: "MIT",
@@ -6987,6 +6987,26 @@ var package_default = {
   },
   bugs: {
     url: "https://github.com/kryptobaseddev/open-goal/issues"
+  },
+  overrides: {
+    "@aws-sdk/client-cognito-identity": "3.1057.0",
+    "@aws-sdk/core": "3.978.1",
+    "@aws-sdk/credential-provider-cognito-identity": "3.972.71",
+    "@aws-sdk/credential-provider-env": "3.972.72",
+    "@aws-sdk/credential-provider-http": "3.972.74",
+    "@aws-sdk/credential-provider-ini": "3.973.17",
+    "@aws-sdk/credential-provider-login": "3.972.79",
+    "@aws-sdk/credential-provider-node": "3.972.84",
+    "@aws-sdk/credential-provider-process": "3.972.72",
+    "@aws-sdk/credential-provider-sso": "3.973.16",
+    "@aws-sdk/credential-provider-web-identity": "3.972.78",
+    "@aws-sdk/credential-providers": "3.1057.0",
+    "@aws-sdk/nested-clients": "3.997.46",
+    "@aws-sdk/signature-v4-multi-region": "3.996.47",
+    "@aws-sdk/token-providers": "3.1138.0",
+    "@aws-sdk/types": "3.974.6",
+    "@aws-sdk/util-locate-window": "3.965.10",
+    "@aws-sdk/xml-builder": "3.972.41"
   }
 };
 
@@ -7706,6 +7726,7 @@ function goalStatus(store, now = Date.now()) {
     title: run.title,
     status: run.status,
     ...run.priority ? { priority: run.priority } : {},
+    ...run.harness ? { harness: run.harness } : {},
     turn: run.turn,
     reason: run.reason ?? null,
     criteria,
@@ -8327,7 +8348,7 @@ async function tick(deps) {
   const log = [];
   const now = deps.now ?? Date.now();
   const limits = deps.limits ?? TICK_LIMITS;
-  const adapter = deps.harness ?? tickAdapter();
+  const adapter = deps.harness ?? tickAdapter(deps.env ?? process.env);
   const identity = adapter.identity();
   const harness = identity.name;
   const block = (tail, reason) => {
@@ -8365,6 +8386,13 @@ async function tick(deps) {
   const record = recordTurn(live, contract, { fingerprint: deps.fingerprint ?? (() => {
     return;
   }), ...deps.payload ? { payload: deps.payload } : {}, ...deps.readTranscript ? { readTranscript: deps.readTranscript } : {}, now });
+  if (!live.harness) {
+    live.harness = identity;
+    deps.store.ledger(live.slug, { type: "harness", name: identity.name, version: identity.version, capabilities: identity.capabilities, source: "tick" });
+    log.push(`recorded harness ${identity.name}${identity.name === "unknown" ? " (no CLEO_HOOK_PROVIDER declared)" : ""}`);
+  } else if (live.harness.name !== identity.name && identity.name !== "unknown") {
+    log.push(`harness is already recorded as ${live.harness.name}; the dispatcher declared ${identity.name} - keeping the producer`);
+  }
   deps.store.ledger(live.slug, {
     type: "turn",
     turn: live.turn,

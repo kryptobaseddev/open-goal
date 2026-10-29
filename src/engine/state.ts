@@ -2,6 +2,7 @@
 // model can report progress, claim, block, flag and wait; only the owner (or the
 // host acting on owner policy) can start, resume, pause, abort or approve.
 import type { Contract } from "../contract/types"
+import type { HarnessIdentity } from "./harness-identity"
 
 export type Status =
   | "running"
@@ -39,6 +40,12 @@ export type RunState = {
   title: string
   /** T061: copied from the contract at start so the registry/rebuild keep it. */
   priority?: "low" | "medium" | "high"
+  /**
+   * v0.9.5: which harness produced this run and what it can deliver. Optional
+   * and additive — a run written before this field existed has none and still
+   * parses as `version: 1`.
+   */
+  harness?: HarnessIdentity
   sessionID: string
   runId: string
   lock: string
@@ -83,13 +90,14 @@ export type RunState = {
   }
 }
 
-export function initialRun(contract: Contract, args: { sessionID: string; runId: string; lock: string; commit?: string; now?: number }): RunState {
+export function initialRun(contract: Contract, args: { sessionID: string; runId: string; lock: string; commit?: string; harness?: HarnessIdentity; now?: number }): RunState {
   const now = args.now ?? Date.now()
   return {
     version: 1,
     slug: contract.id,
     title: contract.title,
     ...(contract.priority ? { priority: contract.priority } : {}),
+    ...(args.harness ? { harness: args.harness } : {}),
     sessionID: args.sessionID,
     runId: args.runId,
     lock: args.lock,

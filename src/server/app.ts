@@ -12,6 +12,7 @@ import type { Contract } from "../contract/types"
 import { isHostCheck } from "../contract/types"
 import { GoalRpc, type GoalSummary, type GoalTarget, type GoalView, type ManageAction } from "../rpc"
 import { account, budgetUse, initialRun, isActive, isTerminal, modelCan, ownerCan, setStatus, type Handoff, type PendingKind, type RunState, type Status } from "../engine/state"
+import { isHarnessIdentity, opencodeIdentity } from "../engine/harness-identity"
 import { Store } from "../engine/store"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
 import { LaunchStore, launchChoices, launchView, processAlive, type LaunchActivity, type LaunchRequest } from "../engine/launches"
@@ -330,7 +331,7 @@ export class GoalApp {
 
     const kept = this.store.keepCorruptRun(slug, text)
     const lastTurn = this.store.recent(slug, 5000).filter((e) => e.type === "turn" && typeof e.turn === "number").at(-1)
-    const state = initialRun(parsed.contract, { sessionID, runId, lock, ...(typeof start.commit === "string" ? { commit: start.commit } : {}) })
+    const state = initialRun(parsed.contract, { sessionID, runId, lock, ...(typeof start.commit === "string" ? { commit: start.commit } : {}), ...(isHarnessIdentity(start.harness) ? { harness: start.harness } : {}) })
     state.turn = Number(lastTurn?.turn ?? 0)
     for (const id of Object.keys(state.criteria)) {
       const recorded = this.store.recent(slug, 5000).findLast((e) => e.type === "criterion" && e.criterion === id) as any
@@ -391,8 +392,18 @@ export class GoalApp {
     const currentSnapshot = join(this.store.dir(state.slug), "evidence", state.runId, `contract-${state.lock}.yaml`)
     const snapshot = existsSync(currentSnapshot) ? currentSnapshot : join(this.store.dir(state.slug), "evidence", state.runId, "contract.yaml")
     if (existsSync(snapshot)) {
-      const parsed = parseContract(readFileSync(snapshot, "utf8"), { slug: state.slug })
+      const raw = readFileSync(snapshot, "utf8")
+      const parsed = parseContract(raw, { slug: state.slug })
       if (parsed.contract && parsed.lock === state.lock) return parsed.contract
+      // T124/B: the locked snapshot may predate a validator tightening (D10),
+      // so the strict parse fails on metadata such as `budget.rationale`. This
+      // snapshot is only ever the PRIOR side of a recovery diff — the contract
+      // that runs is always parsed strictly — so fall back to the tolerant
+      // loader, which accepts unknown `budget.*` keys and nothing else.
+      if (parsed.lock === state.lock) {
+        const tolerant = this.priorContract(raw, state.slug)
+        if (tolerant) return tolerant
+      }
     }
     return undefined
   }
@@ -561,6 +572,7 @@ export class GoalApp {
       runId: state.runId,
       sessionID: state.sessionID,
       lock: state.lock,
+      ...(state.harness ? { harness: state.harness } : {}),
       target: this.targetOf(state),
       turn: state.turn,
       timeline: this.timelineOf(state),
@@ -1195,8 +1207,19 @@ export class GoalApp {
 
   private async proposeAmendment(sessionID: string, input: { slug: string; expectedLock: string; yaml: string; rationale: string }) {
     const outcome = await this.serial(() => {
-      const state = [...this.runs.values()].find((s) => s.slug === input.slug)
+      // T124/A: a paused run may exist only on disk — during the reload window,
+      // or when another session recovered it. Fall back to run.json exactly as
+      // goal_manage does; otherwise a one-key repair is unreachable even though
+      // the run is intact. Mirror it so the later review acceptance binds to
+      // this exact run, but never shadow a different live run of that session.
+      const mirrored = [...this.runs.values()].find((s) => s.slug === input.slug)
+      const state = mirrored ?? this.store.readRun(input.slug)
       if (!state) throw new Error("No live run for the selected goal")
+      if (!mirrored) {
+        const held = this.runs.get(state.sessionID)
+        if (!held || held.runId === state.runId || isTerminal(held.status)) this.runs.set(state.sessionID, state)
+        else throw new Error("The selected goal's session is running another goal; attach this goal to a session before staging an amendment")
+      }
       const unavailable = ownerCan(state, "amend")
       if (unavailable) throw new Error(unavailable)
       if (this.amendmentReviews.all().some((p) => p.slug === state.slug && p.status === "executing")) throw new Error("An owner-accepted amendment is committing; recover it before another proposal")
@@ -1839,7 +1862,7 @@ export class GoalApp {
         const current = this.load(slug, true)
         if ("error" in current || current.lock !== options.expectedLock) return "Refused: contract changed during launch rehearsal; no run created. Prepare a new review."
       }
-      const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(exec) })
+      const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(exec), harness: opencodeIdentity(this.packageVersion) })
       if (options.handoff) state.handoff = options.handoff
       state.fingerprint = fingerprint(exec)
       if (rehearsal.length) {
@@ -1852,7 +1875,7 @@ export class GoalApp {
       this.store.evidence(slug, state.runId, "contract", { lock, text })
       await Bun.write(join(this.store.dir(slug), "evidence", state.runId, "contract.yaml"), text)
       this.runs.set(sessionID, state)
-      this.store.ledger(slug, { type: "start", runId: state.runId, sessionID, source, lock, commit: state.base.commit, ...(options.decisionId ? { decisionId: options.decisionId } : {}) })
+      this.store.ledger(slug, { type: "start", runId: state.runId, sessionID, source, lock, commit: state.base.commit, ...(state.harness ? { harness: state.harness } : {}), ...(options.decisionId ? { decisionId: options.decisionId } : {}) })
       // T027 / v0.5.0: record the CLEO linkage and health (CLI-only). A project
       // with no CLEO CLI records nothing and behaves EXACTLY as before; a project
       // with the CLI gets an honest state, and nothing is ever installed here.
@@ -3231,7 +3254,7 @@ export class GoalApp {
       artifacts: this.artifacts,
       status: entry?.state?.status ?? "unknown",
       features: { server: entry?.features?.server === true, tui: entry?.features?.tui === true, rpc: entry?.features?.rpc === true },
-      ...(state ? { sessionID: state.sessionID, runId: state.runId, lock: state.lock } : {}),
+      ...(state ? { sessionID: state.sessionID, runId: state.runId, lock: state.lock, ...(state.harness ? { harness: state.harness } : {}) } : {}),
     }
     // T115: this is a READ-ONLY probe. It returns the runtime identity and
     // writes NOTHING under .opencode/goals, so no read can look like an agent

@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto"
 import { lstatSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
+import type { HarnessIdentity } from "../engine/harness-identity"
 
 export type ArtifactHashes = Record<string, string>
 export type ArtifactSource = { type: string; target?: string; version?: string; outdated?: boolean; path?: string }
@@ -24,11 +25,18 @@ export type RuntimeProvenance = {
   sessionID?: string
   runId?: string
   lock?: string
+  /** v0.9.5: the harness serving this run, as the run recorded it. */
+  harness?: HarnessIdentity
 }
 
 const entrypoints = ["package.json", "server.ts", "tui.tsx", "rpc.ts"]
 const directories = ["src", "skills", "dist"]
-export const isArtifactPath = (path: string) => entrypoints.includes(path) || directories.some((dir) => path.startsWith(`${dir}/`))
+/** The package's `files` excludes the skill eval fixtures under
+ * `skills/<name>/evals/`; those are neither shipped nor loaded, so they are not
+ * production artifacts and can never be byte-proven from an installed package. */
+const notShipped = /^skills\/[^/]+\/evals\//
+export const isArtifactPath = (path: string) =>
+  !notShipped.test(path) && (entrypoints.includes(path) || directories.some((dir) => path.startsWith(`${dir}/`)))
 export const hashArtifact = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex")
 
 export function captureArtifactHashes(root: string): ArtifactHashes {
@@ -38,7 +46,7 @@ export function captureArtifactHashes(root: string): ArtifactHashes {
       const path = `${relative}/${item.name}`
       if (item.isSymbolicLink()) throw new Error(`Artifact symlink is not a loaded-byte proof: ${path}`)
       if (item.isDirectory()) walk(path)
-      else if (item.isFile()) files.push(path)
+      else if (item.isFile() && isArtifactPath(path)) files.push(path)
     }
   }
   for (const dir of directories) walk(dir)

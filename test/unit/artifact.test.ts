@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { artifactDiscrepancies, captureArtifactHashes, versionAtLeast, type RuntimeProvenance } from "../../src/verify/artifact"
+import { artifactDiscrepancies, captureArtifactHashes, isArtifactPath, versionAtLeast, type RuntimeProvenance } from "../../src/verify/artifact"
 
 const artifacts = captureArtifactHashes(join(import.meta.dir, "../.."))
 const revision = "c9f84b90080f8b848784122d0e0ac63147530512"
@@ -43,6 +44,18 @@ test("all production entrypoints, server/TUI modules and skill bytes are capture
   for (const path of ["server.ts", "tui.tsx", "rpc.ts", "dist/tui.js", "src/server/app.ts", "src/tui/index.tsx", "skills/write-goal/SKILL.md"])
     expect(artifacts[path]).toMatch(/^[a-f0-9]{64}$/)
   expect(Object.keys(artifacts).some((p) => p.startsWith("test/") || p.startsWith(".opencode/"))).toBe(false)
+})
+
+test("skill eval fixtures are not production artifacts: the package does not ship them", () => {
+  expect(isArtifactPath("skills/write-goal/evals/trigger_queries.json")).toBe(false)
+  expect(isArtifactPath("skills/write-goal/evals/nested/README.md")).toBe(false)
+  expect(isArtifactPath("skills/write-goal/SKILL.md")).toBe(true)
+  expect(isArtifactPath("src/server/app.ts")).toBe(true)
+  expect(Object.keys(artifacts).some((p) => p.includes("/evals/"))).toBe(false)
+  // Drift guard: the exclusion above must stay in step with the packed file set.
+  // If the package starts shipping evals, this fails and the predicate must move.
+  const pkg = JSON.parse(readFileSync(join(import.meta.dir, "../../package.json"), "utf8"))
+  expect(pkg.files).toContain("!skills/*/evals")
 })
 
 test("semantic minimum does not mistake prerelease or malformed labels for a stable release", () => {
