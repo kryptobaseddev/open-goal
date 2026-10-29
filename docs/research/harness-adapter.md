@@ -1,9 +1,10 @@
 # The HarnessAdapter seam
 
-Status: **S1 landed (interface, capability model, seam tests); S2/S3 are the
-remaining plan steps.** Written 2026-10-28 for the `adapter-seam` goal (release
-0.10.0). It states what the code declares today and marks what is not extracted
-yet, so the note never claims more than the seam delivers.
+Status: **S1, S2 and S3 landed** (interface and capability model, the OpenCode
+path behind the seam, the tick adapter, and a real Claude project through CLEO's
+Stop dispatcher). Written 2026-10-28 for the `adapter-seam` goal (release
+0.10.0). It states what the code declares today, so the note never claims more
+than the seam delivers.
 
 Before this seam, "a harness" meant the OpenCode plugin plus an env var for
 everything else. The seam makes the difference explicit: one interface, two
@@ -43,6 +44,28 @@ Both paths use the seam for the continuation they already sent: `GoalApp.admit`
 takes its note from `adapter.continuation(...)`, and `tick()` builds CLEO's
 `{"decision":"block"}` payload through the same call. The text is unchanged —
 the seam owns the mechanism, not the wording.
+
+The seam also owns the rest of the in-process engine's declarations, in code:
+
+```ts
+// GoalApp.start(): the engine exists only where a harness admits in-process.
+const admission = this.adapter.admission()
+if (admission.kind !== "in-process") throw new Error(`${this.adapter.name} cannot admit a goal into the in-process engine: ${admission.reason}`)
+
+// GoalApp.registerTools(): no tools are registered for a harness without them.
+if (!this.adapter.capabilities.tools) { …; return }
+
+// GoalApp.startGoalLocked(): the run records the adapter's own identity.
+initialRun(contract, { …, harness: this.adapter.identity({ version: this.packageVersion }) })
+
+// GoalApp.verify(): the verifier child is passed only where it is declared.
+...(this.adapter.verification.kind === "verifier-child" ? { verifier: … } : {})
+```
+
+For OpenCode every one of those is the same behaviour as before (in-process
+admission, tools, a verifier child, the same identity list), which is why the
+protected oracle suites are untouched; for any other adapter the declaration is
+what decides, not a guess.
 
 ## The capability model
 
@@ -183,17 +206,43 @@ export const TICK_CAPABILITIES: HarnessCapabilities = {
 }
 ```
 
-## Not done yet (honest scope)
+## The Claude proof (what S2/S3 landed)
 
-- **S2 / T143** extracts the rest of the OpenCode path: `GoalApp` still owns its
-  own event loop, admission, tools and verification. Today only its continuation
-  note goes through the seam, which is why the protected oracle suites are
-  untouched.
-- **S3 / T147** turns the tick declaration into the full tick adapter and proves
-  a real Claude project through CLEO's Stop dispatcher (T148), then reports the
-  harness in `status --json` (T149).
-- **Recording identity on the run** (`harness` in `run.json`, `goal_status`,
-  `status --json`) belongs to the `harness-identity` goal (its T126–T131). This
-  seam supplies the shape (`HarnessIdentity`) and the mapping; it deliberately
-  does not write run state, so the two goals do not implement the same field
-  twice.
+`test/host/claude-harness.test.ts` is the executable claim, and nothing at the
+harness boundary is stubbed: a fresh project is initialized with the real `cleo`
+CLI,
+`cleo goal install --harness claude` installs the project-level Stop dispatcher
+in `.claude/settings.local.json`, and the exact hook command Claude Code would
+run is executed with a real Stop payload on stdin. CLEO's dispatcher
+(`cleo hook stop --provider claude-code`) spawns `cleo-goal tick` with
+`CLEO_HOOK_PROVIDER=claude-code`; the tick records `harness: claude` on the run,
+continues the turn, and after the agent claims through `ocg claim` verifies
+every host criterion and finishes with an empty answer (the session may end).
+
+The test also pins the honesty of the signal: the Stop payload it sends carries
+`"harness":"codex"`, and the run still records `claude`. The `cleo-goal status
+--json` and `cleo goal status --json` reads both report
+`{name:"claude", version:null, capabilities:null}`.
+
+**Codex / Hermes / Kimi** are install-and-tick smoke cases (assumption A3), not
+parity claims. `CLEO_HOOK_PROVIDER=codex` records `codex`; Hermes and Kimi have
+no dispatcher value today, so a tick under them records `unknown` rather than
+guessing the name — the matrix row describes the tick mechanism they share.
+
+**Recording identity on the run** (`harness` in `run.json`, `goal_status`,
+`status --json`) comes from the `harness-identity` goal (T126–T131); this seam
+supplies the declaration and `src/engine/harness-identity.ts` now derives the
+recorded shape from the adapter instead of repeating it. There is one
+`OPENCODE_CAPABILITIES` list, one provider mapping and one `HarnessName` union.
+
+## What is still not abstracted (honest scope)
+
+- **The TUI** stays OpenCode-specific (assumption A1/A4): a harness with no TUI
+  declares `tui: false` and is never asked to invent one. The store layout is
+  likewise unchanged — moving it to a harness-neutral path is a separate goal
+  (non-goal of this contract).
+- **Live events and steering** are OpenCode surfaces. The tick sees only Stop,
+  and a goal that needs an owner form or a verifier child is not a host-only
+  goal, so it is not a tick goal.
+- **No behavioral parity** is claimed for Claude, Codex, Hermes or Kimi beyond
+  the columns in the matrix.

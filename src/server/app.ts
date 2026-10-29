@@ -12,7 +12,7 @@ import type { Contract } from "../contract/types"
 import { isHostCheck } from "../contract/types"
 import { GoalRpc, type GoalSummary, type GoalTarget, type GoalView, type ManageAction } from "../rpc"
 import { account, budgetUse, initialRun, isActive, isTerminal, modelCan, ownerCan, setStatus, type Handoff, type PendingKind, type RunState, type Status } from "../engine/state"
-import { isHarnessIdentity, opencodeIdentity } from "../engine/harness-identity"
+import { isHarnessIdentity } from "../engine/harness-identity"
 import { Store } from "../engine/store"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
 import { LaunchStore, launchChoices, launchView, processAlive, type LaunchActivity, type LaunchRequest } from "../engine/launches"
@@ -175,6 +175,11 @@ export class GoalApp {
   // ───────────────────────────── lifecycle
 
   async start() {
+    // The engine exists only where a harness admits goals in-process. The tick
+    // adapter declares `owner-only`, so it can never be handed to this class by
+    // accident and silently run half an engine.
+    const admission = this.adapter.admission()
+    if (admission.kind !== "in-process") throw new Error(`${this.adapter.name} cannot admit a goal into the in-process engine: ${admission.reason}`)
     this.recoverAmendmentCommits()
     this.recover()
     await this.registerAgents()
@@ -1862,7 +1867,9 @@ export class GoalApp {
         const current = this.load(slug, true)
         if ("error" in current || current.lock !== options.expectedLock) return "Refused: contract changed during launch rehearsal; no run created. Prepare a new review."
       }
-      const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(exec), harness: opencodeIdentity(this.packageVersion) })
+      // The seam names the producer: the adapter knows its own identity and the
+      // serving version, so the run and the adapter can never disagree.
+      const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(exec), harness: this.adapter.identity({ version: this.packageVersion }) })
       if (options.handoff) state.handoff = options.handoff
       state.fingerprint = fingerprint(exec)
       if (rehearsal.length) {
@@ -2723,7 +2730,10 @@ export class GoalApp {
       root: this.executionRoot(contract),
       contractText: text,
       shell: (command, cwd, timeout) => runShell(command, cwd, timeout, { OCGOAL_CHECK_CONTEXT: checkContext }),
-      verifier: (input) => this.runVerifier(input),
+      // The seam declares whether an independent verifier child can run here. A
+      // harness without one never reaches this line with a verifier criterion:
+      // pipeline.ts fails such criteria closed rather than pretending.
+      ...(this.adapter.verification.kind === "verifier-child" ? { verifier: (input: Parameters<typeof this.runVerifier>[0]) => this.runVerifier(input) } : {}),
       // T063: every host check refreshes the activity so the tracer shows
       // live progress (check C7 · 7/22) instead of a static "verifying" line
       onProgress: (activity) => {
@@ -3874,6 +3884,13 @@ export class GoalApp {
   // ───────────────────────────── worker tools (S7: native names, codemode off)
 
   private async registerTools() {
+    // The seam declares whether this harness's agent can call OCG tools by name.
+    // A path without tools (the CLEO tick) is not this engine at all, so this is
+    // the honest guard rather than registering tools nothing could call.
+    if (!this.adapter.capabilities.tools) {
+      this.store.ledger("_errors", { type: "tools-unsupported", harness: this.adapter.name })
+      return
+    }
     // T062: goal tools are registered codemode:false — they never exist in
     // Code Mode's catalog. A live run mis-routed goal_claim through `execute`
     // and got a misleading Unknown-tool error, so every description says so.

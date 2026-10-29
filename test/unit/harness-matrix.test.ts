@@ -69,9 +69,13 @@ describe("the harness capability matrix (C5)", () => {
       if (provider === undefined) delete process.env[CLEO_HOOK_PROVIDER]
       else process.env[CLEO_HOOK_PROVIDER] = provider
       try {
-        const run = await tick({ root: project(), store: storeOf(liveRun()).store })
+        const { store, runs } = storeOf(liveRun())
+        const run = await tick({ root: project(), store })
         expect(run.harness).toBe(expected)
         expect(run.log.join(" ")).toContain(`harness ${expected}`)
+        // The run SHALL record it: the identity on run.json is the declaration,
+        // name-only (CLEO tells the dispatcher nothing else) — never inferred.
+        expect(runs.get(SLUG)!.harness).toEqual({ name: expected, version: null, capabilities: null })
         seen.push({ provider, name: run.harness })
       } finally {
         delete process.env[CLEO_HOOK_PROVIDER]
