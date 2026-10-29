@@ -174,6 +174,56 @@ describe.skipIf(!CLEO || !existsSync(DIST))("a real Claude project completes a h
   }, 180000)
 })
 
+// T149 / assumption A3: Codex is an install-and-tick smoke case, not a parity
+// claim. It shares the tick mechanism with Claude, so the boundary to prove is
+// the install plus one real Stop: the dispatcher declares `codex`, the tick runs,
+// and the run records that it was a Codex session.
+describe.skipIf(!CLEO || !existsSync(DIST))("the same boundary on Codex (install + one Stop)", () => {
+  test("cleo goal install --harness codex installs the project Stop and a Stop records harness codex", async () => {
+    const root = mkdtempSync(join(tmpdir(), "ocg-codex-"))
+    dirs.push(root)
+    writeFileSync(join(root, "README.md"), "# a Codex project\n")
+    const bin = join(root, "bin")
+    mkdirSync(bin, { recursive: true })
+    symlinkSync(DIST, join(bin, "cleo-goal"))
+    symlinkSync(DIST, join(bin, "ocg"))
+    const env = { ...(process.env as Record<string, string>), PATH: `${bin}:${process.env.PATH ?? ""}`, CLEO_ASK_ENFORCE: "off", GIT_AUTHOR_NAME: "codex", GIT_AUTHOR_EMAIL: "codex@test.invalid", GIT_COMMITTER_NAME: "codex", GIT_COMMITTER_EMAIL: "codex@test.invalid" }
+    expect(spawn(["git", "init", "-q", "-b", "main"], root, env).code).toBe(0)
+    expect(spawn(["git", "add", "."], root, env).code).toBe(0)
+    expect(spawn(["git", "commit", "-q", "-m", "chore: seed"], root, env).code).toBe(0)
+    expect(spawn([CLEO!, "init", "--name", "codex-proof"], root, env).code).toBe(0)
+
+    const hooksPath = join(root, ".codex", "hooks.json")
+    const hooks = JSON.parse(readFileSync(hooksPath, "utf8")) as { hooks?: Record<string, unknown> }
+    delete hooks.hooks?.Stop
+    writeFileSync(hooksPath, JSON.stringify(hooks, null, 2))
+    const install = spawn([CLEO!, "goal", "install", "--harness", "codex"], root, env)
+    expect(install.code).toBe(0)
+    const installed = JSON.parse(install.stdout) as { success: boolean; data: { harness: string; delivery: { provider: string; status: string; target: string } } }
+    expect(installed.data.harness).toBe("codex")
+    expect(installed.data.delivery.provider).toBe("codex")
+    expect(installed.data.delivery.status).toBe("installed")
+
+    const after = JSON.parse(readFileSync(hooksPath, "utf8")) as { hooks?: { Stop?: Array<{ hooks?: Array<{ command?: string }> }> } }
+    const command = (after.hooks?.Stop ?? []).flatMap((g) => g.hooks ?? []).flatMap((h) => (h.command ? [h.command] : [])).find((c) => c.includes("cleo hook stop") && c.includes("--provider codex"))
+    expect(command).toBeString()
+
+    const goalDir = join(root, ".opencode", "goals", SLUG)
+    mkdirSync(goalDir, { recursive: true })
+    writeFileSync(join(goalDir, "goal.yaml"), GOAL)
+    const parsed = parseContract(GOAL, { slug: SLUG })
+    const commit = spawn(["git", "rev-parse", "HEAD"], root, env).stdout.trim()
+    writeFileSync(join(goalDir, "run.json"), JSON.stringify(initialRun(parsed.contract!, { sessionID: "ses_codex", runId: "run1", lock: parsed.lock, commit, now: 1_000 }), null, 2))
+
+    const stop = spawn(["/bin/sh", "-c", command!], root, env, JSON.stringify({ hook_event_name: "Stop", session_id: "ses_codex", cwd: root }))
+    expect(stop.code).toBe(0)
+    expect(JSON.parse(stop.stdout)).toMatchObject({ decision: "block" })
+    const state = JSON.parse(readFileSync(join(goalDir, "run.json"), "utf8")) as RunState
+    expect(state.turn).toBe(1)
+    expect(state.harness).toEqual({ name: "codex", version: null, capabilities: null })
+  }, 180000)
+})
+
 // Same file, no CLEO: the proof cannot be constructed. Say so loudly instead of
 // pretending an unrelated suite proves it.
 if (!CLEO) console.warn("claude-harness: skipped — the `cleo` CLI is not on PATH, and C3 needs CLEO's real Stop dispatcher")

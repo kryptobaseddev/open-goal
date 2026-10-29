@@ -224,9 +224,12 @@ The test also pins the honesty of the signal: the Stop payload it sends carries
 `{name:"claude", version:null, capabilities:null}`.
 
 **Codex / Hermes / Kimi** are install-and-tick smoke cases (assumption A3), not
-parity claims. `CLEO_HOOK_PROVIDER=codex` records `codex`; Hermes and Kimi have
-no dispatcher value today, so a tick under them records `unknown` rather than
-guessing the name — the matrix row describes the tick mechanism they share.
+parity claims. The same test file proves the Codex boundary: `cleo goal install
+--harness codex` installs the project Stop in `.codex/hooks.json`, and one real
+Stop through it records `codex` on the run. Hermes and Kimi have no dispatcher
+value today (CLEO returns `E_NOT_IMPLEMENTED` for their install), so a tick under
+them records `unknown` rather than guessing the name — the matrix row describes
+the tick mechanism they share.
 
 **Recording identity on the run** (`harness` in `run.json`, `goal_status`,
 `status --json`) comes from the `harness-identity` goal (T126–T131); this seam
