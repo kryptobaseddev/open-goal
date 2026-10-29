@@ -18,11 +18,11 @@
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 import type { Contract } from "../contract/types"
-import { renderTailNote } from "../contract/render"
+import { renderTailNote, type TailKind } from "../contract/render"
 import { budgetUse, setStatus, TERMINAL as TERMINAL_STATUSES, type RunState } from "./state"
 import { continuationTail, decide, type LoopLimits, type LoopSignals } from "./loop"
 import { recordTurn } from "./tick-record"
-import { dispatcherIdentity } from "./harness-identity"
+import { tickAdapter, type HarnessAdapter, type HarnessName } from "./harness"
 import type { VerifyOutcome } from "../verify/pipeline"
 
 /** The plugin's own defaults, so a tick agrees with the adapter unless overridden. */
@@ -56,6 +56,8 @@ export type TickDeps = {
   limits?: LoopLimits
   cooldownMs?: number
   now?: number
+  /** The declared harness. Defaults to the tick adapter for the real environment. */
+  harness?: HarnessAdapter
 }
 
 export type TickResult = {
@@ -63,9 +65,10 @@ export type TickResult = {
   stdout: string
   /** Lines for stderr. */
   log: string[]
+  /** The harness this tick declared (from CLEO_HOOK_PROVIDER), never guessed. */
+  harness: HarnessName
 }
 
-const BLOCK = (reason: string) => JSON.stringify({ decision: "block", reason })
 const HOLD = JSON.stringify({ final: false })
 const why = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
@@ -104,30 +107,44 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
   const log: string[] = []
   const now = deps.now ?? Date.now()
   const limits = deps.limits ?? TICK_LIMITS
+  // The one seam: the tick is the CLEO Stop-dispatch adapter, and its identity is
+  // whatever the dispatcher declared. It is read once, before any decision, so a
+  // Stop payload can never rename it.
+  const adapter = deps.harness ?? tickAdapter(deps.env ?? process.env)
+  const identity = adapter.identity()
+  const harness = identity.name
+  // Keep the agent working through the adapter's own continuation surface, so the
+  // tick and the in-process path share the mechanism as well as the decision.
+  const block = (tail: TailKind, reason: string): string => {
+    const surface = adapter.continuation(tail, reason)
+    if (surface.kind !== "stop-block") throw new Error(`${adapter.name} cannot continue a session through the Stop dispatcher`)
+    return surface.payload
+  }
   // Outside a goal project there is nothing to tick at all - print nothing.
   if (!existsSync(join(deps.root, ".opencode", "goals"))) {
     log.push("no .opencode/goals directory; nothing to tick")
-    return { stdout: "", log }
+    return { stdout: "", log, harness }
   }
   const { live, unreadable } = liveRun(deps.store, log)
   if (!live && unreadable) {
     log.push("a run record could not be read; cannot rule out a live goal - holding")
-    return { stdout: HOLD, log }
+    return { stdout: HOLD, log, harness }
   }
   if (!live) {
     log.push("no live goal here; nothing to tick")
-    return { stdout: "", log }
+    return { stdout: "", log, harness }
   }
+  log.push(`harness ${identity.name}: ${identity.capabilities ? identity.capabilities.join(", ") : "capabilities not declared by the dispatcher"}`)
   let read: { contract?: Contract; text: string } | undefined
   try {
     read = deps.store.readContract(live.slug)
   } catch (error) {
     log.push(`could not read the contract for ${live.slug} (${why(error)}); holding`)
-    return { stdout: HOLD, log }
+    return { stdout: HOLD, log, harness }
   }
   if (!read?.contract) {
     log.push(`goal ${live.slug} has no readable contract; holding`)
-    return { stdout: HOLD, log }
+    return { stdout: HOLD, log, harness }
   }
   const contract = read.contract
 
@@ -136,8 +153,8 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
   // ── 1a. DECLARE the harness that produced this run, once. CLEO's dispatcher
   // names it (`CLEO_HOOK_PROVIDER`); absent or unrecognised is `unknown`, never a
   // guess from the payload. A run already carries its producer, so it is never
-  // renamed by a later tick.
-  const identity = dispatcherIdentity(deps.env ?? process.env)
+  // renamed by a later tick. The identity comes from the same adapter that
+  // produced the continuation, so the seam owns both.
   if (!live.harness) {
     live.harness = identity
     deps.store.ledger(live.slug, { type: "harness", name: identity.name, version: identity.version, capabilities: identity.capabilities, source: "tick" })
@@ -181,7 +198,7 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
     case "verify": {
       if (!deps.verify) {
         log.push("a claim is pending but this tick cannot verify; holding")
-        return { stdout: HOLD, log }
+        return { stdout: HOLD, log, harness }
       }
       live.claim = undefined
       setStatus(live, "verifying", "tick verification")
@@ -196,13 +213,13 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
         deps.store.ledger(live.slug, { type: "complete", turn: live.turn })
         deps.store.writeRun(live)
         log.push(`goal ${live.slug} complete: ${outcome.lines[0] ?? "all required criteria verified"}`)
-        return { stdout: "", log } // no live goal remains; the harness session may end
+        return { stdout: "", log, harness } // no live goal remains; the harness session may end
       }
       // Not proven: keep the run going and hand the agent the verdict.
       setStatus(live, "running")
       deps.store.writeRun(live)
       log.push(`goal ${live.slug} did not pass verification: ${outcome.lines.slice(0, 2).join(" ").slice(0, 200)}`)
-      return { stdout: BLOCK(renderTailNote(live, contract, "verdict", now).slice(0, REASON_CAP)), log }
+      return { stdout: block("verdict", renderTailNote(live, contract, "verdict", now).slice(0, REASON_CAP)), log, harness }
     }
     case "admit":
     case "schedule": {
@@ -210,13 +227,13 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
       deps.store.writeRun(live)
       const reason = renderTailNote(live, contract, tail, now).slice(0, REASON_CAP)
       log.push(`goal ${live.slug}: decision ${action.kind}; continuing with the ${tail} continuation (${reason.length} chars)`)
-      return { stdout: BLOCK(reason), log }
+      return { stdout: block(tail, reason), log, harness }
     }
     default: {
       if (action.kind === "stop") setStatus(live, action.status, action.reason)
       deps.store.writeRun(live)
       log.push(`goal ${live.slug}: decision ${action.kind}${action.kind === "stop" ? ` (${action.code})` : ""}; holding the session`)
-      return { stdout: HOLD, log }
+      return { stdout: HOLD, log, harness }
     }
   }
 }
