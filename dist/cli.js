@@ -6910,7 +6910,7 @@ import { readFileSync as readFileSync4 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
-  version: "0.10.0",
+  version: "0.10.1",
   description: "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   type: "module",
   license: "MIT",
@@ -6923,7 +6923,6 @@ var package_default = {
     opencode: ">=2.0.22"
   },
   scripts: {
-    build: "bun run build:tui && bun run build:cli",
     "build:tui": "bun scripts/build-tui.mjs",
     "check:tui": "bun scripts/build-tui.mjs --check",
     "build:cli": "bun scripts/build-cli.mjs",
@@ -6931,7 +6930,8 @@ var package_default = {
     prepublishOnly: "bun run check:tui && bun run check:cli",
     test: "bun test --timeout 120000",
     "test:host": "bun test test/host --timeout 120000",
-    typecheck: "bun run check:tui && bun run check:cli && tsc --noEmit"
+    typecheck: "bun run check:tui && bun run check:cli && tsc --noEmit",
+    "build:all": "bun run build:tui && bun run build:cli"
   },
   devDependencies: {
     "@opencode/client": "2.0.22",

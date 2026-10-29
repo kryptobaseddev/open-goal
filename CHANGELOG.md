@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.1 — 2026-10-29
+
+- **Fixed — a git-tag install no longer trips over a `build` script (packaging only).** OpenCode 2.2.0's plugin installer runs `npm run build` in a prepared git dependency when one exists, and that execution path fails in the installer, so `opencode plugin add github:kryptobaseddev/open-goal#v0.10.0` reported `git dep preparation failed` even though `npm install github:kryptobaseddev/open-goal#v0.10.0` and `bun install` both succeed. The convenience script is now `build:all`; every shipped file (`dist/`, `src/`, the skill) is still built and committed, and `typecheck` already fails on a stale `dist/`. Verified by installing the same package from a local git repo: with `build` present the install fails, with it renamed it succeeds.
+- **No runtime change** — same server, TUI, CLI and skill; only the version label and the script name.
+
 ## 0.10.0 — 2026-10-28
 
 - **One `HarnessAdapter` seam drives both paths (T139, T143, T147).** `src/engine/harness.ts` is one interface — identity, capabilities, admission, continuation, events, forms, verification — implemented by the OpenCode in-process engine (`OPENCODE_ADAPTER`) and by the CLEO Stop-dispatched tick (`tickAdapter`, identity from `CLEO_HOOK_PROVIDER` only, never from a payload or transcript). `GoalApp` now takes its identity, tool registration, verifier child and admission from the adapter's declaration; on OpenCode every one of those is the same behaviour as before, which is why the protected oracle suites pass unedited. `src/engine/harness-identity.ts` derives the recorded shape from the adapter instead of repeating the mapping, so there is one provider mapping and one capability list.
