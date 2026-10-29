@@ -163,7 +163,8 @@ criteria are host checks (command, file, contains, absent, diff). It has:
 
 - **No forms.** The tick cannot put a decision in front of the owner. A contract
   whose check is `human`, or a step that needs an amendment review, is not a tick
-  goal.
+  goal: verification reports the criterion as `awaiting owner sign-off`, so the
+  run can never complete, and the stall guard pauses it rather than looping.
 - **No verifier child.** Verification runs the host checks only
   (`verifyClaim`). A `verifier` criterion — anything asking for an independent
   read-only verifier — needs OpenCode, so such a goal is not a host-only goal.
