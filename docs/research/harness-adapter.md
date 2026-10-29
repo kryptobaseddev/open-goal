@@ -210,10 +210,9 @@ export const TICK_CAPABILITIES: HarnessCapabilities = {
 
 `test/host/claude-harness.test.ts` is the executable claim, and nothing at the
 harness boundary is stubbed: a fresh project is initialized with the real `cleo`
-CLI,
-`cleo goal install --harness claude` installs the project-level Stop dispatcher
-in `.claude/settings.local.json`, and the exact hook command Claude Code would
-run is executed with a real Stop payload on stdin. CLEO's dispatcher
+CLI, `cleo goal install --harness claude` installs the project-level Stop
+dispatcher in `.claude/settings.local.json`, and the exact hook command Claude
+Code would run is executed with a real Stop payload on stdin. CLEO's dispatcher
 (`cleo hook stop --provider claude-code`) spawns `cleo-goal tick` with
 `CLEO_HOOK_PROVIDER=claude-code`; the tick records `harness: claude` on the run,
 continues the turn, and after the agent claims through `ocg claim` verifies
