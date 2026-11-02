@@ -224,6 +224,10 @@ Persistent, host-verified goal mode for **OpenCode 2** (2.0.22+), shipped as a p
 - Every behaviour change gets a host scenario in `test/host/goal.test.ts` when it involves the loop.
 - Commits: `type(T###): summary` — every commit references a CLEO task (the commit-msg and pre-push hooks enforce it).
 
+## Proving a CLEO task
+
+Gates must be proven with real atoms, and this repo's evidence configuration is specific: see [docs/cleo-evidence.md](docs/cleo-evidence.md) for the pinned CI check, why `qaPassed` cannot use a lint receipt older than T166, and the bun-JUnit trap. Record evidence after the last commit it describes; a receipt older than a commit touching its scope is refused as stale.
+
 ## Releasing (the owner's iteration loop)
 
 Bump `package.json` version + `CHANGELOG.md` → commit → `git tag -a vX.Y.Z[-alpha.N]` → `git push origin main --follow-tags` → git-install test against the new tag → `opencode plugin remove "github:kryptobaseddev/open-goal#<old>"` → `opencode plugin add "github:kryptobaseddev/open-goal#<new>"` → `opencode reload` → `opencode plugin list`. The owner's OpenCode runs the **installed tag**, not this working tree.
