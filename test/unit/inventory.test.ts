@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { parseContract } from "../../src/contract/parse"
-import { projectInventory } from "../../src/engine/inventory"
+import { preferredRun, projectInventory } from "../../src/engine/inventory"
 import { initialRun } from "../../src/engine/state"
 import { Store } from "../../src/engine/store"
 
@@ -86,5 +86,38 @@ test("invalid drafts and unreadable run records stay visible as explicit unknown
     expect(unknown.progress).toBeUndefined()
     expect(unknown.issues).toContain("Run state is unreadable; status/progress/session cannot be inferred")
     expect(readFileSync(join(store.dir("unknown-run"), "run.json"), "utf8")).toBe("{torn")
+  } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+test("T173: a stale in-memory run never shadows the disk generation, and a terminal sibling never shadows a live one", () => {
+  const root = mkdtempSync(join(tmpdir(), "ocgoal-inventory-stale-"))
+  try {
+    const store = new Store(root)
+    const original = yaml("demo"), parsed = parseContract(original)
+    const newer = initialRun(parsed.contract!, { sessionID: "ses_a", runId: "run_new", lock: parsed.lock, now: 20 })
+    newer.status = "paused"
+    newer.title = "Disk generation"
+    mkdirSync(store.dir("demo"), { recursive: true })
+    writeFileSync(store.contractPath("demo"), original)
+    store.writeRun(newer)
+
+    // A different generation held in memory: disk wins, whatever its recency.
+    const stale = initialRun(parsed.contract!, { sessionID: "ses_a", runId: "run_old", lock: parsed.lock, now: 10 })
+    stale.status = "running"
+    expect(preferredRun(newer, stale)?.runId).toBe("run_new")
+    expect(projectInventory(store, [stale])[0]).toMatchObject({ runId: "run_new", status: "paused", title: "Disk generation" })
+
+    // Same generation keeps memory (it may be mid-turn) …
+    const same = { ...newer, status: "running" as const }
+    expect(preferredRun(newer, same)?.status).toBe("running")
+
+    // A terminal in-memory sibling never shadows a live disk run (T072) …
+    const diskLive = { ...newer, runId: "run_disk_live", status: "running" as const }
+    const memoryTerminal = { ...newer, runId: "run_memory_done", status: "complete" as const }
+    expect(preferredRun(diskLive, memoryTerminal)).toBe(diskLive)
+    // … and a live in-memory run is not replaced by a terminal disk sibling.
+    const diskDone = { ...newer, runId: "run_disk_done", status: "complete" as const }
+    const memoryLive = { ...newer, runId: "run_memory_live", status: "running" as const }
+    expect(preferredRun(diskDone, memoryLive)).toBe(memoryLive)
   } finally { rmSync(root, { recursive: true, force: true }) }
 })

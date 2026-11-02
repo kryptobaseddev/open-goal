@@ -18,6 +18,7 @@ describe("goal help (T025)", () => {
       "/goal approve <C#>",
       "/goal validate <slug>",
       "/goal list [all]",
+      "/goal reload",
     ])
       expect(text).toContain(needle)
   })
