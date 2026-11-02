@@ -217,6 +217,20 @@ export const M = {
     msg("goal.peer.replied", "info", `${from} replied to the availability announcement${taskId ? ` about ${taskId}` : ""}; it is recorded as candidate work, not as consent.`, [
       { label: "Inspect the goal", run: "/goal status" },
     ], "question"),
+  /** T169: one declared workstream's brief went out to its named worker. */
+  workstreamDispatched: (id: string, worker: string, task: string) =>
+    msg("goal.workstream.dispatched", "info", `Workstream ${id} dispatched to ${worker} (${task}); its return is checked against the evidence atoms the task declares.`, [
+      { label: "Inspect the goal", run: "/goal status" },
+    ]),
+  /** T169: the host's verdict on a worker's return — accepted only with atoms. */
+  workstreamReturned: (id: string, task: string, from: string, ok: boolean, reason?: string) =>
+    msg(
+      "goal.workstream.returned",
+      ok ? "success" : "warning",
+      ok ? `Workstream ${id} accepted (${task}) from ${from}.` : `Workstream ${id} rejected: ${reason ?? "unproven return"}.`,
+      [{ label: "Inspect the goal", run: "/goal status" }],
+      ok ? undefined : "error",
+    ),
   completeDecision: (title: string, cleoPresent: boolean, unproven: number) =>
     msg("goal.complete.decision", "success", `Goal complete: ${title}.${unproven ? ` ${unproven} discussed-but-unproven item(s) are flagged in the summary.` : ""} The loop has stopped. What next?`, [
       { label: "Start the next goal", run: "start the write-goal interview for the next goal", act: "start-next" },

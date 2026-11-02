@@ -5,6 +5,7 @@ import { parseContract } from "../contract/parse"
 import type { Contract } from "../contract/types"
 import { budgetUse, isTerminal, type RunState, type Status } from "../engine/state"
 import type { HarnessIdentity } from "../engine/harness-identity"
+import { aggregate, workstreamRows } from "../engine/workstreams"
 import type { Store } from "../engine/store"
 import type { CleoRollup, CleoRollupTargets, GoalCriterionRollup } from "../engine/cleo-rollup"
 
@@ -44,6 +45,11 @@ export type GoalStatusJson = {
    * `cleo:` block and the CLEO CLI answered; `schemaVersion` stays 1.
    */
   cleo?: CleoRollup
+   * T169: declared workstreams. Optional and additive — `schemaVersion` stays 1
+   * and a run without workstreams omits the field entirely.
+   */
+  workstreams?: Array<{ id: string; title: string; task: string; worker: string; done_when: string; status: string; reason?: string; at?: number }>
+  workstreamsProven?: { total: number; accepted: number; rejected: number; pending: number; proven: boolean }
   budget: { ratio: number; parts: Array<{ name: string; used: number; limit: number }> }
   verdict: { passed: boolean; lines: string[]; turn: number } | null
   blocker: { key: string; count: number; reason: string } | null
@@ -110,6 +116,7 @@ export function goalStatus(store: Store, now = Date.now(), extras: { cleo?: Cleo
   })
   const states = Object.values(run.criteria).filter((c) => c && typeof c === "object")
   const budget = contract ? budgetUse(run, contract, now) : { ratio: 0, parts: [] }
+  const workstreams = contract ? workstreamRows(contract, run.workstreams) : []
   return {
     schemaVersion: STATUS_SCHEMA_VERSION,
     goal: run.slug,
@@ -124,6 +131,7 @@ export function goalStatus(store: Store, now = Date.now(), extras: { cleo?: Cleo
     proven: states.filter((c) => c.status === "pass").length,
     total: states.length,
     ...(extras.cleo ? { cleo: extras.cleo } : {}),
+    ...(workstreams.length ? { workstreams, workstreamsProven: aggregate(Object.values(run.workstreams ?? {})) } : {}),
     budget: { ratio: budget.ratio, parts: budget.parts.map((p) => ({ name: p.name, used: p.used, limit: p.limit })) },
     verdict: run.verdict ? { passed: run.verdict.passed, lines: run.verdict.lines, turn: run.verdict.turn } : null,
     blocker: run.blocker ? { key: run.blocker.key, count: run.blocker.count, reason: run.blocker.reason } : null,

@@ -55,6 +55,18 @@ export function createPeerChannel(options: PeerTransportOptions): PeerChannel {
       const id = parseMessageId(result.stdout)
       return id ? { id } : undefined
     },
+    async send(input) {
+      // T169: one bounded brief to the worker the contract names. The subject is
+      // capped like every other outbound line; the body is the dispatch brief.
+      const result = await run([
+        "send", "--as", options.identity, "--to", input.to,
+        "--subject", input.subject.slice(0, 200), "--kind", input.kind ?? "request",
+        "-m", input.text, ...sessionArgs(input.sessionID),
+      ])
+      if (result.exit !== 0) return undefined
+      const id = parseMessageId(result.stdout)
+      return id ? { id } : undefined
+    },
     async replies(input) {
       const result = await run([
         "inbox", "--as", options.identity, "--all", "--json",
@@ -69,9 +81,10 @@ export function createPeerChannel(options: PeerTransportOptions): PeerChannel {
         const from = asText(m?.from)
         const at = Date.parse(asText(m?.ts))
         if (!id || !from || from === options.identity || Number.isNaN(at) || at <= input.since) return []
-        // The list endpoint has no body; the subject is the first line of what
-        // the peer said. A fuller read is the next step, never an invention.
-        return [{ id, from, at, text: asText(m?.subject) || "(no subject)" }]
+        // The list endpoint usually carries no body; when it does (or a preview
+        // does), use it — a workstream return needs its evidence atoms, not just
+        // the first line of a subject.
+        return [{ id, from, at, text: asText(m?.body) || asText(m?.text) || asText(m?.subject) || "(no subject)" }]
       })
     },
   }

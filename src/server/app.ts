@@ -40,8 +40,9 @@ import { M, renderMessage, type EngineMessage } from "./messages"
 import { directGoalCommand } from "./intent"
 import { ownerAmendmentMessage, ownerLaunchMessage, ownerResumeMessage } from "../engine/owner-intent"
 import { nextWork, type WorkCandidate } from "../engine/next-work"
-import { candidateFromReply, announcementText, type PeerChannel } from "../engine/peer-announce"
+import { candidateFromReply, announcementText, type PeerChannel, type PeerReply } from "../engine/peer-announce"
 import { createPeerChannel } from "../engine/peer-transport"
+import { aggregate, dispatchBrief, planWorkstreams, validateReturn, workstreamRows, type WorkstreamState } from "../engine/workstreams"
 import { readyCleoTask, continuationContractYaml, continuationSlug } from "../engine/continue-work"
 import { buildHandoff, handoffDigest } from "../engine/handoff"
 
@@ -167,6 +168,10 @@ export class GoalApp {
   private recoveredAmendmentRuns = new Set<string>()
   /** v0.8.0: lazily created AgentMBX transport (only with an identity). */
   private peerChannelInstance?: PeerChannel
+  /** T169: workstream ids whose dispatch is in flight, so concurrent admits send once. */
+  private dispatchingWorkstreams = new Set<string>()
+  /** T169: bounded poll count per session, so watching never spins forever. */
+  private workstreamPolls = new Map<string, number>()
 
   constructor(private ctx: Context, readonly adapter: HarnessAdapter = OPENCODE_ADAPTER) {
     this.root = ctx.location.directory
@@ -768,6 +773,7 @@ export class GoalApp {
     const contract = this.contractOf(state)
     if (!contract) return undefined
     const use = budgetUse(state, contract)
+    const workstreams = workstreamRows(contract, state.workstreams)
     const all = [...contract.criteria.map((c) => ({ c, invariant: false })), ...contract.invariants.map((c) => ({ c, invariant: true }))]
     return {
       slug: state.slug,
@@ -792,6 +798,7 @@ export class GoalApp {
         return { id: c.id, statement: c.statement, essential: c.essential, invariant, kind: c.check.kind, status: s.status, ...(s.by ? { by: s.by } : {}), ...(s.detail ? { detail: s.detail.slice(0, 400) } : {}), ...(s.at ? { at: s.at } : {}) }
       }),
       steps: contract.plan.map((s) => ({ id: s.id, title: s.title, status: state.steps[s.id] ?? "pending" })),
+      ...(workstreams.length ? { workstreams, workstreamsProven: aggregate(Object.values(state.workstreams ?? {})) } : {}),
       ...(state.progress ? { progress: state.progress } : {}),
       ...(state.verdict ? { verdict: { passed: state.verdict.passed, lines: state.verdict.lines.slice(0, 6), at: state.verdict.at, turn: state.verdict.turn } } : {}),
       ...(state.blocker ? { blocker: { key: state.blocker.key, count: state.blocker.count, reason: state.blocker.reason, ...(state.blocker.needs ? { needs: state.blocker.needs } : {}) } } : {}),
@@ -2219,6 +2226,11 @@ export class GoalApp {
       // The seam names the producer: the adapter knows its own identity and the
       // serving version, so the run and the adapter can never disagree.
       const state = initialRun(contract, { sessionID, runId: newRunId(), lock, commit: headCommit(exec), harness: this.adapter.identity({ version: this.packageVersion }) })
+      // T169: a declared workstream belongs to the run from the start — pending
+      // until its brief is sent. No workstream means the run is unchanged.
+      const plannedWorkstreams = planWorkstreams(contract)
+      if (plannedWorkstreams.length)
+        state.workstreams = Object.fromEntries(plannedWorkstreams.map((workstream) => [workstream.id, { id: workstream.id, task: workstream.task, worker: workstream.worker, status: "pending" as const }]))
       if (options.handoff) state.handoff = options.handoff
       state.fingerprint = fingerprint(exec)
       if (rehearsal.length) {
@@ -2339,6 +2351,135 @@ export class GoalApp {
     return Number.isFinite(value) && value > 0 ? value : 30_000
   }
 
+  // ───────────────────────────── declared workstreams (T169)
+
+  /**
+   * Send each PENDING workstream's brief once, to the worker the contract names.
+   * The address is explicit in the contract (the parser refuses wildcards), so
+   * the owner's consent to send outward is written down rather than inferred.
+   * A dispatch is journalled with its message id; a failure leaves the
+   * workstream pending with the reason and is never retried behind the owner's
+   * back in the same tick.
+   */
+  private async dispatchWorkstreams(state: RunState, contract: Contract) {
+    const planned = planWorkstreams(contract)
+    if (!planned.length) return
+    const channel = this.peerChannel()
+    if (!channel) {
+      this.store.ledger(state.slug, { type: "workstream-dispatch-skipped", reason: "no peer identity configured (set OCGOAL_PEER_IDENTITY)" })
+      return
+    }
+    for (const workstream of planned) {
+      const current = state.workstreams?.[workstream.id]
+      if (!current || current.status !== "pending" || this.dispatchingWorkstreams.has(workstream.id)) continue
+      this.dispatchingWorkstreams.add(workstream.id)
+      try {
+        const sent = await channel
+          .send({
+            to: workstream.worker,
+            subject: `workstream ${workstream.id} · ${workstream.task}`,
+            text: dispatchBrief({ contract, workstream }),
+            sessionID: state.sessionID,
+            kind: "request",
+          })
+          .catch(() => undefined)
+        const next: WorkstreamState = sent
+          ? { ...current, status: "dispatched", messageId: sent.id, at: Date.now() }
+          : { ...current, status: "pending", at: Date.now(), reason: "dispatch could not be sent" }
+        state.workstreams = { ...(state.workstreams ?? {}), [workstream.id]: next }
+        this.persist(state)
+        this.store.ledger(
+          state.slug,
+          sent
+            ? { type: "workstream-dispatch", id: workstream.id, task: workstream.task, worker: workstream.worker, messageId: sent.id }
+            : { type: "workstream-dispatch-failed", id: workstream.id, task: workstream.task, worker: workstream.worker },
+        )
+        if (sent) this.noticeM(state.sessionID, M.workstreamDispatched(workstream.id, workstream.worker, workstream.task))
+      } finally {
+        this.dispatchingWorkstreams.delete(workstream.id)
+      }
+    }
+    if (Object.values(state.workstreams ?? {}).some((workstream) => workstream.status === "dispatched")) this.scheduleWorkstreamPoll(state)
+  }
+
+  /**
+   * Watch for workstream returns while any brief is outstanding. The poll stops
+   * by itself once every dispatched workstream has a verdict; a re-read of the
+   * same message cannot flip a decided workstream again.
+   */
+  private scheduleWorkstreamPoll(state: RunState) {
+    const channel = this.peerChannel()
+    if (!channel) return
+    const key = `workstreams:${state.sessionID}`
+    clearTimeout(this.timers.get(key))
+    const polls = (this.workstreamPolls.get(key) ?? 0) + 1
+    this.workstreamPolls.set(key, polls)
+    if (polls > 120) return
+    const timer = setTimeout(() => {
+      void this.serial(async () => {
+        const contract = this.contractOf(state)
+        if (!contract) return
+        const watching = () => Object.values(state.workstreams ?? {}).some((workstream) => workstream.status === "dispatched" || workstream.status === "rejected")
+        if (!watching()) return
+        const replies = await channel.replies({ since: 0, sessionID: state.sessionID }).catch(() => [])
+        this.consumeWorkstreamReplies(state, contract, replies)
+        if (watching()) this.scheduleWorkstreamPoll(state)
+      })
+    }, this.peerPollMs())
+    timer.unref?.()
+    this.timers.set(key, timer)
+  }
+
+  /**
+   * Judge a peer reply against the workstream it answers. A return is accepted
+   * only with the atoms the task declared; prose-only is rejected BY NAME and
+   * recorded, never quietly treated as progress. A workstream never creates a
+   * goal — it updates this run's state and nothing else.
+   */
+  private consumeWorkstreamReplies(state: RunState, contract: Contract, replies: PeerReply[]): Set<string> {
+    const planned = planWorkstreams(contract)
+    const consumed = new Set<string>()
+    if (!planned.length || !replies.length) return consumed
+    let touched = false
+    for (const reply of replies) {
+      const workstream = planned.find((candidate) => {
+        const current = state.workstreams?.[candidate.id]
+        if (!current || (current.status !== "dispatched" && current.status !== "rejected")) return false
+        // A corrected return may arrive after a rejection, but never an older
+        // message than the verdict it would replace.
+        if (current.at !== undefined && reply.at <= current.at) return false
+        const fromWorker = current.worker === reply.from
+        const byMessage = current.messageId !== undefined && current.messageId === reply.id
+        if (!fromWorker && !byMessage) return false
+        return byMessage || reply.text.includes(candidate.task)
+      })
+      if (!workstream) continue
+      consumed.add(reply.id)
+      const verdict = validateReturn(workstream, reply.text)
+      const current = state.workstreams![workstream.id]!
+      state.workstreams = {
+        ...state.workstreams,
+        [workstream.id]: { ...current, status: verdict.ok ? "accepted" : "rejected", at: reply.at, ...(verdict.reason ? { reason: verdict.reason } : { reason: undefined }), ...(verdict.ok ? { atoms: verdict.atoms } : {}) },
+      }
+      touched = true
+      this.store.ledger(state.slug, {
+        type: "workstream-return",
+        id: workstream.id,
+        task: workstream.task,
+        worker: reply.from,
+        ok: verdict.ok,
+        ...(verdict.reason ? { reason: verdict.reason } : {}),
+        atoms: verdict.atoms.slice(0, 8),
+      })
+      this.noticeM(
+        state.sessionID,
+        M.workstreamReturned(workstream.id, workstream.task, reply.from, verdict.ok, verdict.reason),
+      )
+    }
+    if (touched) this.persist(state)
+    return consumed
+  }
+
   /**
    * v0.8.0 C4/C5: after a goal completes the loop looks for the next work
    * before it stops. Sources, in order: a ready CLEO item in this project, then
@@ -2368,9 +2509,11 @@ export class GoalApp {
     if (channel) {
       const replies = await channel.replies({ since: state.peer?.lastReplyAt ?? 0, sessionID: state.sessionID }).catch(() => [])
       if (replies.length) {
+        const consumed = this.consumeWorkstreamReplies(state, contract, replies)
+        const asNextWork = consumed.size ? replies.filter((reply) => !consumed.has(reply.id)) : replies
         const now = Date.now()
         state.peer = { ...(state.peer ?? {}), outstanding: undefined, lastReplyAt: now,
-          candidates: [...(state.peer?.candidates ?? []), ...replies.map((r) => candidateFromReply(r, this.root))] }
+          candidates: [...(state.peer?.candidates ?? []), ...asNextWork.map((r) => candidateFromReply(r, this.root))] }
         this.persist(state)
         this.store.ledger(state.slug, { type: "peer-reply", count: replies.length, from: replies.map((r) => r.from), candidates: replies.map((r) => r.text.slice(0, 200)) })
         for (const reply of replies) {
@@ -2488,7 +2631,10 @@ export class GoalApp {
           return
         }
         const now = Date.now()
-        const candidates = replies.map((r) => candidateFromReply(r, this.root))
+        const wsContract = this.contractOf(state)
+        const consumed = wsContract ? this.consumeWorkstreamReplies(state, wsContract, replies) : new Set<string>()
+        const asNextWork = consumed.size ? replies.filter((reply) => !consumed.has(reply.id)) : replies
+        const candidates = asNextWork.map((r) => candidateFromReply(r, this.root))
         state.peer = { ...(state.peer ?? {}), outstanding: undefined, lastReplyAt: now, candidates: [...(state.peer?.candidates ?? []), ...candidates] }
         this.persist(state)
         this.store.ledger(state.slug, { type: "peer-reply", count: replies.length, candidates: candidates.map((c) => ({ from: c.from, taskId: c.taskId ?? null, title: c.title })) })
@@ -2575,6 +2721,10 @@ export class GoalApp {
     state.compacted = false
     this.store.ledger(state.slug, { type: "admit", kind, turn: state.turn, messageID: state.pending.messageID })
     this.persist(state)
+    // T169: dispatch declared workstreams once, before the turn starts.
+    void this.dispatchWorkstreams(state, contract).catch((error) =>
+      this.store.ledger(state.slug, { type: "workstream-dispatch-error", error: String(error).slice(0, 300) }),
+    )
     try {
       // S2 + T041: a fixed id makes a retried admission idempotent, and the
       // continuation lands as ONE synthetic notice row in the transcript

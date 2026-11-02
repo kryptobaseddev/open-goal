@@ -166,6 +166,23 @@ export const gateForCheck = (check: Check): CleoGate | undefined => {
   if (check.kind === "command") return /\btypecheck\b|\blint\b/.test(check.run) ? "qaPassed" : "testsPassed"
   if (check.kind === "file" || check.kind === "contains" || check.kind === "absent") return "implemented"
   return undefined
+ * T169 — one declared workstream: a CLEO task under this goal, a named worker to
+ * do it, and what that worker must return to be believed. Optional and additive:
+ * a contract without workstreams behaves exactly as it did before.
+ */
+export type Workstream = {
+  /** Stable handle inside the goal; unique, lowercase kebab-case. */
+  id: string
+  title: string
+  /** The CLEO task it drives; must also be declared in `cleo.tasks`. */
+  task: string
+  /** Explicit worker address (agent@host). Wildcards are rejected: the owner's
+   *  consent to send outward is the named address written in the contract. */
+  worker: string
+  /** What the worker must return, in words the owner can check. */
+  done_when: string
+  /** Gates this workstream owns; defaults to the task link's declared gates. */
+  gates?: CleoGate[]
 }
 
 export type Contract = {
@@ -190,6 +207,8 @@ export type Contract = {
   workspace?: string
   /** v0.5.0 — the tasks this goal serves; T171 adds the rollup scope. */
   cleo?: CleoLinks
+  /** T169 — declared workstreams; absent ⇒ single-threaded goal, unchanged. */
+  workstreams?: Workstream[]
   protect: string[]
   assumptions: Assumption[]
   plan: Step[]

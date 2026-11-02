@@ -132,6 +132,9 @@ export type GoalView = {
   budgetRatio: number
   criteria: CriterionView[]
   steps: Array<{ id: string; title: string; status: string }>
+  /** T169: declared workstreams and the host's verdict on each return. */
+  workstreams?: Array<{ id: string; title: string; task: string; worker: string; done_when: string; status: string; reason?: string; at?: number }>
+  workstreamsProven?: { total: number; accepted: number; rejected: number; pending: number; proven: boolean }
   progress?: { note: string; next?: string; at: number; turn: number }
   verdict?: { passed: boolean; lines: string[]; at: number; turn: number }
   blocker?: { key: string; count: number; reason: string; needs?: string }
