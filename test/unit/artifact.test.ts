@@ -26,6 +26,25 @@ test("exact revision, complete artifact bytes and actual caller binding are requ
   expect(artifactDiscrepancies({ ...actual, sessionID: "ses_unrelated" }, expected)).toContain("runtime sessionID does not match the goal/check caller")
 })
 
+// T124 (owner-accepted): a registry install reports the release version, not
+// the tag's Git revision. The flag relaxes the channel label only — the tag,
+// the caller binding, outdated=false and every artifact byte stay mandatory.
+test("the accepted package channel proves the bytes, not the channel label", () => {
+  const registry: RuntimeProvenance = { ...actual, source: { type: "package", target: "@cleocode/goal@0.3.3", version: "0.3.3" } }
+  const accepted = { ...expected, acceptPackageAtTag: true, releaseVersion: "0.3.3" }
+  expect(artifactDiscrepancies(registry, accepted)).toEqual([])
+  // Without the flag the registry channel is still rejected as before.
+  expect(artifactDiscrepancies(registry, expected)).toContain(`running revision 0.3.3 differs from ${revision}`)
+  // Every other rule is unchanged and still fails closed.
+  expect(artifactDiscrepancies({ ...registry, packageVersion: "0.3.4" }, accepted)).toContain("running package 0.3.4 differs from release 0.3.3")
+  expect(artifactDiscrepancies({ ...registry, packageVersion: "0.3.4" }, expected)).toContain(`running revision 0.3.3 differs from ${revision}`)
+  expect(artifactDiscrepancies({ ...registry, source: { ...registry.source, outdated: true } }, accepted)).toContain("the running plugin reports outdated=true")
+  expect(artifactDiscrepancies({ ...registry, source: { type: "local" } }, accepted)).toContain("the running plugin is not a package install")
+  expect(artifactDiscrepancies({ ...registry, artifacts: { ...artifacts, "dist/tui.js": "0".repeat(64) } }, accepted)).toContain("artifact mismatch: dist/tui.js")
+  expect(artifactDiscrepancies({ ...registry, sessionID: "ses_unrelated" }, accepted)).toContain("runtime sessionID does not match the goal/check caller")
+  expect(artifactDiscrepancies({ ...registry, status: "failed" }, accepted)).toContain("the serving plugin is not active with server/TUI/RPC features")
+})
+
 test("a fresh cache with the right version label but old UI bytes is rejected", () => {
   const staleCompiled = { ...actual, artifacts: { ...artifacts, "dist/tui.js": "0".repeat(64) } }
   expect(artifactDiscrepancies(staleCompiled, expected)).toContain("artifact mismatch: dist/tui.js")

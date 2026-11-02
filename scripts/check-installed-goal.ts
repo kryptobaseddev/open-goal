@@ -3,6 +3,12 @@
 // use requires OPENCODE_SESSION_ID and a host-recorded provenance receipt
 // (goal_provenance), and verifies the serving PID belongs to this process's
 // ancestry. Never discover/fall back to the default shared service.
+//
+// --accept-package-at-tag (T124, owner-accepted): an npm-registry install
+// reports the release version rather than the tag's Git revision, so the caller
+// may accept `packageVersion === <project version>` instead of the revision
+// label. The tag, the published-tag equality, the caller binding and all
+// artifact bytes are still required.
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs"
 import { basename, dirname, join } from "node:path"
 import { artifactDiscrepancies, captureArtifactHashes, hashArtifact, isArtifactPath, type RuntimeProvenance } from "../src/verify/artifact"
@@ -81,6 +87,10 @@ try {
   const errors = artifactDiscrepancies(actual, {
     revision, artifacts, sessionID, runId: state.runId, lock: state.lock,
     serverPID: context?.serverPID ?? actual.serverPID, minVersion,
+    // T124: the owner accepted the npm-registry channel for this project; the
+    // tag and every artifact byte are still required, only the channel label is
+    // relaxed from the Git revision to the release version.
+    ...(process.argv.includes("--accept-package-at-tag") ? { acceptPackageAtTag: true, releaseVersion: version } : {}),
   })
   // The runtime serves the PROJECT checkout; host checks run at the execution
   // workspace (a linked worktree) when the contract binds one. Compare against
