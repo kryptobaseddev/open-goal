@@ -7169,6 +7169,12 @@ var CHECK_KINDS = [...HOST_KINDS, "verifier", "human"];
 var isHostCheck = (check) => HOST_KINDS.includes(check.kind);
 var PRIORITIES = ["low", "medium", "high"];
 var AMEND_CLASSES = ["timeout", "budget", "plan", "recover"];
+var AUTONOMY_LEVELS = ["conservative", "standard", "full"];
+var AUTONOMY_LEVEL_POLICY = {
+  conservative: { on_stall: "pause", amend: [] },
+  standard: { on_stall: "continue", amend: ["timeout", "recover"] },
+  full: { on_stall: "continue", amend: ["timeout", "budget", "plan", "recover"] }
+};
 var CLEO_GATES = ["implemented", "testsPassed", "qaPassed"];
 
 // src/contract/parse.ts
@@ -7480,28 +7486,48 @@ function parseContract(text, options = {}) {
     err(path, `must be one of ${allowed.join(", ")}`);
     return fallback;
   };
-  const autonomy = {
-    questions: pick("autonomy.questions", autonomyRaw.questions, ["defer", "allow"], "defer"),
-    on_user_message: pick("autonomy.on_user_message", autonomyRaw.on_user_message, ["steer", "pause"], "steer"),
-    on_interrupt: pick("autonomy.on_interrupt", autonomyRaw.on_interrupt, ["pause", "resume-on-message"], "pause"),
-    amend: [],
-    on_stall: pick("autonomy.on_stall", autonomyRaw.on_stall, ["pause", "continue"], "pause"),
-    ...autonomyRaw.visit_new_projects === true ? { visit_new_projects: true } : {},
-    ...autonomyRaw.continue_past_budget === true ? { continue_past_budget: true } : {}
-  };
+  let level;
+  const levelRaw = str(autonomyRaw.level);
+  if (levelRaw) {
+    if (AUTONOMY_LEVELS.includes(levelRaw))
+      level = levelRaw;
+    else
+      err("autonomy.level", `must be one of ${AUTONOMY_LEVELS.join(", ")}`);
+  }
+  const explicitStall = str(autonomyRaw.on_stall) ? pick("autonomy.on_stall", autonomyRaw.on_stall, ["pause", "continue"], "pause") : undefined;
+  let explicitAmend;
   if (autonomyRaw.amend !== undefined) {
+    explicitAmend = [];
     if (!Array.isArray(autonomyRaw.amend))
       err("autonomy.amend", `amend must be a list of ${AMEND_CLASSES.join(", ")}`);
     else
       for (const value of autonomyRaw.amend) {
         const v = str(value);
         if (v && AMEND_CLASSES.includes(v)) {
-          if (!autonomy.amend.includes(v))
-            autonomy.amend.push(v);
+          if (!explicitAmend.includes(v))
+            explicitAmend.push(v);
         } else
           err("autonomy.amend", `unknown change class "${String(value)}"; allowed: ${AMEND_CLASSES.join(", ")}`);
       }
   }
+  const ceiling = level ? AUTONOMY_LEVEL_POLICY[level] : undefined;
+  for (const c of explicitAmend ?? [])
+    if (ceiling && !ceiling.amend.includes(c))
+      warn("autonomy.amend", `"${c}" is outside autonomy.level ${level}; it is not granted`);
+  if (ceiling && explicitStall === "continue" && ceiling.on_stall === "pause")
+    warn("autonomy.on_stall", `autonomy.level ${level} keeps the stall pause; "continue" is not granted`);
+  const amend = ceiling ? explicitAmend === undefined ? [...ceiling.amend] : explicitAmend.filter((c) => ceiling.amend.includes(c)) : explicitAmend ?? [];
+  const onStall = ceiling ? ceiling.on_stall === "continue" && explicitStall !== "pause" ? "continue" : "pause" : explicitStall ?? "pause";
+  const autonomy = {
+    questions: pick("autonomy.questions", autonomyRaw.questions, ["defer", "allow"], "defer"),
+    on_user_message: pick("autonomy.on_user_message", autonomyRaw.on_user_message, ["steer", "pause"], "steer"),
+    on_interrupt: pick("autonomy.on_interrupt", autonomyRaw.on_interrupt, ["pause", "resume-on-message"], "pause"),
+    ...level ? { level } : {},
+    amend,
+    on_stall: onStall,
+    ...autonomyRaw.visit_new_projects === true ? { visit_new_projects: true } : {},
+    ...autonomyRaw.continue_past_budget === true ? { continue_past_budget: true } : {}
+  };
   const verificationRaw = isRecord(raw.verification) ? raw.verification : {};
   const mode = pick("verification.mode", verificationRaw.mode, ["host", "host+verifier", "strict"], "host+verifier");
   const maxRejections = verificationRaw.max_rejections === undefined ? 3 : Number(verificationRaw.max_rejections);

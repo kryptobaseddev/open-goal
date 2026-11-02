@@ -61,6 +61,8 @@ export function renderSystemBlock(contract: Contract, lock: string): string {
   if (assumed.length) out.push(`Assumptions (binding until the owner vetoes them): ${assumed.map((a) => `${a.id} ${a.text}`).join("; ")}`)
   if (contract.stop.when) out.push(`Done when: ${contract.stop.when}`)
   if (contract.stop.escalate_when.length) out.push(`Stop and call goal_block when: ${contract.stop.escalate_when.join("; ")}`)
+  if (contract.autonomy.level)
+    out.push(`Autonomy level (owner-set): ${contract.autonomy.level}. Routine stalls, clean restarts, accepted amendments and verifier retries need no second owner act. Human criteria, outward/destructive acts, real blockers and contract or oracle changes still stop and ask.`)
   out.push(`Contract file: .opencode/goals/${contract.id}/goal.yaml`)
   out.push("</goal_contract>")
   out.push("")

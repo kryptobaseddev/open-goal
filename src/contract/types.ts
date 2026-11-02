@@ -86,10 +86,43 @@ export type Budget = {
 export type AmendClass = "timeout" | "budget" | "plan" | "recover"
 export const AMEND_CLASSES: readonly AmendClass[] = ["timeout", "budget", "plan", "recover"]
 
+/**
+ * T170 — the owner-set autonomy ceiling. One explicit field instead of a
+ * hand-tuned bundle, so "how much needs asking?" is a nameable choice.
+ *
+ * A level is a CEILING, never a grant: an explicit flag in the same block may
+ * narrow what the level allows (e.g. `level: standard` + `on_stall: pause`), but
+ * it can never widen it (`level: conservative` + `amend: [timeout]` still
+ * grants nothing). Absent ⇒ today's behaviour exactly, so no existing contract
+ * changes.
+ *
+ * No level touches the safety stops (src/engine/loop-stop.ts): a human
+ * criterion, an outward/destructive act, a real blocker, and a contract/oracle
+ * change always stop and ask. Budget and new-project stops keep their own
+ * explicit waivers (`continue_past_budget`, `visit_new_projects`) rather than
+ * being inferred from a level.
+ */
+export type AutonomyLevel = "conservative" | "standard" | "full"
+export const AUTONOMY_LEVELS: readonly AutonomyLevel[] = ["conservative", "standard", "full"]
+
+/** What each level chooses by default. Explicit flags may only narrow this. */
+export const AUTONOMY_LEVEL_POLICY: Record<AutonomyLevel, { on_stall: "pause" | "continue"; amend: readonly AmendClass[] }> = {
+  /** Today's defaults: stop on a stall, apply no contract change itself. */
+  conservative: { on_stall: "pause", amend: [] },
+  /** No routine pause: a stalled-but-active run continues with a recorded
+   *  report, and only the reversible routine changes (timeout, in-policy
+   *  divergence recovery) are applied by the agent. Everything in AC3 stops. */
+  standard: { on_stall: "continue", amend: ["timeout", "recover"] },
+  /** Standard plus budget/plan additions inside the contract's own bounds. */
+  full: { on_stall: "continue", amend: ["timeout", "budget", "plan", "recover"] },
+}
+
 export type Autonomy = {
   questions: "defer" | "allow"
   on_user_message: "steer" | "pause"
   on_interrupt: "pause" | "resume-on-message"
+  /** T170: the owner-set autonomy ceiling. Absent ⇒ legacy flag behaviour. */
+  level?: AutonomyLevel
   /** Owner-set policy: classes the agent may apply itself (default none). */
   amend: AmendClass[]
   /** Owner-set: what the stall detector does. `pause` (default) stops for the

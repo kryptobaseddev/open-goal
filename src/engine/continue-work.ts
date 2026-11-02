@@ -118,6 +118,7 @@ export function continuationContractYaml(input: {
     `  questions: ${autonomy.questions}`,
     `  on_user_message: ${autonomy.on_user_message}`,
     `  on_interrupt: ${autonomy.on_interrupt}`,
+    ...(autonomy.level ? [`  level: ${autonomy.level}`] : []),
     `  amend: [${autonomy.amend.join(", ")}]`,
     `  on_stall: ${autonomy.on_stall}`,
     "verification: {mode: host+verifier, max_rejections: 3}",
