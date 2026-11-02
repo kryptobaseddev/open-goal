@@ -38,6 +38,11 @@ jobs:
       # A manual first publish is required before npm can attach a trusted
       # publisher. Pushing that same version's tag afterwards must no-op, not
       # fail the release run.
+      # A release must come from main. v0.12.0 was tagged and published from a
+      # branch commit while main carried the previous version; every goal check
+      # passed because the goal engine cannot see the release pipeline.
+      - name: Tag must be on main
+        run: bun scripts/check-release-ancestry.ts --tag "$GITHUB_REF_NAME" --main origin/main
       - name: Skip an already-published version
         id: published
         run: |

@@ -9357,6 +9357,8 @@ async function verifyClaim(contract, state, deps) {
   const failed = results.filter((r) => required.has(r.id) && !r.pass && r.by !== "human");
   const passed = integrity.length === 0 && failed.length === 0 && needsHuman.filter((id) => required.has(id)).length === 0;
   const lines = [];
+  for (const line of deps.environment ?? [])
+    lines.push(line);
   for (const i of integrity)
     lines.push(`INTEGRITY: ${i}`);
   for (const r of results) {

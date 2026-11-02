@@ -65,6 +65,7 @@ const askedDecisionIds = new Set<string>()
 import { ascendingId, runId as newRunId } from "../util/ids"
 import { fingerprint, gitDigest, headCommit, topLevel } from "../util/git"
 import { runHostCheck, verifyClaim, type VerifierVerdict } from "../verify/pipeline"
+import { captureEnvironment, compareEnvironment, environmentLine } from "../verify/environment"
 import { runShell } from "../util/shell"
 import { captureArtifactHashes, type RuntimeProvenance } from "../verify/artifact"
 
@@ -3239,6 +3240,10 @@ export class GoalApp {
     const runtime = await this.provenance(state.sessionID)
     if (!isTerminal(state.status)) this.store.evidence(state.slug, state.runId, "engine-provenance", runtime)
     const checkContext = JSON.stringify({ slug: state.slug, runId: state.runId, sessionID: state.sessionID, lock: state.lock, serverPID: process.pid })
+    // Name any environment move since the last verdict (package version, HEAD,
+    // the release tag) instead of letting a stale "pass" stand unexplained.
+    const environment = captureEnvironment(this.executionRoot(contract), Date.now())
+    const environmentLines = environmentLine(compareEnvironment(state.environment, environment))
     const outcome = await verifyClaim(contract, state, {
       root: this.executionRoot(contract),
       contractText: text,
@@ -3253,7 +3258,9 @@ export class GoalApp {
         state.activity = activity
         this.persist(state)
       },
+      environment: environmentLines,
     })
+    state.environment = environment
     const now = Date.now()
     for (const r of outcome.results) {
       const prev = state.criteria[r.id] ?? { status: "unknown" as const, rejections: 0 }

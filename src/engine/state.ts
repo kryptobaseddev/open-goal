@@ -83,6 +83,12 @@ export type RunState = {
   steps: Record<string, "pending" | "active" | "done">
   progress?: { note: string; next?: string; at: number; turn: number }
   verdict?: { at: number; turn: number; passed: boolean; lines: string[] }
+  /**
+   * The environment captured at the last verdict. Optional and additive: a run
+   * written before this field existed simply has none, and the next verdict
+   * captures one without claiming a change.
+   */
+  environment?: { at: number; packageVersion?: string; head?: string; tagCommit?: string; tagOnHead?: boolean }
   claim?: { at: number; turn: number; summary: string; evidence: Record<string, string> }
   wait?: { until: number; reason: string }
   pending?: { messageID: string; turn: number; at: number; kind: PendingKind }
