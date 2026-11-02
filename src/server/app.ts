@@ -2605,12 +2605,16 @@ export class GoalApp {
       this.noticeM(state.sessionID, M.continueStopped(`the contract generated from ${candidate.taskId} did not validate`))
       return false
     }
-    const dir = join(this.root, ".opencode", "goals", slug)
+    // T186: the successor lives in the SAME store as the run it continues, so a
+    // legacy run never mints a canonical folder behind the owner's back (and a
+    // canonical run does not fall back to the legacy root).
+    const dir = join(dirname(this.store.locate(state.slug)), slug)
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, "goal.yaml"), text)
     this.store.ledger(state.slug, { type: "continue-work", taskId: candidate.taskId, slug, title: candidate.title, lock: parsed.lock })
     this.noticeM(state.sessionID, M.continueWork(state.title, slug, candidate.taskId))
-    void this.transcript(state.sessionID, `◎ Goal complete — "${state.title}". Started the next ready CLEO item ${candidate.taskId} as "${slug}" in a new session; no owner decision was created. The new contract is .opencode/goals/${slug}/goal.yaml.`)
+    const written = relative(this.root, join(dir, "goal.yaml")).split("\\").join("/")
+    void this.transcript(state.sessionID, `◎ Goal complete — "${state.title}". Started the next ready CLEO item ${candidate.taskId} as "${slug}" in a new session; no owner decision was created. The new contract is ${written}.`)
     // startClean creates the session outside the serial queue and queues the
     // start behind this completion turn; called synchronously it would re-enter
     // the queue and deadlock.
