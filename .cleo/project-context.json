@@ -22,7 +22,15 @@
       ],
       "qa": [
         "Typecheck, unit tests, Node bin"
-      ]
+      ],
+      "jobs": {
+        "tests": [
+          "Typecheck, unit tests, Node bin"
+        ],
+        "qa": [
+          "Typecheck, unit tests, Node bin"
+        ]
+      }
     }
   }
 }
