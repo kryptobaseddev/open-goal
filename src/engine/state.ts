@@ -23,11 +23,24 @@ export const TERMINAL: readonly Status[] = ["complete", "failed", "aborted", "su
 export const isActive = (s: Status) => ACTIVE.includes(s)
 export const isTerminal = (s: Status) => TERMINAL.includes(s)
 
+/**
+ * T178: the criterion board is more than pass/fail. `stale` means a proof that
+ * once stood no longer binds the bytes it cited. It is additive to the older
+ * four values, so a run.json written before it still parses.
+ */
+export type CriterionStatus = "unknown" | "pass" | "fail" | "claimed" | "stale"
+
 export type CriterionState = {
-  status: "unknown" | "pass" | "fail" | "claimed"
+  status: CriterionStatus
   by?: "host" | "verifier" | "verifier-fallback" | "human"
   at?: number
   detail?: string
+  /**
+   * T178: sha256 of every file the verifier cited when this criterion was
+   * proven, keyed by the path it named. Optional and additive — a run written
+   * before this field existed simply has none.
+   */
+  evidence?: { files: Record<string, string>; at?: number }
   rejections: number
 }
 

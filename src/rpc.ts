@@ -1,7 +1,7 @@
 // Shared server↔TUI contract. A plain object (Rpc.define is an identity
 // function), so neither side needs @opencode/plugin at runtime.
 const anyObject = { type: "object", additionalProperties: true } as const
-import type { Handoff } from "./engine/state"
+import type { CriterionStatus, Handoff } from "./engine/state"
 import type { HarnessIdentity } from "./engine/harness-identity"
 import type { LaunchView } from "./engine/launches"
 export type { LaunchView } from "./engine/launches"
@@ -104,7 +104,7 @@ export type CriterionView = {
   essential: boolean
   invariant: boolean
   kind: string
-  status: "unknown" | "pass" | "fail" | "claimed"
+  status: CriterionStatus
   by?: string
   detail?: string
   at?: number

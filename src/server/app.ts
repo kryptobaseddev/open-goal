@@ -67,6 +67,7 @@ const askedDecisionIds = new Set<string>()
 import { ascendingId, runId as newRunId } from "../util/ids"
 import { fingerprint, gitDigest, headCommit, resolveCommit, topLevel } from "../util/git"
 import { runHostCheck, verifyClaim, type VerifierVerdict } from "../verify/pipeline"
+import { demotionReason } from "../verify/evidence"
 import { captureEnvironment, compareEnvironment, environmentLine } from "../verify/environment"
 import { runShell } from "../util/shell"
 import { captureArtifactHashes, type RuntimeProvenance } from "../verify/artifact"
@@ -3290,10 +3291,27 @@ export class GoalApp {
     })
     state.environment = environment
     const now = Date.now()
+    // T178: the demotion happened inside verifyClaim (the state is the same
+    // object). Name it in the ledger whether or not this round re-proved it, so
+    // the history shows the old pass was retired instead of silently replaced.
+    const demoted = new Map((outcome.demotions ?? []).map((d) => [d.criterion, d] as const))
+    for (const d of outcome.demotions ?? []) this.store.ledger(state.slug, { type: "criterion-stale", criterion: d.criterion, path: d.path, was: d.was, now: d.now, turn: state.turn })
     for (const r of outcome.results) {
       const prev = state.criteria[r.id] ?? { status: "unknown" as const, rejections: 0 }
       const claimed = source === "claim" && !r.pass && r.by !== "human"
-      state.criteria[r.id] = { status: r.pass ? "pass" : r.by === "human" ? prev.status : "fail", by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: r.pass ? 0 : prev.rejections + (claimed ? 1 : 0) }
+      const stale = demoted.get(r.id)
+      // T178: a demoted proof whose fresh verdict did not re-prove stays stale —
+      // never a `fail` that hides the real reason, and never the old `pass`.
+      const status = r.pass ? "pass" : r.by === "human" ? prev.status : stale ? "stale" : "fail"
+      const detail = stale && !r.pass ? `${demotionReason(stale)}; this round: ${r.detail}` : r.detail
+      state.criteria[r.id] = {
+        status,
+        by: r.by,
+        at: now,
+        detail: detail.slice(0, 600),
+        rejections: r.pass ? 0 : prev.rejections + (claimed ? 1 : 0),
+        ...(r.evidence ? { evidence: r.evidence } : !r.pass && prev.evidence ? { evidence: prev.evidence } : {}),
+      }
     }
     this.store.evidence(state.slug, state.runId, `verify-turn-${state.turn}-${now}`, { source, claim: state.claim ?? null, outcome: { ...outcome, results: outcome.results.map((r) => ({ ...r, raw: undefined })) } })
     state.verdict = { at: now, turn: state.turn, passed: outcome.passed, lines: outcome.lines }
@@ -4271,7 +4289,7 @@ export class GoalApp {
     const v = this.view(state)
     if (!v) return `${state.slug}: ${state.status}`
     const proven = v.criteria.filter((c) => c.status === "pass").length
-    return [`◎ ${v.title} — ${v.status}${v.reason ? ` (${v.reason})` : ""}`, `criteria ${proven}/${v.criteria.length} · turn ${v.turn}`, ...v.criteria.map((c) => `${c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : "·"} ${c.id} ${c.statement}`), ...(rollup ? ["", cleoRollupSummary(rollup)] : [])].join("\n")
+    return [`◎ ${v.title} — ${v.status}${v.reason ? ` (${v.reason})` : ""}`, `criteria ${proven}/${v.criteria.length} · turn ${v.turn}`, ...v.criteria.map((c) => `${c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : c.status === "stale" ? "⚠" : "·"} ${c.id} ${c.statement}`), ...(rollup ? ["", cleoRollupSummary(rollup)] : [])].join("\n")
   }
 
   private listText(): string {

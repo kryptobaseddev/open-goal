@@ -18,6 +18,7 @@
 //     `saga members`, `saga rollup`); the engine never opens `.cleo` or its DB.
 
 import { cleoRefusal, type CleoRun } from "./cleo-bridge"
+import type { CriterionStatus } from "./state"
 import { CLEO_GATES, type CleoGate } from "../contract/types"
 
 /** Where a goal's work lands: the saga it rolls into, its epics and its tasks. */
@@ -27,7 +28,7 @@ export type CleoRollupTargets = { saga?: string; epics: string[]; tasks: string[
 export type GoalCriterionRollup = {
   id: string
   statement: string
-  status: "unknown" | "pass" | "fail" | "claimed"
+  status: CriterionStatus
   essential: boolean
   /** `T123#AC2` references from the criterion's own `proves:` — never positional. */
   proves: string[]
