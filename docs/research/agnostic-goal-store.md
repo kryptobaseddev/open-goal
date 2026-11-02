@@ -137,3 +137,6 @@ Named honestly rather than left to be discovered:
   migratable goals and keeps the legacy tree identical, the moved project still
   reports its live legacy run, and a broken `goal-store.json` exits 1 writing
   nothing.
+- `test/unit/render-store-path.test.ts` — the rendered contract block and the
+  compaction reminder name the resolved store, and omitting the argument keeps
+  the pre-flip bytes.
