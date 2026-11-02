@@ -24,6 +24,7 @@ import { DecisionStore, decisionChoices, shouldReaskDecision, type DecisionKind,
 import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
 import { triageKickoff, type TriageAssessment, type TriageGoal } from "../engine/kickoff-triage"
+import { INTERVIEW_MODES, INTERVIEW_TOPICS, decideInterviewMode, planInterview, type GoalAnswers, type InterviewMode, type InterviewTopic } from "../engine/interview"
 import { goalHelp } from "./help"
 import { decide } from "../engine/loop"
 import { restartDecision } from "../engine/interrupt-policy"
@@ -1048,10 +1049,109 @@ export class GoalApp {
     )
   }
 
+  /** T168: the existing goal's answers, as the shared interview sees them.
+   *  Only an explicitly stated field counts: a parser default is not an owner
+   *  decision, so `verification`, `budget` and `autonomy` are read from the raw
+   *  text while criteria/protect/non-goals/escalation come from the contract. */
+  private interviewAnswers(slug: string): GoalAnswers | undefined {
+    const row = this.list().find((g) => !g.archived && g.slug === slug)
+    if (!row) return undefined
+    const read = this.store.readContract(slug)
+    const run = row.runId ? this.runOf(slug, row.runId) : undefined
+    const contract = run ? this.contractOf(run) ?? read?.contract : read?.contract
+    const text = read?.text ?? ""
+    const explicit = (key: string) => new RegExp(`^${key}:`, "m").test(text)
+    return {
+      slug,
+      status: row.status,
+      ...(row.runId ? { runId: row.runId } : {}),
+      ...(row.lock ? { lock: row.lock } : {}),
+      ...(contract ? {
+        intent: contract.intent.verbatim,
+        outcome: contract.outcome,
+        criteria: contract.criteria.length,
+        ...(explicit("verification") ? { evidence: contract.verification.mode } : {}),
+        protect: contract.protect,
+        invariants: contract.invariants.length,
+        nonGoals: contract.non_goals,
+        escalation: contract.stop.escalate_when,
+        autonomy: explicit("autonomy"),
+        budget: explicit("budget"),
+        ...(contract.priority ? { priority: contract.priority } : {}),
+      } : {}),
+      ...(row.issues?.length ? { issues: row.issues } : {}),
+    }
+  }
+
+  /** T168: ONE question/decision engine for new, continue and optimize. It is
+   *  read-only: it decides the mode (T167 triage and/or the owner's explicit
+   *  choice), resolves what an existing contract already answers, and returns
+   *  only the open decisions plus the one supported next step. It never writes
+   *  a contract — a live change still goes through goal_propose_amendment. */
+  private interview(_sessionID: string, args: {
+    mode?: InterviewMode
+    slug?: string
+    title?: string
+    intent?: string
+    outcome?: string
+    change?: { text?: string; topics?: string[] }
+    contradicts?: string[]
+  }) {
+    const isTopic = (value: string): value is InterviewTopic => (INTERVIEW_TOPICS as readonly string[]).includes(value)
+    const slug = args.slug?.trim() || undefined
+    const goal = slug ? this.interviewAnswers(slug) : undefined
+    const intent = args.intent?.trim() || undefined
+    const outcome = args.outcome?.trim() || undefined
+    const change = args.change
+      ? { ...(args.change.text?.trim() ? { text: args.change.text.trim() } : {}), ...(Array.isArray(args.change.topics) ? { topics: args.change.topics.filter(isTopic) } : {}) }
+      : undefined
+    const contradicts = (args.contradicts ?? []).filter(isTopic)
+    // A triage is only meaningful with candidate text to compare; the existing
+    // target itself is excluded, exactly as goal_prepare_launch does.
+    let triage: TriageAssessment | undefined
+    if (intent || outcome) {
+      const goals: TriageGoal[] = this.list().filter((g) => !g.archived).map((g) => ({
+        slug: g.slug, title: g.title, status: g.status,
+        ...(g.intent ? { intent: g.intent } : {}), ...(g.outcome ? { outcome: g.outcome } : {}),
+        ...(g.runId ? { runId: g.runId } : {}), ...(g.lock ? { lock: g.lock } : {}),
+        ...(g.sessionID ? { sessionID: g.sessionID } : {}),
+        ...(g.valid === false ? { valid: false } : {}), ...(g.issues ? { issues: g.issues } : {}),
+      }))
+      triage = triageKickoff({
+        ...(slug ? { slug } : {}),
+        title: args.title?.trim() || goal?.outcome || intent || slug || "goal",
+        intent: intent ?? "",
+        outcome: outcome ?? "",
+      }, goals)
+    }
+    const hasLiveGoal = this.list().some((g) => !g.archived && g.slug !== goal?.slug && !isTerminal(g.status as Status) && g.status !== "draft")
+    const plan = planInterview({
+      ...(intent ? { intent } : {}),
+      ...(args.title?.trim() ? { title: args.title.trim() } : {}),
+      ...(outcome ? { outcome } : {}),
+      ...(goal ? { goal } : {}),
+      ...(triage ? { triage } : {}),
+      ...(args.mode ? { requested: args.mode } : {}),
+      ...(change ? { change } : {}),
+      ...(contradicts.length ? { contradicts } : {}),
+      hasLiveGoal,
+    })
+    // Never create a goal folder from a read-only plan: ledger only on a goal
+    // that exists (or one the triage already resolved).
+    const logged = goal?.slug ?? plan.target?.slug
+    if (logged)
+      this.store.ledger(logged, {
+        type: "interview-plan", mode: plan.mode, action: plan.action, allowed: plan.allowed,
+        open: plan.open.map((s) => s.topic), ...(plan.target ? { target: plan.target } : {}),
+      })
+    return plan
+  }
+
   /** One honest refusal naming the decision, the affected goal/run/lock and
    *  the fact that no run was created. */
   private triageRefusal(assessment: TriageAssessment): string {
-    return `Launch refused (kickoff triage: ${assessment.decision}). ${assessment.reason} No new run was created.`
+    const mode = decideInterviewMode({ triage: assessment, requested: "new" })
+    return `Launch refused (kickoff triage: ${assessment.decision}). ${assessment.reason} The shared interview resolves this as mode ${mode.mode}; a parallel goal for the same work is refused. No new run was created.`
   }
 
   /** Preparation is not execution or consent. The complete target/hash/mode
@@ -1068,7 +1168,7 @@ export class GoalApp {
     // T167: goal_inventory + intent/outcome comparison runs BEFORE a new goal
     // is staged. A duplicate is refused here, naming the existing target.
     const assessment = this.kickoffTriage(slug, contract)
-    this.store.ledger(slug, { type: "kickoff-triage", surface: "prepare_launch", decision: assessment.decision, sessionID, ...(assessment.targets.length ? { targets: assessment.targets } : {}) })
+    this.store.ledger(slug, { type: "kickoff-triage", surface: "prepare_launch", decision: assessment.decision, mode: decideInterviewMode({ triage: assessment }).mode, sessionID, ...(assessment.targets.length ? { targets: assessment.targets } : {}) })
     if (assessment.decision !== "new") throw new Error(this.triageRefusal(assessment))
     const question = [
       `Review and launch: ${contract.title}`,
@@ -2045,7 +2145,7 @@ export class GoalApp {
       // A draft is not work in flight: starting THIS named goal is the owner's
       // route, so other drafts (alternatives) do not block it.
       const assessment = this.kickoffTriage(slug, contract, { includeDrafts: false })
-      this.store.ledger(slug, { type: "kickoff-triage", surface: `start:${source}`, decision: assessment.decision, sessionID, ...(assessment.targets.length ? { targets: assessment.targets } : {}) })
+      this.store.ledger(slug, { type: "kickoff-triage", surface: `start:${source}`, decision: assessment.decision, mode: decideInterviewMode({ triage: assessment }).mode, sessionID, ...(assessment.targets.length ? { targets: assessment.targets } : {}) })
       if (assessment.decision !== "new") return this.triageRefusal(assessment)
       // T031: the supersession admission rule — a supersedes pointer must
       // resolve, match the predecessor's lock, and the predecessor must be
@@ -3726,7 +3826,11 @@ export class GoalApp {
         const deduped = [...new Map(candidates.map((c) => [c.slug, c])).values()]
         const slugHint = arg.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64)
         const note = admissionNote(arg, slugHint, deduped)
-        const first = note ? `${arg}\n\n${note}` : arg
+        // T168: the /goal new entry point uses the one shared interview engine.
+        // It sees the project inventory before asking, so an existing goal is
+        // continued or optimized rather than duplicated.
+        const engine = "Before asking anything, call goal_interview with the owner's words (and the named goal, if any). It returns mode new/continue/optimize and ONLY the decisions still open; follow its directive and never re-ask what an existing contract answers."
+        const first = [arg, engine, note].filter(Boolean).join("\n\n")
         await this.ctx.session.prompt({ sessionID, text: first, skills: [{ id: "write-goal" }] } as any)
         return
       }
@@ -3850,6 +3954,7 @@ export class GoalApp {
       "Goal entry — interpret the owner's intent, not merely the first word.",
       text ? `Owner's original words: ${JSON.stringify(text)}` : "No idea was supplied. Ask with native selectable options whether to create a goal or manage an existing goal, then ask for the idea if creating.",
       `Current session goal: ${state ? `${state.slug} (${state.status})` : "none"}. Project inventory: ${JSON.stringify(inventory)}`,
+      "Before asking anything, call goal_interview with the owner's words (and a target when they named an existing goal). It returns the mode (new, continue, optimize), every decision the existing contract already answers, and ONLY the open ones. Follow its directive: continue resumes/repairs the existing run; optimize stages goal_propose_amendment on its exact run/lock and never writes a second goal.",
       "For a new idea, use the write-goal interview, validate and review the exact contract, then prepare a host-bound launch decision. For an existing goal request, resolve the target explicitly and use guarded typed goal operations; ask only for a genuine decision or unresolved target. For amendments, read the selected goal's current contract and run lock, then call goal_propose_amendment with the replacement YAML and rationale. Resolve actual owner chat accept/reject/revision with goal_resolve_amendment for the exact pending decisionId; the host fetches and consumes genuine consent once. Never invent a sidebar Accept, ask for manual goal commands, hand-edit a live contract, or treat review restoration as acceptance.",
       "Preserve the original words in intent.verbatim. Never execute this text as a shell command. A fresh start means a new session; the original history is not cleared.",
     ].join("\n")
@@ -4196,6 +4301,17 @@ export class GoalApp {
       }, async (args, context) => this.resolveAmendmentChat(context.sessionID, { decisionId: String(args.decisionId), action: args.action, continueGoal: args.continueGoal === true })),
       tool("propose_amendment", "Stage a validated replacement YAML contract as a reviewed diff for a selected live goal. Does NOT edit goal.yaml or grant consent. Exact owner accept/reject/comment is required; changed statements/checks reset proof and the goal remains stopped. Never call an owner accept operation yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" }, yaml: { type: "string", minLength: 1, maxLength: 200000 }, rationale: { type: "string", minLength: 1, maxLength: 2000 } }, required: ["slug", "expectedLock", "yaml", "rationale"] }, async (args, context) => this.proposeAmendment(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock), yaml: String(args.yaml), rationale: String(args.rationale) })),
       tool("recover_divergence", "When a live goal's disk goal.yaml differs from its locked contract (an edit made outside the engine), offer the owner a native review of the exact difference and last-writer provenance: Adopt disk version, Restore locked version or Leave unchanged. Callable from any live session of this project. No earlier proposal or approval counts. Inside an owner-set autonomy policy that includes recover, an in-policy difference is adopted directly, journalled and owner-revertible. Never edit goal.yaml yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" } }, required: ["slug", "expectedLock"] }, async (args, context) => this.recoverDivergence(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock) })),
+      tool("interview", "One question/decision engine for the write-goal interview across new, continue and optimize. Call it after recon and before asking anything: it returns the mode, the exact existing goal/run/lock when there is one, every decision the contract already answers (never re-ask those), and ONLY the open questions plus the one supported next step. Optimize never drafts a second goal: it directs the change to goal_propose_amendment on the exact existing run/lock. Read-only — it never writes goal.yaml.", {
+        properties: {
+          mode: { type: "string", enum: [...INTERVIEW_MODES], description: "The owner's explicit choice: new, continue or optimize. Omit to let the project inventory/triage decide." },
+          slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64, description: "The existing goal the owner named, if any." },
+          title: { type: "string", maxLength: 200 },
+          intent: { type: "string", maxLength: 4000, description: "The owner's words for a new idea, verbatim." },
+          outcome: { type: "string", maxLength: 4000, description: "The outcome the owner already stated, if any." },
+          change: { type: "object", additionalProperties: false, properties: { text: { type: "string", maxLength: 4000 }, topics: { type: "array", items: { type: "string", enum: [...INTERVIEW_TOPICS] } } }, description: "Optimize only: the requested change and the decisions it touches; only those reopen." },
+          contradicts: { type: "array", items: { type: "string", enum: [...INTERVIEW_TOPICS] }, description: "Answers the owner's words now contradict; reopen exactly these." },
+        },
+      }, async (args, context) => this.interview(context.sessionID, args)),
       tool("prepare_launch", "Validate and stage an exact goal contract for native owner review and same/fresh-session launch. Runs the project goal inventory + intent/outcome triage first and refuses a duplicate as continue/repair/consolidate with the existing goal/run/lock named; only genuinely new work reaches owner review. The host executes the owner's choice directly, including after reload or an interrupted question result. Preparation is not permission to start or approve yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, fresh: { type: "boolean" } }, required: ["slug"] }, async (args, context) => this.prepareLaunch(context.sessionID, String(args.slug), args.fresh === true)),
       tool("provenance", "Report the actual server PID, location, installed Git revision and loaded server/UI/skill artifact hashes for this goal session. Never substitute an unscoped shared-service or newest-cache lookup for this evidence.", { properties: {} }, async (_args, context) => ({ ...await this.provenance(context.sessionID) })),
       tool("status", "Show the active goal: status, criteria board, plan, budget, last verdict. Cheap; use it after a compaction or when unsure what remains.", { properties: {} }, async (_args, context) => {

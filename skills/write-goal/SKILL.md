@@ -1,10 +1,10 @@
 ---
 name: write-goal
-description: 'Interview the owner and write a goal contract (a goal.yaml under .opencode/goals) that an autonomous goal loop can run until the host proves it done — a "grill me" session through the ask tool that turns a rough intention into an end state, binary criteria with real checks, invariants, protected oracles, non-goals, an optional budget and stop rules, then launches it. Use when the user wants to set up, write, draft, refine or start a goal, run something "until it''s done", use goal mode or /goal, make an agent loop on a task unattended, or says "grill me on this", "turn this into a goal", "goal new", "write-goal". In OpenCode, a bare "/goal new" phrasing is command-routed: the plugin attaches this skill explicitly, so no description-based triggering is needed for that phrasing — trigger evals should measure prose phrasings only. Do NOT use for ordinary one-off requests the user did not ask to turn into a goal.'
+description: 'Interview the owner and write a goal contract (a goal.yaml under .opencode/goals) that an autonomous goal loop can run until the host proves it done — a "grill me" session through the ask tool that turns a rough intention into an end state, binary criteria with real checks, invariants, protected oracles, non-goals, an optional budget and stop rules, then launches it. The same interview continues or optimizes an existing goal: it asks only the decisions that goal does not already answer, and optimizing stages an amendment on the existing run instead of writing a second goal. Use when the user wants to set up, write, draft, refine, continue or optimize a goal, run something "until it''s done", use goal mode or /goal, make an agent loop on a task unattended, or says "grill me on this", "turn this into a goal", "goal new", "write-goal". In OpenCode, a bare "/goal new" phrasing is command-routed: the plugin attaches this skill explicitly, so no description-based triggering is needed for that phrasing — trigger evals should measure prose phrasings only. Do NOT use for ordinary one-off requests the user did not ask to turn into a goal.'
 license: MIT
 metadata:
-  version: "0.2.0"
-  last_updated: "2026-10-10 20:10:00"
+  version: "0.3.0"
+  last_updated: "2026-11-02 20:10:00"
   author: kryptobaseddev
   tags: "opencode, goal, goal-mode, planning, interview, autonomous-agents"
 ---
@@ -21,6 +21,7 @@ Turn a rough intention into a **goal contract**: a structured `goal.yaml` that s
 4. **The owner's words stay authoritative.** Record them verbatim in `intent.verbatim`. Write in the owner's language.
 5. **Show the exact contract before launch** and get approval. If the owner wants a looser goal than you recommend, say why once, then write theirs.
 6. **Budgets are opt-in.** Never invent a turn cap; the goal stops on its proof or an honest blocker. Offer a budget only for open-ended work, framed in tokens or cost.
+7. **One mode, one question set.** Start from `goal_interview`. Work an existing goal covers is continued or optimized, never duplicated, and a decision its contract already answers is not asked again.
 
 ## Workflow
 
@@ -30,7 +31,20 @@ Capture the owner's words exactly. Pick a slug (kebab-case, ≤64 chars). Everyt
 ### 1 · Recon (no questions yet)
 Inspect the project: package scripts, Makefile, CI config, test/lint/typecheck/bench commands, the files the intention touches, `git status`. Run the likely checks once to capture a **baseline** (a bug-fix goal should start red). Write the facts to `.opencode/goals/<slug>/context.md` — facts only, no decisions. **If the goal ships a new version of the tooling that will verify it** (a plugin, a harness, the goal engine itself), plan the reinstall of that new version into the release step — the completing verifier round runs the *installed* engine, not the one just built.
 
-### 2 · Classify
+### 2 · Choose the mode (one engine)
+Call `goal_interview` (the plugin tool) before asking anything. It compares the owner's words with the project inventory and returns one of three modes plus the exact open decisions:
+
+| Mode | When | What happens |
+|---|---|---|
+| `new` | nothing existing covers this work | today's flow: draft, validate, review, `goal_prepare_launch` |
+| `continue` | an existing goal (live, stopped, or draft) already covers this work | ask only what its contract does not answer, then resume/repair it (`goal_manage resume`, or launch the draft). Never write a second contract. |
+| `optimize` | the owner wants to CHANGE an existing goal | ask only the reopened decisions, then stage `goal_propose_amendment` on the target's exact `{slug, expectedLock}`. Never write a second goal and never hand-edit `goal.yaml`. |
+
+The plan's `open` list **is** the question set. `resolved` decisions are already answered by the contract (intent, outcome, criteria, scope, stop, autonomy, …) and must not be asked again; `optional` (budget, autonomy) is offered only when useful. When the owner's words contradict or change a decision, pass it in `contradicts` (or `change.topics` for optimize) so exactly that decision reopens. The mode comes from the T167 triage and/or the owner's explicit choice; `goal_interview` refuses `optimize`/`continue` with no target and refuses a requested `new` goal for work an existing goal already covers. Without the tool (older install), apply the same table by hand with `goal_inventory` and skip every topic the contract already answers.
+
+For `continue` the target's contract is the draft: read it, do not rewrite it. For `optimize` the target's exact run/lock is the only binding; a staged amendment is a proposal, not acceptance, and the contract bytes stay unchanged until the owner accepts the reviewed diff. A draft has no run or lock to amend: edit the draft through this interview and launch it normally.
+
+### 3 · Classify
 bugfix · feature · refactor · migration · perf · research · ops · docs. The class suggests criteria:
 - **bugfix**: the failing case captured before, the same case passing after, plus "the rest of the suite SHALL CONTINUE TO pass".
 - **perf**: metric, threshold, method and run count ("p95 < 250ms across 3 runs").
@@ -38,8 +52,8 @@ bugfix · feature · refactor · migration · perf · research · ops · docs. T
 - **feature**: observable behaviour per scenario (EARS: "WHEN … THE system SHALL …").
 - **research/docs**: the decision or artifact it must produce, judged by a `verifier` question or `human` sign-off.
 
-### 3 · Grill in frontier rounds
-Map the decisions as a tree. Each round, ask the **frontier** — every decision whose prerequisites are already settled — in one ask call (≤4 questions), each with your recommended option derived from recon. Fold each answer into the draft before the next round. Typical: 2-3 rounds, ≤10 questions. Stop when the frontier is empty. Branches, in order:
+### 4 · Grill in frontier rounds
+Map the decisions as a tree. Start from the plan's `open` list — never re-ask a `resolved` topic. Each round, ask the **frontier** — every decision whose prerequisites are already settled — in one ask call (≤4 questions), each with your recommended option derived from recon. Fold each answer into the draft before the next round. Typical: 2-3 rounds, ≤10 questions. Stop when the frontier is empty. Branches, in order:
 1. **Outcome** — the one end state that becomes true.
 2. **Done when** — which checks prove it (prefer commands that already exist).
 3. **Evidence standard** — host checks only, or also the independent verifier / owner sign-off.
@@ -50,13 +64,13 @@ Map the decisions as a tree. Each round, ask the **frontier** — every decision
 
 Log every question and answer to `decisions.jsonl` (one JSON object per line: `{"t","q","options","a","by":"owner"|"assumed"}`). Anything you decide without asking becomes an `assumptions` entry with a rationale and `reversible` — never a silent default.
 
-### 4 · Draft `goal.yaml`
+### 5 · Draft `goal.yaml`
 Start from `assets/goal.template.yaml` (or the shape below). Then validate: call `goal_validate({slug})` when the open-goal plugin is present and fix every error; otherwise self-check against the rules below. Repeat until clean.
 
-### 5 · Review
+### 6 · Review
 Show the owner the contract compactly: outcome, a table of criteria (id · statement · check), invariants, protected paths, non-goals, budget. Ask: **Approve** (Recommended) / Revise criteria / Revise scope / Save as draft.
 
-### 6 · Launch
+### 7 · Launch
 For an existing goal, resolve its exact identity with `goal_inventory` and use
 `goal_manage` for the requested lifecycle operation. Don't create a replacement
 run or ask again when the owner has already said **resume**, **continue**, or
@@ -201,6 +215,9 @@ Full field reference: `references/goal-schema.md`. Question bank and recommendat
 |---|---|
 | Asking in prose, or one question per message | One ask call per frontier round with recommended options |
 | Asking what the repo can answer | Recon first; ask only owner decisions |
+| Re-asking intent/outcome/criteria/scope/stop/autonomy an existing goal already answers | Call `goal_interview`; ask only its `open` topics |
+| Writing a second goal for work an existing goal covers | The plan returns `continue` or `optimize`; resume it, or stage an amendment — never a parallel goal |
+| Hand-editing a live `goal.yaml` to "optimize" it | `goal_propose_amendment` on the exact run/lock; the owner accepts the diff |
 | Effort instead of proof ("keep improving X") | An end state plus a check that can fail |
 | A check the worker can edit | Put the oracle under `protect` |
 | No non-goal | At least one, so the loop does not fill the vacuum |
