@@ -58,6 +58,8 @@ const samples: Record<string, () => EngineMessage> = {
   continueStopped: () => M.continueStopped("the next candidate is in a project this loop has never worked in"),
   peerAnnounced: () => M.peerAnnounced("T900"),
   peerReplied: () => M.peerReplied("peer@host", "T777"),
+  workstreamDispatched: () => M.workstreamDispatched("ws-1", "worker@host", "T900"),
+  workstreamReturned: () => M.workstreamReturned("ws-1", "T900", "worker@host", false, "no evidence atoms"),
 }
 
 /** A choice is concrete when it names a command, a worker tool, or an
