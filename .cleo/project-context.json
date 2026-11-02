@@ -4,5 +4,16 @@
   "projectTypes": [
     "unknown"
   ],
-  "monorepo": false
+  "monorepo": false,
+  "release": {
+    "prRequiredWorkflows": [
+      "Typecheck, unit tests, Node bin"
+    ]
+  },
+  "evidence": {
+    "ciSatisfies": true,
+    "ciChecks": [
+      "Typecheck, unit tests, Node bin"
+    ]
+  }
 }
