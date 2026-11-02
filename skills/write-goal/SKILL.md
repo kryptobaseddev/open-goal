@@ -1,12 +1,16 @@
 ---
 name: write-goal
-description: 'Interview the owner and write a goal contract (a goal.yaml under .opencode/goals) that an autonomous goal loop can run until the host proves it done — a "grill me" session through the ask tool that turns a rough intention into an end state, binary criteria with real checks, invariants, protected oracles, non-goals, an optional budget and stop rules, then launches it. The same interview continues or optimizes an existing goal: it asks only the decisions that goal does not already answer, and optimizing stages an amendment on the existing run instead of writing a second goal. Use when the user wants to set up, write, draft, refine, continue or optimize a goal, run something "until it''s done", use goal mode or /goal, make an agent loop on a task unattended, or says "grill me on this", "turn this into a goal", "goal new", "write-goal". In OpenCode, a bare "/goal new" phrasing is command-routed: the plugin attaches this skill explicitly, so no description-based triggering is needed for that phrasing — trigger evals should measure prose phrasings only. Do NOT use for ordinary one-off requests the user did not ask to turn into a goal.'
+description: 'Interview the owner and write a goal contract (a goal.yaml under the project goal store: .cleo/goals by default, .opencode/goals when pinned) that an autonomous goal loop can run until the host proves it done — a "grill me" session through the ask tool that turns a rough intention into an end state, binary criteria with real checks, invariants, protected oracles, non-goals, an optional budget and stop rules, then launches it. The same interview continues or optimizes an existing goal: it asks only the decisions that goal does not already answer, and optimizing stages an amendment on the existing run instead of writing a second goal. Use when the user wants to set up, write, draft, refine, continue or optimize a goal, run something "until it''s done", use goal mode or /goal, make an agent loop on a task unattended, or says "grill me on this", "turn this into a goal", "goal new", "write-goal". In OpenCode, a bare "/goal new" phrasing is command-routed: the plugin attaches this skill explicitly, so no description-based triggering is needed for that phrasing — trigger evals should measure prose phrasings only. Do NOT use for ordinary one-off requests the user did not ask to turn into a goal.'
 license: MIT
 metadata:
   version: "0.3.0"
   last_updated: "2026-11-02 20:10:00"
   author: kryptobaseddev
   tags: "opencode, goal, goal-mode, planning, interview, autonomous-agents"
+  # T161: the tools this skill may instruct the worker to call. Validated by
+  # test/unit/skill-contract.test.ts against the plugin's registered goal tools,
+  # so a renamed or removed tool cannot silently rot the skill.
+  tools: "goal_interview, goal_prepare_launch, goal_start, goal_validate, goal_status, goal_inventory, goal_progress, goal_claim, goal_block, goal_flag, goal_wait, goal_manage, goal_propose_amendment, goal_resolve_amendment, goal_review, goal_recover_divergence, goal_provenance"
 ---
 
 # write-goal
