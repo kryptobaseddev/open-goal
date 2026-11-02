@@ -8172,100 +8172,10 @@ function cleoRollupReport(rollup) {
 // src/util/git.ts
 import { spawnSync } from "node:child_process";
 import { createHash as createHash2 } from "node:crypto";
-import { statSync } from "node:fs";
-var GOAL_STATE = ":(exclude).opencode/goals";
-function git(cwd, args) {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
-  return { ok: result.status === 0, out: result.stdout ?? "" };
-}
-var isRepo = (cwd) => git(cwd, ["rev-parse", "--is-inside-work-tree"]).out.trim() === "true";
-var topLevel = (cwd) => {
-  const r = git(cwd, ["rev-parse", "--show-toplevel"]);
-  return r.ok ? r.out.trim() : undefined;
-};
-function treeState(cwd) {
-  const diff = git(cwd, ["diff", "HEAD", "--no-color", "--", ".", GOAL_STATE]).out;
-  const untracked = git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", GOAL_STATE]).out;
-  const contents = untracked.split(`
-`).filter(Boolean).slice(0, 500).map((file) => {
-    try {
-      const stat = statSync(`${cwd}/${file}`);
-      return `${file}:${stat.size}:${Math.trunc(stat.mtimeMs)}`;
-    } catch {
-      return file;
-    }
-  });
-  return createHash2("sha256").update(diff).update(contents.join(`
-`)).digest("hex").slice(0, 20);
-}
-function worktreeSignature(cwd) {
-  const self = topLevel(cwd) ?? cwd;
-  const blocks = git(cwd, ["worktree", "list", "--porcelain"]).out.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
-  return blocks.map((block) => {
-    const lines = block.split(`
-`).map((line) => line.trim()).filter(Boolean);
-    const path = lines.find((line) => line.startsWith("worktree "))?.slice("worktree ".length);
-    if (!path)
-      return block;
-    if (path === self)
-      return block;
-    return `${block}
-${treeState(path)}`;
-  }).join(`
-
-`);
-}
-function fingerprint(cwd) {
-  if (!isRepo(cwd))
-    return;
-  const head = git(cwd, ["rev-parse", "HEAD"]).out;
-  return createHash2("sha256").update(head).update(treeState(cwd)).update(worktreeSignature(cwd)).digest("hex").slice(0, 20);
-}
-function changedSince(cwd, base) {
-  if (!isRepo(cwd))
-    return [];
-  const files = new Set;
-  if (base) {
-    for (const f of git(cwd, ["diff", "--name-only", base, "--", ".", GOAL_STATE]).out.split(`
-`))
-      if (f)
-        files.add(f);
-  }
-  for (const f of git(cwd, ["diff", "--name-only", "HEAD", "--", ".", GOAL_STATE]).out.split(`
-`))
-    if (f)
-      files.add(f);
-  for (const f of git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", GOAL_STATE]).out.split(`
-`))
-    if (f)
-      files.add(f);
-  return [...files].sort();
-}
-function globToRegExp(glob) {
-  let re = "";
-  for (let i = 0;i < glob.length; i++) {
-    const c = glob[i];
-    if (c === "*") {
-      if (glob[i + 1] === "*") {
-        re += glob[i + 2] === "/" ? "(?:.*/)?" : ".*";
-        i += glob[i + 2] === "/" ? 2 : 1;
-      } else
-        re += "[^/]*";
-    } else if (c === "?")
-      re += "[^/]";
-    else
-      re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  }
-  return new RegExp(`^${re}$`);
-}
-var matchesAny = (file, globs) => globs.some((g) => globToRegExp(g.replace(/^\.\//, "")).test(file));
-
-// src/engine/store.ts
-import { appendFileSync, closeSync as closeSync2, existsSync as existsSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync3, readdirSync as readdirSync2, renameSync as renameSync2, unlinkSync, writeFileSync, writeSync as writeSync2 } from "node:fs";
-import { dirname as dirname2, join as join3 } from "node:path";
+import { statSync as statSync2 } from "node:fs";
 
 // src/engine/store-root.ts
-import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync, realpathSync as realpathSync2, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync, realpathSync as realpathSync2, statSync } from "node:fs";
 import { dirname, isAbsolute as isAbsolute2, join as join2, normalize, relative as relative2, resolve as resolve2, sep as sep2 } from "node:path";
 var STORE_PROTOCOL_VERSION = 1;
 var LEGACY_GOALS_REL = ".opencode/goals";
@@ -8354,13 +8264,16 @@ function assertContained(rootReal, absolute) {
   }
   if (!inside2(real, rootReal))
     throw new StoreRootError(`the configured goal-store root ${absolute} resolves outside the project (${real})`);
-  if (existsSync2(absolute) && !statSync2(absolute).isDirectory())
+  if (existsSync2(absolute) && !statSync(absolute).isDirectory())
     throw new StoreRootError(`the configured goal-store root ${absolute} is not a directory`);
 }
 var archiveBeside = (goalsRel) => {
   const parent = dirname(goalsRel);
   return parent === "." ? "goals-archive" : posix(join2(parent, "goals-archive"));
 };
+function goalStatePaths(roots) {
+  return [...new Set([roots.goalsRel, roots.archiveRel, roots.legacy.goalsRel, roots.legacy.archiveRel])];
+}
 function resolveStoreRoots(root, options = {}) {
   const absoluteRoot = resolve2(root);
   const rootReal = existsSync2(absoluteRoot) ? realpathSync2(absoluteRoot) : absoluteRoot;
@@ -8403,7 +8316,106 @@ function resolveStoreRoots(root, options = {}) {
   };
 }
 
+// src/util/git.ts
+var LEGACY_GOAL_STATE = ":(exclude).opencode/goals";
+function storeExcludePaths(cwd) {
+  try {
+    return goalStatePaths(resolveStoreRoots(cwd));
+  } catch {
+    return [CANONICAL_GOALS_REL, CANONICAL_ARCHIVE_REL, LEGACY_GOALS_REL, LEGACY_ARCHIVE_REL];
+  }
+}
+var storePathspecs = (cwd) => storeExcludePaths(cwd).map((rel) => `:(exclude)${rel}`);
+function git(cwd, args) {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+  return { ok: result.status === 0, out: result.stdout ?? "" };
+}
+var isRepo = (cwd) => git(cwd, ["rev-parse", "--is-inside-work-tree"]).out.trim() === "true";
+var topLevel = (cwd) => {
+  const r = git(cwd, ["rev-parse", "--show-toplevel"]);
+  return r.ok ? r.out.trim() : undefined;
+};
+function treeState(cwd) {
+  const exclude = storePathspecs(cwd);
+  const diff = git(cwd, ["diff", "HEAD", "--no-color", "--", ".", ...exclude]).out;
+  const untracked = git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", ...exclude]).out;
+  const contents = untracked.split(`
+`).filter(Boolean).slice(0, 500).map((file) => {
+    try {
+      const stat = statSync2(`${cwd}/${file}`);
+      return `${file}:${stat.size}:${Math.trunc(stat.mtimeMs)}`;
+    } catch {
+      return file;
+    }
+  });
+  return createHash2("sha256").update(diff).update(contents.join(`
+`)).digest("hex").slice(0, 20);
+}
+function worktreeSignature(cwd) {
+  const self = topLevel(cwd) ?? cwd;
+  const blocks = git(cwd, ["worktree", "list", "--porcelain"]).out.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+  return blocks.map((block) => {
+    const lines = block.split(`
+`).map((line) => line.trim()).filter(Boolean);
+    const path = lines.find((line) => line.startsWith("worktree "))?.slice("worktree ".length);
+    if (!path)
+      return block;
+    if (path === self)
+      return block;
+    return `${block}
+${treeState(path)}`;
+  }).join(`
+
+`);
+}
+function fingerprint(cwd) {
+  if (!isRepo(cwd))
+    return;
+  const head = git(cwd, ["rev-parse", "HEAD"]).out;
+  return createHash2("sha256").update(head).update(treeState(cwd)).update(worktreeSignature(cwd)).digest("hex").slice(0, 20);
+}
+function changedSince(cwd, base) {
+  if (!isRepo(cwd))
+    return [];
+  const files = new Set;
+  if (base) {
+    for (const f of git(cwd, ["diff", "--name-only", base, "--", ".", LEGACY_GOAL_STATE]).out.split(`
+`))
+      if (f)
+        files.add(f);
+  }
+  for (const f of git(cwd, ["diff", "--name-only", "HEAD", "--", ".", LEGACY_GOAL_STATE]).out.split(`
+`))
+    if (f)
+      files.add(f);
+  for (const f of git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", LEGACY_GOAL_STATE]).out.split(`
+`))
+    if (f)
+      files.add(f);
+  return [...files].sort();
+}
+function globToRegExp(glob) {
+  let re = "";
+  for (let i = 0;i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") {
+      if (glob[i + 1] === "*") {
+        re += glob[i + 2] === "/" ? "(?:.*/)?" : ".*";
+        i += glob[i + 2] === "/" ? 2 : 1;
+      } else
+        re += "[^/]*";
+    } else if (c === "?")
+      re += "[^/]";
+    else
+      re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${re}$`);
+}
+var matchesAny = (file, globs) => globs.some((g) => globToRegExp(g.replace(/^\.\//, "")).test(file));
+
 // src/engine/store.ts
+import { appendFileSync, closeSync as closeSync2, existsSync as existsSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync3, readdirSync as readdirSync2, renameSync as renameSync2, unlinkSync, writeFileSync, writeSync as writeSync2 } from "node:fs";
+import { dirname as dirname2, join as join3 } from "node:path";
 var runGeneration = (state) => ({
   revision: state.revision ?? 0,
   runId: state.runId,
@@ -9235,7 +9247,8 @@ ${result.stderr}` : ""))}`, raw: runs };
     case "absent": {
       const paths = check.paths?.length ? check.paths : ["."];
       const quoted = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
-      const cmd = isRepo(root) ? `git grep -n -I -E -e ${quoted(check.pattern)} -- ${paths.map(quoted).join(" ")} ':(exclude).opencode/goals'` : `grep -rnIE --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=goals -e ${quoted(check.pattern)} ${paths.map(quoted).join(" ")}`;
+      const excludes = storeExcludePaths(root).map((rel) => quoted(`:(exclude)${rel}`)).join(" ");
+      const cmd = isRepo(root) ? `git grep -n -I -E -e ${quoted(check.pattern)} -- ${paths.map(quoted).join(" ")} ${excludes}` : `grep -rnIE --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=goals -e ${quoted(check.pattern)} ${paths.map(quoted).join(" ")}`;
       const result = await shell(cmd, root, 120);
       const matches = result.stdout.trim().split(`
 `).filter(Boolean);

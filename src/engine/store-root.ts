@@ -155,6 +155,14 @@ export type StoreRoots = {
   readonly legacy: { readonly goals: string; readonly archive: string; readonly goalsRel: string; readonly archiveRel: string }
 }
 
+/** Every project-relative POSIX path that holds goal state for this project:
+ *  the active store and its archive, plus the legacy pair. T182 keeps this as
+ *  one set because progress fingerprints and evidence greps must exclude the
+ *  same paths, whichever layout the project resolved. */
+export function goalStatePaths(roots: StoreRoots): string[] {
+  return [...new Set([roots.goalsRel, roots.archiveRel, roots.legacy.goalsRel, roots.legacy.archiveRel])]
+}
+
 export type StoreRootOptions = {
   /** Explicit project-relative goals directory. Absent = today's `.opencode/goals`. */
   goalsDir?: string

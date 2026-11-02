@@ -7,7 +7,7 @@ import type { Check, Contract, Criterion } from "../contract/types"
 import { isHostCheck } from "../contract/types"
 import { lockOf } from "../contract/parse"
 import type { RunState } from "../engine/state"
-import { changedSince, isRepo, matchesAny } from "../util/git"
+import { changedSince, isRepo, matchesAny, storeExcludePaths } from "../util/git"
 import { runShell, tail, type ShellResult } from "../util/shell"
 
 export type CheckResult = { id: string; pass: boolean; by: "host" | "verifier" | "verifier-fallback" | "human"; detail: string; raw?: unknown }
@@ -59,8 +59,12 @@ export async function runHostCheck(check: Check, root: string, base: string | un
     case "absent": {
       const paths = check.paths?.length ? check.paths : ["."]
       const quoted = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
+      // T182: goal state is not evidence — the same resolved exclusion set the
+      // fingerprint uses, so a criterion can never be satisfied (or broken) by
+      // a run.json or ledger line.
+      const excludes = storeExcludePaths(root).map((rel) => quoted(`:(exclude)${rel}`)).join(" ")
       const cmd = isRepo(root)
-        ? `git grep -n -I -E -e ${quoted(check.pattern)} -- ${paths.map(quoted).join(" ")} ':(exclude).opencode/goals'`
+        ? `git grep -n -I -E -e ${quoted(check.pattern)} -- ${paths.map(quoted).join(" ")} ${excludes}`
         : `grep -rnIE --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=goals -e ${quoted(check.pattern)} ${paths.map(quoted).join(" ")}`
       const result = await shell(cmd, root, 120)
       const matches = result.stdout.trim().split("\n").filter(Boolean)
