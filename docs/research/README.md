@@ -11,6 +11,7 @@ Collected 2026-10-02 while designing the plugin. Read them in this order.
 | [autonomy-levels.md](autonomy-levels.md) | T170: the owner-set `autonomy.level` ceiling (`conservative`/`standard`/`full`), what each level removes, the stops no level may waive, and the tests that pin each case. |
 | [../spikes.md](../spikes.md) | What OpenCode 2.0.22 actually did when probed (S1-S9). Where it disagrees with any doc, the spike wins. |
 | [cleo-evidence-rollup.md](cleo-evidence-rollup.md) | T171: the criterion → CLEO task map (`proves:` + `cleo.saga/epics/tasks`), one evidence write per (task, gate), and the read-only proven-vs-unproven rollup. |
+| [adr-guard.md](adr-guard.md) | T180: the optional `docs/adr/decisions.json` projection, the matching rule (declared `forbidden` phrase/regex, or a negation flip on a shared statement), why it is a warning and never an error, and the false-positive guards that keep it silent. |
 
 ## Primary sources
 
