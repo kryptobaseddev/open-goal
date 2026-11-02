@@ -3,8 +3,27 @@
 import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { statSync } from "node:fs"
+import { CANONICAL_ARCHIVE_REL, CANONICAL_GOALS_REL, LEGACY_ARCHIVE_REL, LEGACY_GOALS_REL, goalStatePaths, resolveStoreRoots } from "../engine/store-root"
 
-const GOAL_STATE = ":(exclude).opencode/goals"
+/** Pre-T182 rule, still used by `changedSince` where a protect/diff check must
+ *  keep reporting edits made through the legacy path. */
+const LEGACY_GOAL_STATE = ":(exclude).opencode/goals"
+
+/** T182: the goal-state paths this project resolves, as project-relative POSIX
+ *  paths — active store, its archive, and the legacy pair. Resolved, never
+ *  hardcoded, so a project pinning its own root through `.cleo/goal-store.json`
+ *  is covered. A config the resolver rejects falls back to the built-in roots
+ *  instead of breaking the measurement. */
+export function storeExcludePaths(cwd: string): string[] {
+  try {
+    return goalStatePaths(resolveStoreRoots(cwd))
+  } catch {
+    return [CANONICAL_GOALS_REL, CANONICAL_ARCHIVE_REL, LEGACY_GOALS_REL, LEGACY_ARCHIVE_REL]
+  }
+}
+
+/** The same set as git pathspec exclusions, for a `--` pathspec list. */
+const storePathspecs = (cwd: string) => storeExcludePaths(cwd).map((rel) => `:(exclude)${rel}`)
 
 function git(cwd: string, args: string[]): { ok: boolean; out: string } {
   // node:child_process so the bin also runs on plain Node (Bun implements it too).
@@ -28,10 +47,12 @@ export const headCommit = (cwd: string): string | undefined => {
 }
 
 /** Hash of one worktree's staged/unstaged diff plus untracked file sizes and
- *  mtimes, excluding goal state. Same rule the root worktree has always used. */
+ *  mtimes, excluding every goal store root (T182: goal-state writes are not
+ *  progress, whichever layout the project resolved). */
 function treeState(cwd: string): string {
-  const diff = git(cwd, ["diff", "HEAD", "--no-color", "--", ".", GOAL_STATE]).out
-  const untracked = git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", GOAL_STATE]).out
+  const exclude = storePathspecs(cwd)
+  const diff = git(cwd, ["diff", "HEAD", "--no-color", "--", ".", ...exclude]).out
+  const untracked = git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", ...exclude]).out
   const contents = untracked
     .split("\n")
     .filter(Boolean)
@@ -88,13 +109,15 @@ export function gitDigest(cwd: string, limit = 20): string {
   return [`HEAD ${head}`, `branch ${branch}`, log, trees ? `linked worktrees:\n${trees}` : ""].filter(Boolean).join("\n")
 }
 
-/** Files changed relative to `base` (committed, staged, unstaged and untracked). */
+/** Files changed relative to `base` (committed, staged, unstaged and untracked).
+ *  Only the legacy store is excluded here: `protect` and `diff` checks judge
+ *  edits, not progress, so they keep seeing the resolved store. */
 export function changedSince(cwd: string, base: string | undefined): string[] {
   if (!isRepo(cwd)) return []
   const files = new Set<string>()
-  if (base) for (const f of git(cwd, ["diff", "--name-only", base, "--", ".", GOAL_STATE]).out.split("\n")) if (f) files.add(f)
-  for (const f of git(cwd, ["diff", "--name-only", "HEAD", "--", ".", GOAL_STATE]).out.split("\n")) if (f) files.add(f)
-  for (const f of git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", GOAL_STATE]).out.split("\n")) if (f) files.add(f)
+  if (base) for (const f of git(cwd, ["diff", "--name-only", base, "--", ".", LEGACY_GOAL_STATE]).out.split("\n")) if (f) files.add(f)
+  for (const f of git(cwd, ["diff", "--name-only", "HEAD", "--", ".", LEGACY_GOAL_STATE]).out.split("\n")) if (f) files.add(f)
+  for (const f of git(cwd, ["ls-files", "--others", "--exclude-standard", "--", ".", LEGACY_GOAL_STATE]).out.split("\n")) if (f) files.add(f)
   return [...files].sort()
 }
 
