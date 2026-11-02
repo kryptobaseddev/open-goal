@@ -23,6 +23,8 @@ jobs:
       - run: bun install --frozen-lockfile
       # Also fails when dist/tui.js or dist/cli.js is stale (they are committed for git installs).
       - run: bun run typecheck
+      # Real lint gate (Biome). Errors fail; the existing backlog is reported as warnings.
+      - run: bun run lint
       - run: bun test test/unit --timeout 120000
       # The scripted-harness host test needs no OpenCode; it drives the bin under Bun and plain Node.
       - run: bun test test/host/tick-scripted-harness.test.ts --timeout 120000

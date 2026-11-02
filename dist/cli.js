@@ -6931,9 +6931,11 @@ var package_default = {
     test: "bun test --timeout 120000",
     "test:host": "bun test test/host --timeout 120000",
     typecheck: "bun run check:tui && bun run check:cli && tsc --noEmit",
-    "build:all": "bun run build:tui && bun run build:cli"
+    "build:all": "bun run build:tui && bun run build:cli",
+    lint: "biome lint ."
   },
   devDependencies: {
+    "@biomejs/biome": "^2.6.4",
     "@opencode/client": "2.0.22",
     "@opencode/plugin": "2.0.22",
     "@opencode/theme": "2.0.22",
