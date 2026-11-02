@@ -2,6 +2,7 @@
 // relies on to tell a loop-verifiable goal from a wish.
 import { createHash } from "node:crypto"
 import { parse as parseYamlPortable } from "yaml"
+import { type AdrDecision, adrIssues, loadAdrDecisions } from "./adr-guard"
 import {
   AMEND_CLASSES,
   AUTONOMY_LEVEL_POLICY,
@@ -31,6 +32,20 @@ import {
 } from "./types"
 
 export type ParseResult = { contract?: Contract; issues: Issue[]; lock: string }
+
+export type ParseOptions = {
+  slug?: string
+  tolerateUnknownBudgetKeys?: boolean
+  /**
+   * T180 — the project root holding the ADR projection
+   * (`docs/adr/decisions.json`). Absent ⇒ the current working directory, which
+   * is the project being validated for the CLI and the tick. A root with no
+   * projection behaves exactly as before (one stat, no warning).
+   */
+  projectRoot?: string
+  /** T180 — decisions to check instead of the on-disk projection (tests, or a caller that already loaded them). */
+  decisions?: readonly AdrDecision[]
+}
 
 const VAGUE = [
   "fast",
@@ -209,7 +224,7 @@ type YamlParse = (text: string) => unknown
 const bunYaml = (globalThis as { Bun?: { YAML?: { parse: YamlParse } } }).Bun?.YAML
 const parseYaml: YamlParse = (text) => (bunYaml ? bunYaml.parse(text) : parseYamlPortable(text))
 
-export function parseContract(text: string, options: { slug?: string; tolerateUnknownBudgetKeys?: boolean } = {}): ParseResult {
+export function parseContract(text: string, options: ParseOptions = {}): ParseResult {
   const issues: Issue[] = []
   const lock = lockOf(text)
   let raw: unknown
@@ -410,6 +425,23 @@ export function parseContract(text: string, options: { slug?: string; tolerateUn
   }
 
   if (issues.some((i) => i.level === "error")) return { issues, lock }
+  // T180 — owner-approved contract memory. The outcome and the stop rules are
+  // the statements that decide what the loop may conclude, so they are compared
+  // against the project's projection of accepted ADRs. A WARNING and a read-only
+  // comparison: no error, no rewrite, and no projection means no change at all.
+  // Nothing here touches the .cleo store or shells out to the cleo CLI.
+  const decisions = options.decisions ?? loadAdrDecisions(options.projectRoot ?? process.cwd())
+  if (decisions.length) {
+    const fields = [
+      { path: "outcome", text: outcome },
+      ...(stopWhen ? [{ path: "stop.when", text: stopWhen }] : []),
+      ...(Array.isArray(stopRaw.escalate_when) ? stopRaw.escalate_when : []).flatMap((entry: unknown, index: number) => {
+        const rule = str(entry).trim()
+        return rule ? [{ path: `stop.escalate_when[${index}]`, text: rule }] : []
+      }),
+    ]
+    issues.push(...adrIssues(fields, decisions))
+  }
   // T031: supersession pointer — "<slug>@<lock-prefix>", validated but only
   // enforced at /goal start (existence, lock match, mid-flight admission).
   const supersedes = str(raw.supersedes)

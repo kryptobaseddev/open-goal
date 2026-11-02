@@ -6906,7 +6906,7 @@ var require_public_api = __commonJS(function(exports) {
 });
 
 // cli/ocg.ts
-import { readFileSync as readFileSync6 } from "node:fs";
+import { readFileSync as readFileSync7 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
@@ -7186,6 +7186,203 @@ var $stringify = publicApi.stringify;
 var $visit = visit.visit;
 var $visitAsync = visit.visitAsync;
 
+// src/contract/adr-guard.ts
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
+import { join as join2 } from "node:path";
+var ADR_DECISIONS_PATH = "docs/adr/decisions.json";
+var str = (v) => typeof v === "string" ? v.trim() : "";
+var isRecord = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+var norm = (text) => text.toLowerCase().replace(/[`*_]/g, "").replace(/[^a-z0-9/.\- ]+/g, " ").replace(/\s+/g, " ").trim();
+var tokens = (text) => norm(text).split(" ").filter(Boolean);
+var STOP = new Set([
+  "the",
+  "and",
+  "or",
+  "a",
+  "an",
+  "of",
+  "to",
+  "in",
+  "on",
+  "for",
+  "with",
+  "is",
+  "are",
+  "be",
+  "been",
+  "being",
+  "was",
+  "were",
+  "it",
+  "this",
+  "that",
+  "these",
+  "those",
+  "as",
+  "at",
+  "by",
+  "from",
+  "into",
+  "than",
+  "then",
+  "so",
+  "if",
+  "when",
+  "must",
+  "shall",
+  "will",
+  "should",
+  "can",
+  "may",
+  "not",
+  "no",
+  "any",
+  "all",
+  "each",
+  "its",
+  "their",
+  "there",
+  "which",
+  "while",
+  "has",
+  "have",
+  "had",
+  "does",
+  "do",
+  "did",
+  "but",
+  "also",
+  "only",
+  "same",
+  "such",
+  "per",
+  "via",
+  "one",
+  "two",
+  "own"
+]);
+var NEGATION = /\b(?:not|never|no|none|cannot|without|forbidd?en|prohibit(?:ed|s)?|disallow(?:ed|s)?|deprecat(?:ed|es)?|reject(?:ed|s)?|avoid(?:ed|s)?|neither|nor)\b|n['’]t\b/i;
+var escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function decision(raw) {
+  if (!isRecord(raw))
+    return;
+  const slug = str(raw.slug);
+  const subjects = (Array.isArray(raw.subject) ? raw.subject : [raw.subject]).map(str).filter(Boolean);
+  const statement = str(raw.statement);
+  if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(slug) || !subjects.length || !statement)
+    return;
+  const status = str(raw.status);
+  if (status && status !== "accepted")
+    return;
+  const forbidden = [];
+  for (const entry of Array.isArray(raw.forbidden) ? raw.forbidden : []) {
+    if (typeof entry === "string" && entry.trim())
+      forbidden.push(entry.trim());
+    else if (isRecord(entry) && str(entry.phrase))
+      forbidden.push({ phrase: str(entry.phrase) });
+    else if (isRecord(entry) && str(entry.regex))
+      forbidden.push({ regex: str(entry.regex) });
+  }
+  return { slug, subject: subjects.length === 1 ? subjects[0] : subjects, statement, forbidden, ...status ? { status } : {} };
+}
+function parseAdrDecisions(raw) {
+  const list = Array.isArray(raw) ? raw : isRecord(raw) && Array.isArray(raw.decisions) ? raw.decisions : [];
+  return list.flatMap((entry) => {
+    const parsed = decision(entry);
+    return parsed ? [parsed] : [];
+  });
+}
+function loadAdrDecisions(root) {
+  const file = join2(root, ADR_DECISIONS_PATH);
+  try {
+    if (!existsSync2(file))
+      return [];
+    return parseAdrDecisions(JSON.parse(readFileSync2(file, "utf8")));
+  } catch {
+    return [];
+  }
+}
+var mentions = (text, subject) => {
+  const haystack = ` ${norm(text)} `;
+  const needles = (Array.isArray(subject) ? subject : [subject]).map(norm).filter(Boolean);
+  return needles.some((needle) => haystack.includes(` ${needle} `));
+};
+function sharedRun(a, b) {
+  let best = [];
+  for (let i = 0;i < a.length; i++)
+    for (let j = 0;j < b.length; j++) {
+      let k = 0;
+      while (i + k < a.length && j + k < b.length && a[i + k] === b[j + k])
+        k++;
+      if (k > best.length)
+        best = a.slice(i, i + k);
+    }
+  return best.length >= 3 && best.some((word) => word.length >= 4 && !STOP.has(word)) ? best : undefined;
+}
+function locate(text, words) {
+  const re = new RegExp(words.map(escapeRe).join("[\\s,;:]+"), "i");
+  const match = re.exec(text);
+  return match ? { index: match.index, length: match[0].length } : undefined;
+}
+function clauseAt(text, index, length) {
+  const start = Math.max(0, index - 120);
+  const before = text.slice(start, index);
+  const boundary = Math.max(...[",", ";", "!", "?", ".", `
+`].map((char) => before.lastIndexOf(char)));
+  const from = boundary >= 0 ? start + boundary + 1 : start;
+  const rest = text.slice(index + length, index + length + 120);
+  const stop = rest.search(/[,;!?.\n]/);
+  const to = index + length + (stop >= 0 ? stop : rest.length);
+  const fragment = text.slice(from, to).trim();
+  return { fragment, negated: NEGATION.test(fragment) };
+}
+function adrContradiction(text, decision) {
+  if (!text.trim() || !mentions(text, decision.subject))
+    return;
+  for (const entry of decision.forbidden) {
+    if (typeof entry === "string" || "phrase" in entry) {
+      const phrase = typeof entry === "string" ? entry : entry.phrase;
+      const needle = norm(phrase);
+      if (needle && ` ${norm(text)} `.includes(` ${needle} `))
+        return { reason: "forbidden", fragment: phrase, phrase };
+    } else {
+      try {
+        const match = new RegExp(entry.regex, "i").exec(text);
+        if (match?.[0])
+          return { reason: "forbidden", fragment: match[0], phrase: entry.regex };
+      } catch {}
+    }
+  }
+  const words = sharedRun(tokens(decision.statement), tokens(text));
+  if (!words)
+    return;
+  const accepted = locate(decision.statement, words);
+  const stated = locate(text, words);
+  if (!accepted || !stated)
+    return;
+  const left = clauseAt(decision.statement, accepted.index, accepted.length);
+  const right = clauseAt(text, stated.index, stated.length);
+  if (left.negated === right.negated)
+    return;
+  return { reason: "negation", fragment: right.fragment, phrase: words.join(" ") };
+}
+var clamp = (text, max = 160) => text.length > max ? `${text.slice(0, max - 1)}…` : text;
+function adrMessage(decision, hit) {
+  const said = hit.reason === "forbidden" ? `this text says "${clamp(hit.fragment)}", which the ADR forbids` : `this text negates "${clamp(hit.phrase)}", the opposite of what the ADR accepts`;
+  return `contradicts accepted ADR "${decision.slug}" ("${clamp(decision.statement)}"): ${said} — agree with the ADR or supersede it; the contract is not rewritten`;
+}
+function adrIssues(fields, decisions) {
+  const issues = [];
+  for (const field of fields) {
+    for (const decision of decisions) {
+      const hit = adrContradiction(field.text, decision);
+      if (hit)
+        issues.push({ level: "warning", path: field.path, message: adrMessage(decision, hit) });
+    }
+  }
+  return issues;
+}
+
 // src/contract/types.ts
 var SCHEMA = "goal/v1";
 var HOST_KINDS = ["command", "file", "contains", "absent", "diff"];
@@ -7239,13 +7436,13 @@ var VAGUE = [
 var ACTIVITY = /^(keep|continue|improve|investigate|explore|work on|look into|try to|help|refactor as needed|clean up)\b/i;
 var AC_REF = /^T\d+#(?:AC\d{1,4}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:@\d{14})?$/;
 var lockOf = (text) => createHash("sha256").update(text).digest("hex");
-var isRecord = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-var str = (v) => typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "";
-var strings = (v) => Array.isArray(v) ? v.map(str).filter(Boolean) : typeof v === "string" && v.trim() ? [v.trim()] : [];
+var isRecord2 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+var str2 = (v) => typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "";
+var strings = (v) => Array.isArray(v) ? v.map(str2).filter(Boolean) : typeof v === "string" && v.trim() ? [v.trim()] : [];
 function parseDuration(value) {
   if (typeof value === "number")
     return value > 0 ? value * 60000 : undefined;
-  const text = str(value).toLowerCase().replace(/\s+/g, "");
+  const text = str2(value).toLowerCase().replace(/\s+/g, "");
   if (!text)
     return;
   const units = { d: 86400000, h: 3600000, m: 60000, s: 1000 };
@@ -7260,7 +7457,7 @@ function parseDuration(value) {
 function parseCount(value) {
   if (typeof value === "number")
     return value > 0 ? Math.round(value) : undefined;
-  const match = /^(\d+(?:\.\d+)?)\s*([kmb])?$/i.exec(str(value));
+  const match = /^(\d+(?:\.\d+)?)\s*([kmb])?$/i.exec(str2(value));
   if (!match)
     return;
   const scale = { k: 1000, m: 1e6, b: 1e9 }[(match[2] ?? "").toLowerCase()] ?? 1;
@@ -7274,11 +7471,11 @@ function vagueWords(text) {
   return VAGUE.filter((word) => new RegExp(`[^a-z-]${word.replace("-", "\\-")}[^a-z-]`).test(lower));
 }
 function parseCheck(raw, path, issues) {
-  if (!isRecord(raw)) {
+  if (!isRecord2(raw)) {
     issues.push({ level: "error", path, message: "check is required: say how this criterion is proven (a command, a file test, a search, or a verifier question)" });
     return;
   }
-  const kind = str(raw.kind);
+  const kind = str2(raw.kind);
   if (!CHECK_KINDS.includes(kind)) {
     issues.push({ level: "error", path: `${path}.kind`, message: `unknown check kind "${kind}"; use one of ${CHECK_KINDS.join(", ")}` });
     return;
@@ -7290,18 +7487,18 @@ function parseCheck(raw, path, issues) {
   };
   switch (kind) {
     case "command": {
-      const expect = isRecord(raw.expect) ? raw.expect : {};
+      const expect = isRecord2(raw.expect) ? raw.expect : {};
       const supported = ["exit", "stdout_contains", "stdout_regex"];
       for (const key of Object.keys(expect))
         if (!supported.includes(key))
           issues.push({ level: "error", path: `${path}.expect.${key}`, message: `unknown expectation "${key}"; supported: ${supported.join(", ")}` });
       const out = {
         kind,
-        run: need("run", str(raw.run)),
+        run: need("run", str2(raw.run)),
         expect: {
           ...expect.exit !== undefined ? { exit: Number(expect.exit) } : {},
-          ...str(expect.stdout_contains) ? { stdout_contains: str(expect.stdout_contains) } : {},
-          ...str(expect.stdout_regex) ? { stdout_regex: str(expect.stdout_regex) } : {}
+          ...str2(expect.stdout_contains) ? { stdout_contains: str2(expect.stdout_contains) } : {},
+          ...str2(expect.stdout_regex) ? { stdout_regex: str2(expect.stdout_regex) } : {}
         },
         ...raw.timeout !== undefined ? { timeout: Number(raw.timeout) } : {},
         ...raw.runs !== undefined ? { runs: Math.max(1, Math.min(10, Number(raw.runs) || 1)) } : {},
@@ -7324,16 +7521,16 @@ function parseCheck(raw, path, issues) {
       return out;
     }
     case "file":
-      return { kind, path: need("path", str(raw.path)), exists: raw.exists !== false };
+      return { kind, path: need("path", str2(raw.path)), exists: raw.exists !== false };
     case "contains": {
-      const text = str(raw.text);
-      const regex = str(raw.regex);
+      const text = str2(raw.text);
+      const regex = str2(raw.regex);
       if (!text && !regex)
         issues.push({ level: "error", path, message: "contains check needs text or regex" });
-      return { kind, path: need("path", str(raw.path)), ...text ? { text } : {}, ...regex ? { regex } : {} };
+      return { kind, path: need("path", str2(raw.path)), ...text ? { text } : {}, ...regex ? { regex } : {} };
     }
     case "absent":
-      return { kind, pattern: need("pattern", str(raw.pattern)), ...strings(raw.paths).length ? { paths: strings(raw.paths) } : {} };
+      return { kind, pattern: need("pattern", str2(raw.pattern)), ...strings(raw.paths).length ? { paths: strings(raw.paths) } : {} };
     case "diff": {
       const paths = strings(raw.paths);
       if (!paths.length)
@@ -7341,7 +7538,7 @@ function parseCheck(raw, path, issues) {
       return { kind, paths };
     }
     default:
-      return { kind, ask: need("ask", str(raw.ask)) };
+      return { kind, ask: need("ask", str2(raw.ask)) };
   }
 }
 function parseCriteria(raw, path, prefix, issues) {
@@ -7349,14 +7546,14 @@ function parseCriteria(raw, path, prefix, issues) {
     return [];
   return raw.flatMap((item, index) => {
     const at = `${path}[${index}]`;
-    if (!isRecord(item)) {
+    if (!isRecord2(item)) {
       issues.push({ level: "error", path: at, message: "must be a mapping with id, statement and check" });
       return [];
     }
-    const id = str(item.id);
+    const id = str2(item.id);
     if (!new RegExp(`^${prefix}\\d+$`).test(id))
       issues.push({ level: "error", path: `${at}.id`, message: `id must look like ${prefix}1, ${prefix}2, …` });
-    const statement = str(item.statement);
+    const statement = str2(item.statement);
     if (!statement)
       issues.push({ level: "error", path: `${at}.statement`, message: "statement is required" });
     const vague = vagueWords(statement);
@@ -7387,7 +7584,7 @@ function parseContract(text, options = {}) {
     issues.push({ level: "error", path: "", message: `not valid YAML: ${error instanceof Error ? error.message : String(error)}${yamlHint(text)}` });
     return { issues, lock };
   }
-  if (!isRecord(raw)) {
+  if (!isRecord2(raw)) {
     issues.push({ level: "error", path: "", message: "goal.yaml must be a mapping" });
     return { issues, lock };
   }
@@ -7395,20 +7592,20 @@ function parseContract(text, options = {}) {
   const warn = (path, message) => issues.push({ level: "warning", path, message });
   if (raw.schema !== SCHEMA)
     err("schema", `schema must be "${SCHEMA}"`);
-  const id = str(raw.id);
+  const id = str2(raw.id);
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(id))
     err("id", "id must be a kebab-case slug (a-z, 0-9, hyphens)");
   else if (options.slug && id !== options.slug)
     err("id", `id "${id}" must match its directory name "${options.slug}"`);
-  const title = str(raw.title);
+  const title = str2(raw.title);
   if (!title)
     err("title", "title is required");
   else if (title.length > 80)
     warn("title", "keep the title under 80 characters; it is shown in the sidebar");
-  const intent = isRecord(raw.intent) ? str(raw.intent.verbatim) : str(raw.intent);
+  const intent = isRecord2(raw.intent) ? str2(raw.intent.verbatim) : str2(raw.intent);
   if (!intent)
     err("intent.verbatim", "record the owner's own words verbatim; they stay the authoritative source");
-  const outcome = str(raw.outcome);
+  const outcome = str2(raw.outcome);
   if (!outcome)
     err("outcome", "outcome is required: one end state that will be true when the goal is done");
   else {
@@ -7436,23 +7633,23 @@ function parseContract(text, options = {}) {
     ids.add(item.id);
   }
   const assumptions = (Array.isArray(raw.assumptions) ? raw.assumptions : []).flatMap((item, index) => {
-    if (!isRecord(item))
+    if (!isRecord2(item))
       return [];
-    const aid = str(item.id) || `A${index + 1}`;
+    const aid = str2(item.id) || `A${index + 1}`;
     if (!/^A\d+$/.test(aid))
       err(`assumptions[${index}].id`, "id must look like A1, A2, …");
-    const status = str(item.status) || "assumed";
+    const status = str2(item.status) || "assumed";
     if (!["assumed", "confirmed", "vetoed"].includes(status))
       err(`assumptions[${index}].status`, "status must be assumed, confirmed or vetoed");
-    return [{ id: aid, text: str(item.text), ...str(item.rationale) ? { rationale: str(item.rationale) } : {}, ...typeof item.reversible === "boolean" ? { reversible: item.reversible } : {}, status }];
+    return [{ id: aid, text: str2(item.text), ...str2(item.rationale) ? { rationale: str2(item.rationale) } : {}, ...typeof item.reversible === "boolean" ? { reversible: item.reversible } : {}, status }];
   });
   const plan = (Array.isArray(raw.plan) ? raw.plan : []).flatMap((item, index) => {
-    if (!isRecord(item))
+    if (!isRecord2(item))
       return [];
-    const sid = str(item.id);
+    const sid = str2(item.id);
     if (!/^S\d+$/.test(sid))
       err(`plan[${index}].id`, "id must look like S1, S2, …");
-    return [{ id: sid, title: str(item.title), proves: strings(item.proves), depends_on: strings(item.depends_on) }];
+    return [{ id: sid, title: str2(item.title), proves: strings(item.proves), depends_on: strings(item.depends_on) }];
   });
   const stepIds = new Set(plan.map((s) => s.id));
   for (const step of plan) {
@@ -7468,9 +7665,9 @@ function parseContract(text, options = {}) {
   if (hasCycle(plan))
     err("plan", "step dependencies form a cycle");
   const BUDGET_KEYS = ["turns", "wall", "tokens", "cost_usd"];
-  if (raw.budget !== undefined && !isRecord(raw.budget))
+  if (raw.budget !== undefined && !isRecord2(raw.budget))
     err("budget", `budget must be a mapping with ${BUDGET_KEYS.join(", ")}`);
-  const budgetRaw = isRecord(raw.budget) ? raw.budget : {};
+  const budgetRaw = isRecord2(raw.budget) ? raw.budget : {};
   for (const key of Object.keys(budgetRaw)) {
     if (BUDGET_KEYS.includes(key))
       continue;
@@ -7507,9 +7704,9 @@ function parseContract(text, options = {}) {
     else
       err("budget.cost_usd", "cost_usd must be a positive number");
   }
-  const autonomyRaw = isRecord(raw.autonomy) ? raw.autonomy : {};
+  const autonomyRaw = isRecord2(raw.autonomy) ? raw.autonomy : {};
   const pick = (path, value, allowed, fallback) => {
-    const v = str(value);
+    const v = str2(value);
     if (!v)
       return fallback;
     if (allowed.includes(v))
@@ -7518,14 +7715,14 @@ function parseContract(text, options = {}) {
     return fallback;
   };
   let level;
-  const levelRaw = str(autonomyRaw.level);
+  const levelRaw = str2(autonomyRaw.level);
   if (levelRaw) {
     if (AUTONOMY_LEVELS.includes(levelRaw))
       level = levelRaw;
     else
       err("autonomy.level", `must be one of ${AUTONOMY_LEVELS.join(", ")}`);
   }
-  const explicitStall = str(autonomyRaw.on_stall) ? pick("autonomy.on_stall", autonomyRaw.on_stall, ["pause", "continue"], "pause") : undefined;
+  const explicitStall = str2(autonomyRaw.on_stall) ? pick("autonomy.on_stall", autonomyRaw.on_stall, ["pause", "continue"], "pause") : undefined;
   let explicitAmend;
   if (autonomyRaw.amend !== undefined) {
     explicitAmend = [];
@@ -7533,7 +7730,7 @@ function parseContract(text, options = {}) {
       err("autonomy.amend", `amend must be a list of ${AMEND_CLASSES.join(", ")}`);
     else
       for (const value of autonomyRaw.amend) {
-        const v = str(value);
+        const v = str2(value);
         if (v && AMEND_CLASSES.includes(v)) {
           if (!explicitAmend.includes(v))
             explicitAmend.push(v);
@@ -7559,7 +7756,7 @@ function parseContract(text, options = {}) {
     ...autonomyRaw.visit_new_projects === true ? { visit_new_projects: true } : {},
     ...autonomyRaw.continue_past_budget === true ? { continue_past_budget: true } : {}
   };
-  const verificationRaw = isRecord(raw.verification) ? raw.verification : {};
+  const verificationRaw = isRecord2(raw.verification) ? raw.verification : {};
   const mode = pick("verification.mode", verificationRaw.mode, ["host", "host+verifier", "strict"], "host+verifier");
   const maxRejections = verificationRaw.max_rejections === undefined ? 3 : Number(verificationRaw.max_rejections);
   if (!(Number.isInteger(maxRejections) && maxRejections >= 1 && maxRejections <= 10))
@@ -7570,39 +7767,51 @@ function parseContract(text, options = {}) {
   for (const path of verifierRead)
     if (/[*?[\]{}]/.test(path))
       err("verification.read", `"${path}" must be a plain folder or file path, not a glob`);
-  const verifierModel = str(verificationRaw.model);
-  const verifierEffort = str(verificationRaw.effort);
-  const workspace = str(raw.workspace);
+  const verifierModel = str2(verificationRaw.model);
+  const verifierEffort = str2(verificationRaw.effort);
+  const workspace = str2(raw.workspace);
   if (workspace && (workspace.startsWith("/") || workspace.split("/").includes("..") || /[*?[\]{}]/.test(workspace)))
     err("workspace", `"${workspace}" must be a plain folder inside the project (no absolute path, ".." or glob)`);
-  const scopeRaw = isRecord(raw.scope) ? raw.scope : {};
-  const stopRaw = isRecord(raw.stop) ? raw.stop : {};
-  const executionRaw = isRecord(raw.execution) ? raw.execution : {};
+  const scopeRaw = isRecord2(raw.scope) ? raw.scope : {};
+  const stopRaw = isRecord2(raw.stop) ? raw.stop : {};
+  const executionRaw = isRecord2(raw.execution) ? raw.execution : {};
   const inverseStop = /\b(?:shall|must|will)\s+not\s+(?:continue|proceed|keep\s+going|go\s+on)\b|\b(?:do\s+not|don['’]t)\s+continue\b/i;
-  const stopWhen = str(stopRaw.when).trim();
+  const stopWhen = str2(stopRaw.when).trim();
   if (stopWhen && inverseStop.test(stopWhen))
     warn("stop.when", `stop rule reads as the inverse of continuing: "${stopWhen.slice(0, 160)}" — phrase it positively ("SHALL continue past X") and list what stops the run`);
   for (const [index, entry] of (Array.isArray(stopRaw.escalate_when) ? stopRaw.escalate_when : []).entries()) {
-    const rule = str(entry).trim();
+    const rule = str2(entry).trim();
     if (rule && inverseStop.test(rule))
       warn(`stop.escalate_when[${index}]`, `escalation rule reads as the inverse of continuing: "${rule.slice(0, 160)}" — phrase it positively ("SHALL continue past X") and list what stops the run`);
   }
   if (issues.some((i) => i.level === "error"))
     return { issues, lock };
-  const supersedes = str(raw.supersedes);
+  const decisions = options.decisions ?? loadAdrDecisions(options.projectRoot ?? process.cwd());
+  if (decisions.length) {
+    const fields = [
+      { path: "outcome", text: outcome },
+      ...stopWhen ? [{ path: "stop.when", text: stopWhen }] : [],
+      ...(Array.isArray(stopRaw.escalate_when) ? stopRaw.escalate_when : []).flatMap((entry, index) => {
+        const rule = str2(entry).trim();
+        return rule ? [{ path: `stop.escalate_when[${index}]`, text: rule }] : [];
+      })
+    ];
+    issues.push(...adrIssues(fields, decisions));
+  }
+  const supersedes = str2(raw.supersedes);
   if (supersedes && !/^[a-z0-9][a-z0-9-]{0,63}@[0-9a-f]{8,64}$/.test(supersedes))
     err("supersedes", 'must look like "<slug>@<lock-prefix>" (the predecessor slug and the first bytes of its run lock)');
-  const rawPriority = str(raw.priority);
+  const rawPriority = str2(raw.priority);
   if (rawPriority && !PRIORITIES.includes(rawPriority))
     err("priority", `priority must be one of low, medium, high (or omitted) — got "${rawPriority}"`);
   const cleoTasks = [];
   let cleoSaga;
   const cleoEpics = [];
   if (raw.cleo !== undefined) {
-    if (!isRecord(raw.cleo))
+    if (!isRecord2(raw.cleo))
       err("cleo", "cleo must be a mapping with a tasks list");
     else {
-      const sagaRaw = str(raw.cleo.saga);
+      const sagaRaw = str2(raw.cleo.saga);
       if (sagaRaw && !/^[A-Z]{1,4}\d+$/.test(sagaRaw))
         err("cleo.saga", `saga id must look like T123 (got "${sagaRaw}")`);
       else if (sagaRaw)
@@ -7611,7 +7820,7 @@ function parseContract(text, options = {}) {
       if (epicsRaw !== undefined && !Array.isArray(epicsRaw))
         err("cleo.epics", "epics must be a list of epic ids");
       for (const [index, entry] of (Array.isArray(epicsRaw) ? epicsRaw : []).entries()) {
-        const epicId = str(entry);
+        const epicId = str2(entry);
         if (!/^[A-Z]{1,4}\d+$/.test(epicId)) {
           err(`cleo.epics[${index}]`, `epic id must look like T123 (got "${epicId}")`);
           continue;
@@ -7628,7 +7837,7 @@ function parseContract(text, options = {}) {
       const seen = new Set;
       for (const [index, entry] of (Array.isArray(tasksRaw) ? tasksRaw : []).entries()) {
         const at = `cleo.tasks[${index}]`;
-        const taskId = str(typeof entry === "string" ? entry : isRecord(entry) ? entry.id : "");
+        const taskId = str2(typeof entry === "string" ? entry : isRecord2(entry) ? entry.id : "");
         if (!/^[A-Z]{1,4}\d+$/.test(taskId)) {
           err(at, `task id must look like T123 (got "${taskId}")`);
           continue;
@@ -7638,7 +7847,7 @@ function parseContract(text, options = {}) {
           continue;
         }
         seen.add(taskId);
-        const acsRaw = isRecord(entry) && isRecord(entry.acs) ? entry.acs : undefined;
+        const acsRaw = isRecord2(entry) && isRecord2(entry.acs) ? entry.acs : undefined;
         const acs = {};
         if (acsRaw) {
           warn(`${at}.acs`, 'cleo.tasks[].acs is deprecated - declare the binding on the criterion instead, e.g. proves: ["T123#AC2"]; the acs map is still read for compatibility');
@@ -7685,12 +7894,12 @@ function parseContract(text, options = {}) {
       const seenIds = new Set;
       for (const [index, entry] of rawWorkstreams.entries()) {
         const at = `workstreams[${index}]`;
-        if (!isRecord(entry)) {
+        if (!isRecord2(entry)) {
           err(at, "workstream must be a mapping");
           continue;
         }
         const item = entry;
-        const wsId = str(item.id).trim();
+        const wsId = str2(item.id).trim();
         if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(wsId)) {
           err(`${at}.id`, "id must be a lowercase kebab-case handle");
           continue;
@@ -7700,18 +7909,18 @@ function parseContract(text, options = {}) {
           continue;
         }
         seenIds.add(wsId);
-        const wsTitle = str(item.title).trim();
+        const wsTitle = str2(item.title).trim();
         if (!wsTitle)
           err(`${at}.title`, "title is required");
-        const task = str(item.task).trim();
+        const task = str2(item.task).trim();
         if (!/^[A-Z]{1,4}\d+$/.test(task))
           err(`${at}.task`, `task must be a CLEO task id like T169 (got "${task}")`);
         else if (!cleoTasks.some((t) => t.id === task))
           err(`${at}.task`, `${task} must also be declared in cleo.tasks so the workstream maps to this goal's saga`);
-        const worker = str(item.worker).trim();
+        const worker = str2(item.worker).trim();
         if (!/^[a-z0-9][a-z0-9-]{1,39}@[a-z0-9][a-z0-9.-]{1,63}$/.test(worker))
           err(`${at}.worker`, "worker must be an explicit agent@host address; wildcards are not allowed");
-        const doneWhen = str(item.done_when).trim();
+        const doneWhen = str2(item.done_when).trim();
         if (!doneWhen)
           err(`${at}.done_when`, "done_when is required: say what the worker must return");
         const gates = [];
@@ -7720,7 +7929,7 @@ function parseContract(text, options = {}) {
             err(`${at}.gates`, "gates must be a list");
           else
             for (const value of item.gates) {
-              const gate = str(value);
+              const gate = str2(value);
               if (!CLEO_GATES.includes(gate))
                 err(`${at}.gates`, `unknown gate "${gate}"; allowed: ${CLEO_GATES.join(", ")}`);
               else if (!gates.includes(gate))
@@ -7739,7 +7948,7 @@ function parseContract(text, options = {}) {
     ...supersedes ? { supersedes } : {},
     intent: { verbatim: intent },
     outcome,
-    ...str(raw.why) ? { why: str(raw.why) } : {},
+    ...str2(raw.why) ? { why: str2(raw.why) } : {},
     scope: { in: strings(scopeRaw.in), out: strings(scopeRaw.out) },
     non_goals: nonGoals,
     constraints: strings(raw.constraints),
@@ -7752,11 +7961,11 @@ function parseContract(text, options = {}) {
     assumptions,
     plan,
     budget,
-    stop: { ...str(stopRaw.when) ? { when: str(stopRaw.when) } : {}, escalate_when: strings(stopRaw.escalate_when) },
+    stop: { ...str2(stopRaw.when) ? { when: str2(stopRaw.when) } : {}, escalate_when: strings(stopRaw.escalate_when) },
     autonomy,
     verification: { mode, max_rejections: maxRejections, read: verifierRead, ...verifierModel ? { model: verifierModel } : {}, ...verifierEffort ? { effort: verifierEffort } : {} },
-    execution: str(executionRaw.agent) ? { agent: str(executionRaw.agent) } : {},
-    meta: isRecord(raw.meta) ? raw.meta : {}
+    execution: str2(executionRaw.agent) ? { agent: str2(executionRaw.agent) } : {},
+    meta: isRecord2(raw.meta) ? raw.meta : {}
   };
   return { contract, issues, lock };
 }
@@ -8175,8 +8384,8 @@ import { createHash as createHash2 } from "node:crypto";
 import { statSync as statSync2 } from "node:fs";
 
 // src/engine/store-root.ts
-import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync, realpathSync as realpathSync2, statSync } from "node:fs";
-import { dirname, isAbsolute as isAbsolute2, join as join2, normalize, relative as relative2, resolve as resolve2, sep as sep2 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync3, readdirSync, realpathSync as realpathSync2, statSync } from "node:fs";
+import { dirname, isAbsolute as isAbsolute2, join as join3, normalize, relative as relative2, resolve as resolve2, sep as sep2 } from "node:path";
 var STORE_PROTOCOL_VERSION = 1;
 var LEGACY_GOALS_REL = ".opencode/goals";
 var LEGACY_ARCHIVE_REL = ".opencode/goals-archive";
@@ -8185,12 +8394,12 @@ var CANONICAL_ARCHIVE_REL = ".cleo/goals-archive";
 var DEFAULT_RESOLVED_LAYOUT = "cleo";
 var STORE_CONFIG_REL = ".cleo/goal-store.json";
 function readStoreConfig(root) {
-  const path = join2(root, STORE_CONFIG_REL);
-  if (!existsSync2(path))
+  const path = join3(root, STORE_CONFIG_REL);
+  if (!existsSync3(path))
     return;
   let raw;
   try {
-    raw = JSON.parse(readFileSync2(path, "utf8"));
+    raw = JSON.parse(readFileSync3(path, "utf8"));
   } catch {
     throw new StoreRootError(`${STORE_CONFIG_REL} is not valid JSON`);
   }
@@ -8250,7 +8459,7 @@ function assertClearOfLegacy(rel) {
 }
 function assertContained(rootReal, absolute) {
   let probe = absolute;
-  while (!existsSync2(probe)) {
+  while (!existsSync3(probe)) {
     const parent = dirname(probe);
     if (parent === probe)
       break;
@@ -8264,22 +8473,22 @@ function assertContained(rootReal, absolute) {
   }
   if (!inside2(real, rootReal))
     throw new StoreRootError(`the configured goal-store root ${absolute} resolves outside the project (${real})`);
-  if (existsSync2(absolute) && !statSync(absolute).isDirectory())
+  if (existsSync3(absolute) && !statSync(absolute).isDirectory())
     throw new StoreRootError(`the configured goal-store root ${absolute} is not a directory`);
 }
 var archiveBeside = (goalsRel) => {
   const parent = dirname(goalsRel);
-  return parent === "." ? "goals-archive" : posix(join2(parent, "goals-archive"));
+  return parent === "." ? "goals-archive" : posix(join3(parent, "goals-archive"));
 };
 function goalStatePaths(roots) {
   return [...new Set([roots.goalsRel, roots.archiveRel, roots.legacy.goalsRel, roots.legacy.archiveRel])];
 }
 function resolveStoreRoots(root, options = {}) {
   const absoluteRoot = resolve2(root);
-  const rootReal = existsSync2(absoluteRoot) ? realpathSync2(absoluteRoot) : absoluteRoot;
+  const rootReal = existsSync3(absoluteRoot) ? realpathSync2(absoluteRoot) : absoluteRoot;
   const legacy = {
-    goals: join2(absoluteRoot, LEGACY_GOALS_REL),
-    archive: join2(absoluteRoot, LEGACY_ARCHIVE_REL),
+    goals: join3(absoluteRoot, LEGACY_GOALS_REL),
+    archive: join3(absoluteRoot, LEGACY_ARCHIVE_REL),
     goalsRel: LEGACY_GOALS_REL,
     archiveRel: LEGACY_ARCHIVE_REL
   };
@@ -8291,8 +8500,8 @@ function resolveStoreRoots(root, options = {}) {
     return {
       ...base,
       layout: DEFAULT_RESOLVED_LAYOUT,
-      goals: join2(absoluteRoot, CANONICAL_GOALS_REL),
-      archive: join2(absoluteRoot, CANONICAL_ARCHIVE_REL),
+      goals: join3(absoluteRoot, CANONICAL_GOALS_REL),
+      archive: join3(absoluteRoot, CANONICAL_ARCHIVE_REL),
       goalsRel: CANONICAL_GOALS_REL,
       archiveRel: CANONICAL_ARCHIVE_REL,
       explicit: false
@@ -8304,12 +8513,12 @@ function resolveStoreRoots(root, options = {}) {
   if (insideRel(archiveRel, goalsRel) || insideRel(goalsRel, archiveRel))
     throw new StoreRootError(`the goal store ${goalsRel} and its archive ${archiveRel} may not contain one another`);
   for (const rel of [goalsRel, archiveRel])
-    assertContained(rootReal, join2(absoluteRoot, rel));
+    assertContained(rootReal, join3(absoluteRoot, rel));
   return {
     ...base,
     layout: goalsRel === LEGACY_GOALS_REL ? "legacy-opencode" : "cleo",
-    goals: join2(absoluteRoot, goalsRel),
-    archive: join2(absoluteRoot, archiveRel),
+    goals: join3(absoluteRoot, goalsRel),
+    archive: join3(absoluteRoot, archiveRel),
     goalsRel,
     archiveRel,
     explicit: true
@@ -8414,8 +8623,8 @@ function globToRegExp(glob) {
 var matchesAny = (file, globs) => globs.some((g) => globToRegExp(g.replace(/^\.\//, "")).test(file));
 
 // src/engine/store.ts
-import { appendFileSync, closeSync as closeSync2, existsSync as existsSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync3, readdirSync as readdirSync2, renameSync as renameSync2, unlinkSync, writeFileSync, writeSync as writeSync2 } from "node:fs";
-import { dirname as dirname2, join as join3 } from "node:path";
+import { appendFileSync, closeSync as closeSync2, existsSync as existsSync4, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync4, readdirSync as readdirSync2, renameSync as renameSync2, unlinkSync, writeFileSync, writeSync as writeSync2 } from "node:fs";
+import { dirname as dirname2, join as join4 } from "node:path";
 var runGeneration = (state) => ({
   revision: state.revision ?? 0,
   runId: state.runId,
@@ -8457,28 +8666,28 @@ class Store {
 `));
   }
   dir(slug) {
-    return join3(this.goalsDir, slug);
+    return join4(this.goalsDir, slug);
   }
   locate(slug, options = {}) {
     const base = options.archived ? this.archiveDir : this.goalsDir;
     const legacyBase = options.archived ? this.roots.legacy.archive : this.roots.legacy.goals;
-    const active = join3(base, slug);
+    const active = join4(base, slug);
     if (base === legacyBase)
       return active;
-    if (existsSync3(join3(active, "goal.yaml")) || existsSync3(join3(active, "run.json")))
+    if (existsSync4(join4(active, "goal.yaml")) || existsSync4(join4(active, "run.json")))
       return active;
-    const legacy = join3(legacyBase, slug);
-    if (existsSync3(join3(legacy, "goal.yaml")) || existsSync3(join3(legacy, "run.json")))
+    const legacy = join4(legacyBase, slug);
+    if (existsSync4(join4(legacy, "goal.yaml")) || existsSync4(join4(legacy, "run.json")))
       return legacy;
     return active;
   }
   contractPath(slug) {
-    return join3(this.locate(slug), "goal.yaml");
+    return join4(this.locate(slug), "goal.yaml");
   }
   folderSlugs(dir) {
-    if (!existsSync3(dir))
+    if (!existsSync4(dir))
       return [];
-    return readdirSync2(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync3(join3(dir, d.name, "goal.yaml"))).map((d) => d.name);
+    return readdirSync2(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync4(join4(dir, d.name, "goal.yaml"))).map((d) => d.name);
   }
   slugs() {
     return [...new Set([...this.folderSlugs(this.goalsDir), ...this.folderSlugs(this.roots.legacy.goals)])].sort();
@@ -8491,23 +8700,23 @@ class Store {
   }
   archive(slug) {
     const from = this.locate(slug);
-    const legacySource = from === join3(this.roots.legacy.goals, slug) && this.roots.legacy.goals !== this.goalsDir;
-    const to = legacySource ? join3(this.roots.legacy.archive, slug) : join3(this.archiveDir, slug);
+    const legacySource = from === join4(this.roots.legacy.goals, slug) && this.roots.legacy.goals !== this.goalsDir;
+    const to = legacySource ? join4(this.roots.legacy.archive, slug) : join4(this.archiveDir, slug);
     mkdirSync2(dirname2(to), { recursive: true });
     renameSync2(from, to);
   }
   readContract(slug, options = {}) {
-    const path = options.archived ? join3(this.archivedPath(slug), "goal.yaml") : this.contractPath(slug);
-    if (!existsSync3(path))
+    const path = options.archived ? join4(this.archivedPath(slug), "goal.yaml") : this.contractPath(slug);
+    if (!existsSync4(path))
       return;
-    const text = readFileSync3(path, "utf8");
+    const text = readFileSync4(path, "utf8");
     return { ...parseContract(text, { slug }), text };
   }
   readRunRaw(slug, options = {}) {
-    const path = join3(options.archived ? this.archivedPath(slug) : this.locate(slug), "run.json");
-    if (!existsSync3(path))
+    const path = join4(options.archived ? this.archivedPath(slug) : this.locate(slug), "run.json");
+    if (!existsSync4(path))
       return;
-    const text = readFileSync3(path, "utf8");
+    const text = readFileSync4(path, "utf8");
     return { text, duplicates: duplicateJsonKeys(text) };
   }
   readRun(slug, options = {}) {
@@ -8519,7 +8728,7 @@ class Store {
   keepCorruptRun(slug, text, at = Date.now()) {
     const dir = this.locate(slug);
     mkdirSync2(dir, { recursive: true });
-    const path = join3(dir, `run.json.corrupt-${at}.json`);
+    const path = join4(dir, `run.json.corrupt-${at}.json`);
     writeFileSync(path, text, { mode: 384 });
     return path;
   }
@@ -8540,7 +8749,7 @@ class Store {
     const writtenBy = { pid: process.pid, startedAt: this.writerStartedAt, sessionID: state.sessionID };
     const dir = this.locate(slug);
     mkdirSync2(dir, { recursive: true });
-    const path = join3(dir, "run.json");
+    const path = join4(dir, "run.json");
     const tmp = `${path}.${process.pid}.${now}.tmp`;
     const fd = openSync2(tmp, "w", 384);
     try {
@@ -8585,10 +8794,10 @@ class Store {
     return { written: false, journalled, reason, mine, disk };
   }
   writeContractSnapshot(slug, runId, lock, text) {
-    const dir = join3(this.locate(slug), "evidence", runId);
+    const dir = join4(this.locate(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
-    const path = join3(dir, `contract-${lock}.yaml`);
-    if (existsSync3(path))
+    const path = join4(dir, `contract-${lock}.yaml`);
+    if (existsSync4(path))
       return;
     this.writeAtomic(path, text);
   }
@@ -8637,9 +8846,9 @@ class Store {
   }
   restoreLocked(slug, runId, lock, discarded) {
     const locked = this.lockedSnapshot(slug, runId, lock);
-    const dir = join3(this.locate(slug), "evidence", runId);
+    const dir = join4(this.locate(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
-    const kept = join3(dir, `divergent-${discarded.lock}-${Date.now()}.yaml`);
+    const kept = join4(dir, `divergent-${discarded.lock}-${Date.now()}.yaml`);
     this.writeAtomic(kept, discarded.text);
     const current = this.readContract(slug);
     if (!current || current.lock !== discarded.lock)
@@ -8651,9 +8860,9 @@ class Store {
     return this.lockedSnapshot(slug, runId, lock);
   }
   lockedSnapshot(slug, runId, lock) {
-    const keyed = join3(this.locate(slug), "evidence", runId, `contract-${lock}.yaml`);
-    const first = join3(this.locate(slug), "evidence", runId, "contract.yaml");
-    const text = readFileSync3(existsSync3(keyed) ? keyed : first, "utf8");
+    const keyed = join4(this.locate(slug), "evidence", runId, `contract-${lock}.yaml`);
+    const first = join4(this.locate(slug), "evidence", runId, "contract.yaml");
+    const text = readFileSync4(existsSync4(keyed) ? keyed : first, "utf8");
     if (parseContract(text, { slug }).lock !== lock)
       throw new Error("Prior locked amendment snapshot is unavailable");
     return text;
@@ -8670,10 +8879,10 @@ class Store {
     renameSync2(tmp, path);
   }
   recent(slug, n) {
-    const path = join3(this.locate(slug), "ledger.jsonl");
-    if (!existsSync3(path))
+    const path = join4(this.locate(slug), "ledger.jsonl");
+    if (!existsSync4(path))
       return [];
-    const lines = readFileSync3(path, "utf8").trimEnd().split(`
+    const lines = readFileSync4(path, "utf8").trimEnd().split(`
 `);
     const out = [];
     for (const line of lines.slice(-n)) {
@@ -8686,14 +8895,14 @@ class Store {
   ledger(slug, event, options = {}) {
     const dir = options.archived ? this.archivedPath(slug) : this.locate(slug);
     mkdirSync2(dir, { recursive: true });
-    appendFileSync(join3(dir, "ledger.jsonl"), `${JSON.stringify({ t: Date.now(), ...event })}
+    appendFileSync(join4(dir, "ledger.jsonl"), `${JSON.stringify({ t: Date.now(), ...event })}
 `, { mode: 384 });
   }
   readLedger(slug, limit = 50) {
-    const path = join3(this.locate(slug), "ledger.jsonl");
-    if (!existsSync3(path))
+    const path = join4(this.locate(slug), "ledger.jsonl");
+    if (!existsSync4(path))
       return [];
-    return readFileSync3(path, "utf8").split(`
+    return readFileSync4(path, "utf8").split(`
 `).filter(Boolean).slice(-limit).flatMap((line) => {
       try {
         return [JSON.parse(line)];
@@ -8703,9 +8912,9 @@ class Store {
     });
   }
   evidence(slug, runId, name, data) {
-    const dir = join3(this.locate(slug), "evidence", runId);
+    const dir = join4(this.locate(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
-    const file = join3(dir, `${name}.json`);
+    const file = join4(dir, `${name}.json`);
     const fd = openSync2(file, "w", 384);
     try {
       writeSync2(fd, `${JSON.stringify(data, null, 2)}
@@ -8773,7 +8982,7 @@ function duplicateJsonKeys(text) {
 }
 
 // src/engine/tick.ts
-import { existsSync as existsSync4 } from "node:fs";
+import { existsSync as existsSync5 } from "node:fs";
 
 // src/contract/render.ts
 var pct = (used, limit) => `${Math.round(used / limit * 100)}%`;
@@ -9046,7 +9255,7 @@ async function tick(deps) {
     log.push(`the goal-store configuration cannot be resolved (${why(error)}); holding`);
     return { stdout: HOLD, log, harness };
   }
-  if (!existsSync4(storeRoots.goals) && !existsSync4(storeRoots.legacy.goals)) {
+  if (!existsSync5(storeRoots.goals) && !existsSync5(storeRoots.legacy.goals)) {
     log.push("no .opencode/goals or .cleo/goals directory; nothing to tick");
     return { stdout: "", log, harness };
   }
@@ -9163,8 +9372,8 @@ async function tick(deps) {
 }
 
 // src/verify/pipeline.ts
-import { existsSync as existsSync5, readFileSync as readFileSync4 } from "node:fs";
-import { isAbsolute as isAbsolute3, join as join4, normalize as normalize2, relative as relative3 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "node:fs";
+import { isAbsolute as isAbsolute3, join as join5, normalize as normalize2, relative as relative3 } from "node:path";
 
 // src/util/shell.ts
 import { spawn as spawn2 } from "node:child_process";
@@ -9207,7 +9416,7 @@ var tail = (text, lines = 12, chars = 1200) => {
 
 // src/verify/pipeline.ts
 var inside3 = (root, path) => {
-  const full = normalize2(isAbsolute3(path) ? path : join4(root, path));
+  const full = normalize2(isAbsolute3(path) ? path : join5(root, path));
   const rel = relative3(root, full);
   return rel && !rel.startsWith("..") && !isAbsolute3(rel) ? full : rel === "" ? full : undefined;
 };
@@ -9232,15 +9441,15 @@ ${result.stderr}` : ""))}`, raw: runs };
       const path = inside3(root, check.path);
       if (!path)
         return { pass: false, detail: `${check.path} is outside the project` };
-      const exists = existsSync5(path);
+      const exists = existsSync6(path);
       const want = check.exists !== false;
       return { pass: exists === want, detail: `${check.path} ${exists ? "exists" : "does not exist"}` };
     }
     case "contains": {
       const path = inside3(root, check.path);
-      if (!path || !existsSync5(path))
+      if (!path || !existsSync6(path))
         return { pass: false, detail: `${check.path} not found` };
-      const text = readFileSync4(path, "utf8");
+      const text = readFileSync5(path, "utf8");
       const ok = check.text ? text.includes(check.text) : new RegExp(check.regex, "m").test(text);
       return { pass: ok, detail: ok ? `${check.path} contains the expected ${check.text ? "text" : "pattern"}` : `${check.path} lacks ${check.text ? `"${check.text}"` : `/${check.regex}/`}` };
     }
@@ -9301,11 +9510,11 @@ function checkQuotes(root, verdict) {
     return { ok: false, why: "verifier cited no evidence" };
   for (const item of verdict.evidence) {
     const path = inside3(root, item.path);
-    if (!path || !existsSync5(path))
+    if (!path || !existsSync6(path))
       return { ok: false, why: `cited file ${item.path} does not exist` };
     if (!item.quote || collapse(item.quote).length < 8)
       return { ok: false, why: `quote from ${item.path} is too short to check` };
-    const raw = readFileSync4(path, "utf8");
+    const raw = readFileSync5(path, "utf8");
     const hit = (hay, needle) => collapse(hay).includes(collapse(needle));
     if (!hit(raw, item.quote) && !hit(decodeEntities(raw), decodeEntities(item.quote)))
       return { ok: false, why: `quoted text not found in ${item.path} (raw or entity-decoded)` };
@@ -9389,8 +9598,8 @@ async function verifyClaim(contract, state, deps) {
 
 // src/engine/store-migration.ts
 import { createHash as createHash3 } from "node:crypto";
-import { cpSync, existsSync as existsSync6, mkdirSync as mkdirSync3, readdirSync as readdirSync3, readFileSync as readFileSync5, rmSync, statSync as statSync3 } from "node:fs";
-import { dirname as dirname3, join as join5 } from "node:path";
+import { cpSync, existsSync as existsSync7, mkdirSync as mkdirSync3, readdirSync as readdirSync3, readFileSync as readFileSync6, rmSync, statSync as statSync3 } from "node:fs";
+import { dirname as dirname3, join as join6 } from "node:path";
 class StoreMigrationError extends Error {
 }
 var sha256 = (text) => createHash3("sha256").update(text).digest("hex");
@@ -9399,7 +9608,7 @@ function walkGoalDir(dir) {
   const symlinks = [];
   const visit = (abs, rel) => {
     for (const entry of readdirSync3(abs, { withFileTypes: true })) {
-      const childAbs = join5(abs, entry.name);
+      const childAbs = join6(abs, entry.name);
       const childRel = rel ? `${rel}/${entry.name}` : entry.name;
       if (entry.isSymbolicLink()) {
         symlinks.push(childRel);
@@ -9412,7 +9621,7 @@ function walkGoalDir(dir) {
       if (!entry.isFile())
         continue;
       const bytes = statSync3(childAbs).size;
-      entries.push({ rel: childRel, bytes, sha256: sha256(readFileSync5(childAbs)) });
+      entries.push({ rel: childRel, bytes, sha256: sha256(readFileSync6(childAbs)) });
     }
   };
   visit(dir, "");
@@ -9444,12 +9653,12 @@ function planStoreMigration(store, target) {
     const slugs = archived ? store.archivedSlugs() : store.slugs();
     for (const slug of slugs) {
       const from = archived ? store.archivedPath(slug) : store.dir(slug);
-      const to = archived ? join5(target.archive, slug) : join5(target.goals, slug);
+      const to = archived ? join6(target.archive, slug) : join6(target.goals, slug);
       const walk = walkGoalDir(from);
       if (walk.symlinks.length)
         warnings.push(`${archived ? "archive" : "live"}:${slug} contains ${walk.symlinks.length} symlink(s) (${walk.symlinks.slice(0, 3).join(", ")}); the move must rename the folder rather than copy through them`);
       const run = archived ? store.readRun(slug, { archived: true }) : store.readRun(slug);
-      const hasRunFile = existsSync6(join5(from, "run.json"));
+      const hasRunFile = existsSync7(join6(from, "run.json"));
       const status = run?.status ?? (hasRunFile ? "unknown" : "draft");
       const entry = {
         slug,
@@ -9470,7 +9679,7 @@ function planStoreMigration(store, target) {
         entry.migratable = false;
         entry.reason = `run is ${run.status}; finish, stop or abort it before moving its history`;
       }
-      if (existsSync6(to)) {
+      if (existsSync7(to)) {
         const existing = walkGoalDir(to);
         entry.migratable = false;
         const reason = existing.digest === walk.digest ? "already present at the target with identical bytes; nothing to move" : "the target already holds this slug with different bytes";
@@ -9659,7 +9868,7 @@ var result = await tick({
   payload,
   readTranscript: (path) => {
     try {
-      return readFileSync6(path, "utf8");
+      return readFileSync7(path, "utf8");
     } catch {
       return;
     }
