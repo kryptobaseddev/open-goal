@@ -2352,6 +2352,19 @@ export class GoalApp {
     return Number.isFinite(value) && value > 0 ? value : 30_000
   }
 
+  /**
+   * D5: is another goal already live in this project? The completion must not ask
+   * the owner to start what is already running. Reads the same inventory
+   * goal_inventory reports (disk + this process's live runs), so a successor
+   * started in another session counts.
+   */
+  private liveSuccessor(state: RunState): GoalSummary | undefined {
+    const active = new Set(["running", "waiting", "verifying"])
+    return this.list()
+      .filter((goal) => goal.slug !== state.slug && active.has(goal.status))
+      .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0]
+  }
+
   // ───────────────────────────── declared workstreams (T169)
 
   /**
@@ -3277,10 +3290,23 @@ export class GoalApp {
       // policy runs and the existing completion decision stands.
       const continued = await this.continueWork(state, contract)
       const summary = await this.summarize(state, contract, continued)
-      this.noticeM(state.sessionID, M.complete(contract.title, summary ? summary.caveats.length + summary.scopeAudit.length : 0))
-      // v0.8.0 C4: a started next goal is not an owner question. Without one,
-      // the existing completion decision remains the surface.
-      if (!continued) this.decide(state.sessionID, state.slug, "complete", M.completeDecision(contract.title, Boolean(await cleoFacts(this.root, defaultRunner)), summary?.scopeAudit.length ?? 0))
+      // D5: a completion must never offer a stale "Start the next goal". When
+      // auto-continuation started a successor, continueWork already reported it;
+      // otherwise this is a notification that names a successor already live or
+      // says honestly that nothing was started. No completion decision is made.
+      if (!continued) {
+        const successor = this.liveSuccessor(state)
+        const caveats = summary ? summary.caveats.length + summary.scopeAudit.length : 0
+        this.noticeM(state.sessionID, M.completeFallback(contract.title, caveats, successor?.slug))
+        if (successor) {
+          this.store.ledger(state.slug, { type: "complete-decision-suppressed", successor: successor.slug, runId: successor.runId ?? null })
+        } else {
+          this.store.ledger(state.slug, { type: "complete-notification", reason: "no ready item and no live successor" })
+          // The fallback keeps Archive/Decompose as real acts, but never offers
+          // "Start the next goal": that offer is the stale one D5 removed.
+          this.decide(state.sessionID, state.slug, "complete", M.completeDecision(contract.title, Boolean(await cleoFacts(this.root, defaultRunner)), caveats))
+        }
+      }
       await this.transcript(state.sessionID, `◎ Goal complete — "${contract.title}". Every required criterion was verified by the host${contract.verification.mode !== "host" ? " and the independent verifier" : ""}. The loop has stopped; follow-ups live in the summary dialog and .opencode/goals/${state.slug}/.`)
       return
     }

@@ -143,7 +143,20 @@ export const M = {
   complete: (title: string, caveats: number) =>
     msg("goal.complete", "success", `Goal complete: ${title}.${caveats ? ` ${caveats} caveat${caveats > 1 ? "s" : ""} in the summary (provenance/unproven scope).` : ""} Every required criterion was verified. The loop has stopped — nothing further runs on its own; follow-ups live in the summary dialog and the goal folder.`, [
       { label: "Archive goal", run: "/goal archive", act: "archive" },
-      { label: "Start the next goal", run: "/goal new <what you want next>" },
+    ], "done"),
+  /**
+   * D5: the completion fallback. Auto-continuation already reports a started
+   * successor; this notice is what an owner sees when nothing was started. It
+   * never offers "Start the next goal" — that offer was stale at v0.7.1 — and it
+   * names a successor that is already live so the owner is not asked to start
+   * what is already running.
+   */
+  completeFallback: (title: string, caveats: number, successor?: string) =>
+    msg("goal.complete.notice", "success", successor
+      ? `Goal complete: ${title}.${caveats ? ` ${caveats} caveat${caveats > 1 ? "s" : ""} in the summary.` : ""} A successor goal "${successor}" is already live, so no next-goal question is offered.`
+      : `Goal complete: ${title}.${caveats ? ` ${caveats} caveat${caveats > 1 ? "s" : ""} in the summary.` : ""} No ready CLEO item and no live successor; nothing was started. Follow-ups live in the summary dialog and /goal archive closes it out.`, [
+      { label: "Inspect the goal", run: "/goal status" },
+      { label: "Archive goal", run: "/goal archive", act: "archive" },
     ], "done"),
   needsSignOff: (ids: string[]) =>
     msg("goal.needs-review.signoff", "warning", `Goal needs your sign-off on ${ids.join(", ")} — a human criterion only you can prove. Approve runs verification of everything else immediately (your approval is final and never re-checked).`, [
@@ -233,7 +246,9 @@ export const M = {
     ),
   completeDecision: (title: string, cleoPresent: boolean, unproven: number) =>
     msg("goal.complete.decision", "success", `Goal complete: ${title}.${unproven ? ` ${unproven} discussed-but-unproven item(s) are flagged in the summary.` : ""} The loop has stopped. What next?`, [
-      { label: "Start the next goal", run: "start the write-goal interview for the next goal", act: "start-next" },
+      // D5: no "Start the next goal" here. The completion offer was stale when a
+      // successor was already running (v0.7.1) and it is never needed: the owner
+      // can run /goal new at any time. Archive and Decompose remain real acts.
       // T070: "Decompose with CLEO" was a dead-end guidance row — it is a
       // real act now, dispatching the decomposition prompt into the session.
       ...(cleoPresent

@@ -395,6 +395,20 @@ export function parseContract(text: string, options: { slug?: string; tolerateUn
   const stopRaw = isRecord(raw.stop) ? raw.stop : {}
   const executionRaw = isRecord(raw.execution) ? raw.execution : {}
 
+  // D7: a stop rule phrased as the inverse of continuing ("SHALL NOT continue
+  // past X") reads as a stop but encodes a continue. The rule must be phrased
+  // positively. This is a WARNING, never an error: a contract that parses today
+  // must keep parsing, and the contradiction only needs to be visible at review.
+  const inverseStop = /\b(?:shall|must|will)\s+not\s+(?:continue|proceed|keep\s+going|go\s+on)\b|\b(?:do\s+not|don['’]t)\s+continue\b/i
+  const stopWhen = str(stopRaw.when).trim()
+  if (stopWhen && inverseStop.test(stopWhen))
+    warn("stop.when", `stop rule reads as the inverse of continuing: "${stopWhen.slice(0, 160)}" — phrase it positively ("SHALL continue past X") and list what stops the run`)
+  for (const [index, entry] of (Array.isArray(stopRaw.escalate_when) ? stopRaw.escalate_when : []).entries()) {
+    const rule = str(entry).trim()
+    if (rule && inverseStop.test(rule))
+      warn(`stop.escalate_when[${index}]`, `escalation rule reads as the inverse of continuing: "${rule.slice(0, 160)}" — phrase it positively ("SHALL continue past X") and list what stops the run`)
+  }
+
   if (issues.some((i) => i.level === "error")) return { issues, lock }
   // T031: supersession pointer — "<slug>@<lock-prefix>", validated but only
   // enforced at /goal start (existence, lock match, mid-flight admission).

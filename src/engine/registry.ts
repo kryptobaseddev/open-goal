@@ -5,6 +5,7 @@
 // project. Atomic writes (tmp + rename); OCGOAL_REGISTRY overrides the
 // location so hosts and tests never pollute the real index.
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync, statSync } from "node:fs"
+import { randomUUID } from "node:crypto"
 import { homedir, tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { resolveStoreRoots } from "./store-root"
@@ -36,7 +37,11 @@ export class Registry {
 
   private write(data: RegistryData) {
     mkdirSync(dirname(this.path), { recursive: true })
-    const tmp = join(tmpdir(), `goal-registry-${process.pid}-${Date.now()}.json`)
+    // D5/hardening: the temp name must be unique per WRITE, not per process and
+    // millisecond. Bun's test workers share a pid, so `pid-Date.now()` let two
+    // concurrent writes clobber one temp file and one registry file could
+    // receive the other's bytes. Random suffix; the rename stays atomic.
+    const tmp = join(tmpdir(), `goal-registry-${process.pid}-${Date.now()}-${randomUUID()}.json`)
     writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`)
     renameSync(tmp, this.path)
   }

@@ -60,24 +60,21 @@ test("complete decision: start-next dispatches the interview, guidance choices r
     await goalRpc.act({ sessionID, action: "approve", arg: "C4" })
     await waitStatus(host, ["complete"], 90000, "review")
 
-    // --- the complete decision: more than Archive
-    const complete = await until(() => decisions.find((d) => d.kind === "complete"), 10000)
-    const startNext = complete.choices.find((c: any) => c.act === "start-next")
-    expect(startNext).toBeTruthy()
+    // --- D5: the completion decision exists, but never offers "Start the next
+    // goal" (the stale offer). Archive and the CLEO guidance stay.
+    const complete = await until(() => decisions.find((d) => d.kind === "complete"), 15000)
+    expect(complete.choices.some((c: any) => c.act === "start-next")).toBe(false)
+    expect(complete.choices.some((c: any) => /Start the next goal/i.test(c.label ?? c.run ?? ""))).toBe(false)
     expect(complete.choices.some((c: any) => c.act === "archive")).toBe(true)
-    // the guidance row is still in the payload (the TUI renders it as a row)
     expect(complete.choices.some((c: any) => !c.act && /CLEO/i.test(c.run ?? c.label))).toBe(true)
 
-    // --- dispatching start-next lands the write-goal interview prompt here
+    // --- an explicit start-next act is still supported (owner-initiated)
     const promptsBefore = host.fixture.requests.length
     const result = await goalRpc.act({ sessionID, action: "start-next" })
     expect(result.ok).toBe(true)
     await until(async () => host.fixture.requests.length > promptsBefore, 30000)
     const interviewRequest = host.fixture.requests.at(-1)!
     expect(JSON.stringify(interviewRequest.messages)).toMatch(/next goal|write-goal|interview/i)
-
-    // the resolution is ledgered (T066 pairing)
-    await until(async () => (await ledger(host, "review")).some((e) => e.type === "decision-resolved" && e.action === "start-next"), 20000)
   } finally {
     await host.stop()
   }
