@@ -43,6 +43,7 @@ const samples: Record<string, () => EngineMessage> = {
   amendmentExpired: () => M.amendmentExpired(),
   ownerOperationFailed: () => M.ownerOperationFailed("review expired"),
   managerOperation: () => M.managerOperation("abort", "Selected goal"),
+  storeMigration: () => M.storeMigration({ source: { goals: ".opencode/goals" }, target: { goals: ".cleo/goals" }, totals: { goals: 3, migratable: 2 } }, "a".repeat(64)),
   amendmentChanged: () => M.amendmentChanged(),
   amendmentInterrupted: () => M.amendmentInterrupted(),
   launchChanged: () => M.launchChanged(),

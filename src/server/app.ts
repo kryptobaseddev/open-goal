@@ -14,7 +14,8 @@ import { GoalRpc, type GoalSummary, type GoalTarget, type GoalView, type ManageA
 import { account, budgetUse, initialRun, isActive, isTerminal, modelCan, ownerCan, setStatus, type Handoff, type PendingKind, type RunState, type Status } from "../engine/state"
 import { isHarnessIdentity } from "../engine/harness-identity"
 import { Store, type RunWriteOutcome } from "../engine/store"
-import { storePathKind } from "../engine/store-root"
+import { LEGACY_ARCHIVE_REL, LEGACY_GOALS_REL, resolveStoreRoots, storePathKind, type StoreRoots } from "../engine/store-root"
+import { executeStoreMigration, migrationPlanDigest, planStoreMigration, StoreMigrationError, type StoreMigrationPlan } from "../engine/store-migration"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
 import { LaunchStore, launchChoices, launchView, processAlive, type LaunchActivity, type LaunchRequest } from "../engine/launches"
 import { amendmentDiff, amendedState } from "../engine/amendment"
@@ -3536,7 +3537,7 @@ export class GoalApp {
 
   // ───────────────────────────── owner actions (command, RPC)
 
-  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose" | "revert" | "rebase", arg?: string, via: "form" | "dialog" = "dialog", decisionId?: string): Promise<{ ok: boolean; message: string }> {
+  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose" | "revert" | "rebase" | "migrate"
     return this.serial(async () => {
       const pending = this.pendingDecisions.get(sessionID)
       const request = this.decisions.get(decisionId ?? pending?.id ?? "")
@@ -3613,6 +3614,11 @@ export class GoalApp {
           .catch(() => {})
         return { ok: true, message: `Dispatched the CLEO decomposition of "${slug}" — the next turn files the follow-ups as tasks.` }
       }
+      // T188: a store migration is a project-level move, not a per-run
+      // transition. The native review is bound to the exact plan digest, and
+      // the move copies only what that review listed. It runs before goal
+      // resolution because the folders it moves are history, not this run.
+      if (action === "migrate") return this.migrateStoreLocked((arg ?? "").trim())
       // T060: the start picker's dialog dispatches act "start" with the slug
       // as arg — the standard start path, in THIS session. startGoalLocked,
       // not startGoal: ownerAct already holds the queue (not reentrant).
@@ -4036,9 +4042,15 @@ export class GoalApp {
             : ""
         return say([live, archivedText].filter(Boolean).join("\n"))
       }
+      case "migrate": {
+        // T188: the dry run prints the plan and writes nothing; `confirm`
+        // offers the native owner decision that performs the reviewed move.
+        const result = await this.migrateStore(sessionID, arg === "confirm")
+        if ("dryRun" in result) return say(this.describeMigrationPlan(result), "info")
+        return say(result.message, result.ok ? "success" : "warning")
+      }
       case "reload":
-      case "reconcile": {
-        // T173: the explicit, supported reconcile. A hot-load can leave a
+      case "reconcile": {        // T173: the explicit, supported reconcile. A hot-load can leave a
         // pre-existing session without its surface or with stale memory; this
         // re-announces the surface and mirrors disk without a service restart.
         return say(await this.reconcile(sessionID), "success")
@@ -4277,6 +4289,100 @@ export class GoalApp {
       const sessionState = typeof directory === "string" ? canonical(directory) === this.rootReal ? "present" : "elsewhere" : "unknown"
       return { ...row, sessionState, ...(typeof session.agent === "string" ? { agent: session.agent } : {}), ...(typeof session.title === "string" ? { sessionTitle: session.title } : {}) }
     })
+  }
+
+  // ───────────────────────────── store migration (T188)
+
+  /** The legacy store is the migration SOURCE; the resolved store is the
+   *  target. A project whose active store IS the legacy one has nothing to
+   *  move, and is told so instead of guessing. */
+  private migrationRoots(): { source: StoreRoots; target: StoreRoots } {
+    return {
+      source: resolveStoreRoots(this.root, { goalsDir: LEGACY_GOALS_REL, archiveDir: LEGACY_ARCHIVE_REL }),
+      target: this.store.roots,
+    }
+  }
+
+  /** Dry run over the ONE planner in store-migration.ts (never a second one).
+   *  Read-only: the plan's `writes` is the literal 0 and no path is created. */
+  private storeMigrationPlan(): { plan: StoreMigrationPlan } | { refusal: string } {
+    const { source, target } = this.migrationRoots()
+    if (source.goalsRel === target.goalsRel && source.archiveRel === target.archiveRel)
+      return { refusal: `This project keeps its goals in ${source.goalsRel}/, so there is no legacy store to migrate. Nothing was read or written.` }
+    try {
+      return { plan: planStoreMigration(new Store(this.root, source), target) }
+    } catch (error) {
+      if (!(error instanceof StoreMigrationError)) throw error
+      return { refusal: `No migration is possible: ${error.message}. Nothing was written.` }
+    }
+  }
+
+  /** A human plan summary for /goal migrate; the RPC returns the plan object. */
+  private describeMigrationPlan(plan: StoreMigrationPlan): string {
+    const lines = [
+      `Store migration plan (dry run, writes ${plan.writes}): ${plan.totals.migratable} of ${plan.totals.goals} goal folder(s) move from ${plan.source.goals}/ into ${plan.target.goals}/.`,
+      ...plan.goals.map((goal) => `- ${goal.archived ? "archived" : "live"} ${goal.slug}: ${goal.migratable ? "move" : `skip — ${goal.reason ?? "not migratable"}`}`),
+      "The legacy copy is never deleted; live, unreadable and conflicting runs are skipped.",
+      "Run `/goal migrate confirm` and answer the native owner decision to move exactly these folders.",
+    ]
+    return lines.join("\n")
+  }
+
+  /**
+   * T188: the goal-side migration surface.
+   *
+   * Without `confirm` this is the `ocg migrate` dry run: it returns the plan
+   * and writes nothing. With `confirm` it offers a NATIVE owner decision bound
+   * to the exact plan digest; only the owner's form answer (the same authority
+   * path as pause/resume/amend) executes the copy. A worker tool call can
+   * never supply that confirmation.
+   */
+  private async migrateStore(sessionID: string, confirm: boolean) {
+    return this.serial(async () => {
+      const planned = this.storeMigrationPlan()
+      if ("refusal" in planned) return { ok: false, actionExecuted: false, message: planned.refusal }
+      const { plan } = planned
+      if (!confirm) return plan
+      if (!plan.totals.migratable)
+        return { ok: false, actionExecuted: false, plan,
+          message: `Nothing is migratable${plan.goals.length ? `: ${plan.goals.map((goal) => `${goal.slug} (${goal.reason ?? "not migratable"})`).join(", ")}` : ": the legacy store holds no goal folders"}. Nothing moved.` }
+      const state = this.runs.get(sessionID) ?? [...this.runs.values()].find((run) => !isTerminal(run.status))
+      if (!state)
+        return { ok: false, actionExecuted: false,
+          message: "Open this project's goal (or start one) so the migration review is bound to a real generation; nothing moved." }
+      const digest = migrationPlanDigest(plan)
+      const existing = this.decisions.all(sessionID).find((p) => ["pending", "interrupted"].includes(p.status) && !reviewExpired(p)
+        && p.kind === "owner-operation" && p.extra.migrationDigest === digest
+        && p.message.choices.some((c) => c.act === "migrate"))
+      if (existing) {
+        this.publishDecision(existing)
+        if (existing.status === "pending") void this.askDecisionForm(sessionID, existing.slug, existing.kind, existing.id, existing.message)
+        return { ok: true, pending: true, decisionId: existing.id, plan,
+          message: "The exact migration review is already pending in the Composer; no second review or move was created." }
+      }
+      this.decide(sessionID, state.slug, "owner-operation", M.storeMigration(plan, digest), { targetKey: this.targetOf(state).key, migrationDigest: digest })
+      const decisionId = this.pendingDecisions.get(sessionID)?.id
+      return { ok: true, pending: true, decisionId, plan,
+        message: `Native migration review offered: ${plan.totals.migratable} goal folder(s) from ${plan.source.goals}/ into ${plan.target.goals}/. Nothing moved until the owner answers.` }
+    })
+  }
+
+  /** The confirmed move. Re-plans and refuses if the bytes differ from the
+   *  reviewed plan, so a folder that changed after review is never copied. */
+  private migrateStoreLocked(reviewedDigest: string): { ok: boolean; message: string } {
+    const planned = this.storeMigrationPlan()
+    if ("refusal" in planned) return { ok: false, message: planned.refusal }
+    if (!reviewedDigest || reviewedDigest !== migrationPlanDigest(planned.plan))
+      return { ok: false, message: "The store changed since that migration review, so those bytes were not moved. Run /goal migrate again and confirm the fresh plan." }
+    try {
+      const { source, target } = this.migrationRoots()
+      const result = executeStoreMigration(new Store(this.root, source), target, { confirm: true })
+      const bytes = result.moved.reduce((sum, goal) => sum + goal.bytes, 0)
+      const skipped = result.skipped.length ? ` Skipped: ${result.skipped.map((goal) => `${goal.slug} (${goal.reason})`).join(", ")}.` : ""
+      return { ok: true, message: `Moved ${result.writes} goal folder(s) (${bytes} bytes, re-hashed) into ${result.target.goals}/; the legacy copies are retained.${skipped}` }
+    } catch (error) {
+      return { ok: false, message: `The migration did not complete: ${error instanceof Error ? error.message : String(error)}. The legacy store is untouched.` }
+    }
   }
 
   private async manageGoal(sessionID: string, action: ManageAction, target: GoalTarget, forceReview = false, commit?: string) {
@@ -4531,6 +4637,7 @@ export class GoalApp {
           catch (error) { return { ok: false, message: String(error instanceof Error ? error.message : error), actionExecuted: false } }
         },
         manage: async (input: { sessionID: string; action: ManageAction; target: GoalTarget; commit?: string }) => this.manageGoal(input.sessionID, input.action, input.target, false, input.commit),
+        migrate: async (input: { sessionID: string; confirm?: boolean }) => this.migrateStore(input.sessionID, input.confirm === true),
         act: async (input: { sessionID: string; action: any; arg?: string; decisionId?: string }) => this.ownerAct(input.sessionID, input.action, input.arg, "dialog", input.decisionId),
       })
       this.rpc = registration
@@ -4603,6 +4710,16 @@ export class GoalApp {
       }, async (args, context) => this.interview(context.sessionID, args)),
       tool("prepare_launch", "Validate and stage an exact goal contract for native owner review and same/fresh-session launch. Runs the project goal inventory + intent/outcome triage first and refuses a duplicate as continue/repair/consolidate with the existing goal/run/lock named; only genuinely new work reaches owner review. The host executes the owner's choice directly, including after reload or an interrupted question result. Preparation is not permission to start or approve yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, fresh: { type: "boolean" } }, required: ["slug"] }, async (args, context) => this.prepareLaunch(context.sessionID, String(args.slug), args.fresh === true)),
       tool("provenance", "Report the actual server PID, location, installed Git revision and loaded server/UI/skill artifact hashes for this goal session. Never substitute an unscoped shared-service or newest-cache lookup for this evidence.", { properties: {} }, async (_args, context) => ({ ...await this.provenance(context.sessionID) })),
+      // T188: read-only on purpose. A migration relocates owner-owned history;
+      // only the owner's native confirmation can authorize the move, so a
+      // confirm argument from the worker is refused instead of executed.
+      tool("migrate", "Read-only store-migration plan: what /goal migrate would copy from the legacy store into the active one. Finished and draft goals are listed as movable; live, unreadable and conflicting runs are skipped. A move requires the OWNER's native confirmation — a worker cannot supply it.", { properties: { confirm: { type: "boolean", description: "Ignored and refused: only a native owner decision can authorize the move." } } }, async (args) => {
+        if (args.confirm === true)
+          return { ok: false, refused: true, actionExecuted: false,
+            message: "A store migration moves owner-owned goal history; only the owner's native confirmation can authorize it. Nothing was moved. Ask the owner to run /goal migrate confirm and answer the review." }
+        const planned = this.storeMigrationPlan()
+        return "refusal" in planned ? { ok: false, actionExecuted: false, message: planned.refusal } : planned.plan
+      }),
       tool("status", "Show the active goal: status, criteria board, plan, budget, last verdict. Cheap; use it after a compaction or when unsure what remains.", { properties: {} }, async (_args, context) => {
         // T173: after a hot-load this process may never have witnessed the run.
         // The read resolves from disk instead of claiming no goal is running.
