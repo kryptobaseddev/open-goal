@@ -170,7 +170,7 @@ export function setStatus(state: RunState, status: Status, reason?: string, now 
   return state
 }
 
-export type OwnerAction = "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "revert"
+export type OwnerAction = "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "revert" | "rebase"
 
 /** Owner transitions; returns an error string when the action does not apply. */
 export function ownerCan(state: RunState, action: OwnerAction): string | undefined {
@@ -185,6 +185,15 @@ export function ownerCan(state: RunState, action: OwnerAction): string | undefin
       return isTerminal(state.status) ? `goal is ${state.status}` : undefined
     case "revert":
       return isTerminal(state.status) ? `goal is ${state.status}` : state.status === "verifying" ? "goal is verifying; wait for its verdict" : undefined
+    case "rebase":
+      // T183: the baseline is what verification measures from, so moving it
+      // while the host is mid-verification would change the answer underneath
+      // the running checks. Terminal history is not rewritten.
+      return isTerminal(state.status)
+        ? `goal is ${state.status}; a finished run has no baseline to move`
+        : state.status === "verifying"
+          ? "goal is verifying; wait for its verdict before rebasing the baseline"
+          : undefined
     case "amend":
       // T038: amendment re-locks a live contract; a terminal goal gets a new
       // goal instead (supersession), never a rewrite of history.

@@ -16,6 +16,7 @@ const samples: Record<string, () => EngineMessage> = {
   startPickerEmpty: () => M.startPickerEmpty(2),
   goalSummary: () => M.goalSummary("goal complete — 5/5 criteria proven", 2, "complete"),
   amended: () => M.amended(2, "C15 needle 0.2.0 → 0.2.2"),
+  baselineRebased: () => M.baselineRebased("demo", "a".repeat(40), "b".repeat(40)),
   policyApplied: () => M.policyApplied("amendment", "timeout", "criteria changed [C2]", "demo"),
   stallReported: () => M.stallReported(3),
   runStateRepaired: () => M.runStateRepaired("demo", ".opencode/goals/demo/run.json.corrupt-1.json"),

@@ -36,6 +36,17 @@ describe("run state permissions", () => {
     expect(ownerCan(s, "abort")).toMatch(/already aborted/)
   })
 
+  test("T183: the owner may rebase the baseline except mid-verification or after the run ended", () => {
+    const s = fresh()
+    expect(ownerCan(s, "rebase")).toBeUndefined()
+    setStatus(s, "waiting")
+    expect(ownerCan(s, "rebase")).toBeUndefined()
+    setStatus(s, "verifying")
+    expect(ownerCan(s, "rebase")).toMatch(/verifying/)
+    setStatus(s, "complete")
+    expect(ownerCan(s, "rebase")).toMatch(/finished run/)
+  })
+
   test("the active clock runs only while running, waiting or verifying", () => {
     const s = fresh()
     setStatus(s, "paused", "x", 61_000)

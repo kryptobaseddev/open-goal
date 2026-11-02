@@ -15,6 +15,7 @@ export function goalHelp({ version }: HelpFacts): string {
     "- `/goal status` · `/goal pause` · `/goal resume` · `/goal verify` — status costs no model turn",
     "- `/goal abort` — end the run for good (ledger and evidence stay)",
     "- `/goal amend [confirm]` — propose/confirm a contract re-lock after editing goal.yaml out of band",
+    "- `/goal rebase [<commit>]` — owner-only: move the run's baseline to a commit (default HEAD) so a merged oracle update no longer trips INTEGRITY; the contract, its lock and its protect list stay unchanged, and changes after the new commit are still caught",
     "- `/goal archive` — demote a finished goal to .opencode/goals-archive/ (never deleted)",
     "- `/goal approve <C#>` · `/goal reject <C#> <why>` — owner sign-off for human criteria",
     "- `/goal validate <slug>` · `/goal list [all]` — validate a contract; list live (or +archived) goals",

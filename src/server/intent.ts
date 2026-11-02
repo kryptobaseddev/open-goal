@@ -17,6 +17,9 @@ export function directGoalCommand(text: string, slugs: readonly string[]): boole
     // T173: the supported reconcile after a plugin hot-load.
     case "reload": case "reconcile": return !arg
     case "amend": return !arg || arg === "confirm" || rest.length === 1 && named(rest[0]!)
+    // T183: the owner rebases the run's baseline to one named commit (or HEAD).
+    // It is never a conversational instruction for the agent to interpret.
+    case "rebase": return rest.length <= 1
     case "approve": return /^C\d+(?:\s+[a-z0-9-]+)?$/i.test(arg)
     case "reject": return /^C\d+(?:\s|$)/i.test(arg)
     default: return false

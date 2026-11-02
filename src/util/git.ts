@@ -46,6 +46,16 @@ export const headCommit = (cwd: string): string | undefined => {
   return r.ok ? r.out.trim() : undefined
 }
 
+/** T183: resolve a revision (HEAD, a sha, a ref) to one full commit sha.
+ *  `--end-of-options` keeps a revision from being read as a git option; a
+ *  leading "-" is refused before git ever sees it. */
+export const resolveCommit = (cwd: string, rev: string): string | undefined => {
+  const trimmed = rev.trim()
+  if (!trimmed || trimmed.startsWith("-") || !isRepo(cwd)) return undefined
+  const r = git(cwd, ["rev-parse", "--verify", "--quiet", "--end-of-options", `${trimmed}^{commit}`])
+  return r.ok ? r.out.trim() || undefined : undefined
+}
+
 /** Hash of one worktree's staged/unstaged diff plus untracked file sizes and
  *  mtimes, excluding every goal store root (T182: goal-state writes are not
  *  progress, whichever layout the project resolved). */

@@ -95,6 +95,8 @@ export const M = {
     msg("goal.runstate.stale-write", "warning", `A run.json write for ${slug} was REFUSED and the disk left untouched: the disk holds generation ${disk}, newer than the generation this process last observed (${mine}) — for example an owner repair. A stale-write receipt naming both generations was journalled; the newer bytes win.`, [status, { label: "Reload this location", run: "read goal_status, then reload the location so the engine adopts the newer run state before writing again" }]),
   amended: (generation: number, summary: string) =>
     msg("goal.amended", "success", `Goal amended (generation ${generation}): ${summary}. The contract re-locked; the next turn renders the new text.`, [verify, status]),
+  baselineRebased: (slug: string, from: string | undefined, to: string) =>
+    msg("goal.baseline.rebased", "success", `Baseline of ${slug} rebased ${from ? `${from.slice(0, 12)} → ` : "to "}${to.slice(0, 12)}. Verification now measures from this commit: files changed before it (a merged oracle update, for example) are no longer counted, while anything changed after it still is. The contract, its lock and its protect list are unchanged.`, [status, verify]),
   pausedAdmissionError: (reason: string) =>
     msg("goal.paused.admission", "error", `Goal paused: the host could not send the next turn (${reason}).`, [resume, abort], "error"),
   awaitingAnswer: (question: string) =>
