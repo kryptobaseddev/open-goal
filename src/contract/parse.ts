@@ -4,9 +4,12 @@ import { createHash } from "node:crypto"
 import { parse as parseYamlPortable } from "yaml"
 import {
   AMEND_CLASSES,
+  AUTONOMY_LEVEL_POLICY,
+  AUTONOMY_LEVELS,
   CHECK_KINDS,
   CLEO_GATES,
   type AmendClass,
+  type AutonomyLevel,
   type CleoGate,
   type CleoTaskLink,
   type GoalAcRef,
@@ -326,22 +329,46 @@ export function parseContract(text: string, options: { slug?: string; tolerateUn
     err(path, `must be one of ${allowed.join(", ")}`)
     return fallback
   }
+  // T170: the owner-set ceiling. An explicit flag may narrow it, never widen
+  // it; an absent level keeps the legacy per-flag behaviour byte-for-byte.
+  let level: AutonomyLevel | undefined
+  const levelRaw = str(autonomyRaw.level)
+  if (levelRaw) {
+    if ((AUTONOMY_LEVELS as readonly string[]).includes(levelRaw)) level = levelRaw as AutonomyLevel
+    else err("autonomy.level", `must be one of ${AUTONOMY_LEVELS.join(", ")}`)
+  }
+  const explicitStall = str(autonomyRaw.on_stall)
+    ? pick("autonomy.on_stall", autonomyRaw.on_stall, ["pause", "continue"] as const, "pause")
+    : undefined
+  let explicitAmend: AmendClass[] | undefined
+  if (autonomyRaw.amend !== undefined) {
+    explicitAmend = []
+    if (!Array.isArray(autonomyRaw.amend)) err("autonomy.amend", `amend must be a list of ${AMEND_CLASSES.join(", ")}`)
+    else for (const value of autonomyRaw.amend) {
+      const v = str(value)
+      if (v && (AMEND_CLASSES as readonly string[]).includes(v)) { if (!explicitAmend.includes(v as AmendClass)) explicitAmend.push(v as AmendClass) }
+      else err("autonomy.amend", `unknown change class "${String(value)}"; allowed: ${AMEND_CLASSES.join(", ")}`)
+    }
+  }
+  const ceiling = level ? AUTONOMY_LEVEL_POLICY[level] : undefined
+  // Narrowing is allowed and named; widening is not possible through a level.
+  for (const c of explicitAmend ?? []) if (ceiling && !ceiling.amend.includes(c)) warn("autonomy.amend", `"${c}" is outside autonomy.level ${level}; it is not granted`)
+  if (ceiling && explicitStall === "continue" && ceiling.on_stall === "pause") warn("autonomy.on_stall", `autonomy.level ${level} keeps the stall pause; "continue" is not granted`)
+  const amend: AmendClass[] = ceiling
+    ? explicitAmend === undefined ? [...ceiling.amend] : explicitAmend.filter((c) => ceiling.amend.includes(c))
+    : explicitAmend ?? []
+  const onStall: "pause" | "continue" = ceiling
+    ? ceiling.on_stall === "continue" && explicitStall !== "pause" ? "continue" : "pause"
+    : explicitStall ?? "pause"
   const autonomy: Autonomy = {
     questions: pick("autonomy.questions", autonomyRaw.questions, ["defer", "allow"] as const, "defer"),
     on_user_message: pick("autonomy.on_user_message", autonomyRaw.on_user_message, ["steer", "pause"] as const, "steer"),
     on_interrupt: pick("autonomy.on_interrupt", autonomyRaw.on_interrupt, ["pause", "resume-on-message"] as const, "pause"),
-    amend: [],
-    on_stall: pick("autonomy.on_stall", autonomyRaw.on_stall, ["pause", "continue"] as const, "pause"),
+    ...(level ? { level } : {}),
+    amend,
+    on_stall: onStall,
     ...(autonomyRaw.visit_new_projects === true ? { visit_new_projects: true } : {}),
     ...(autonomyRaw.continue_past_budget === true ? { continue_past_budget: true } : {}),
-  }
-  if (autonomyRaw.amend !== undefined) {
-    if (!Array.isArray(autonomyRaw.amend)) err("autonomy.amend", `amend must be a list of ${AMEND_CLASSES.join(", ")}`)
-    else for (const value of autonomyRaw.amend) {
-      const v = str(value)
-      if (v && (AMEND_CLASSES as readonly string[]).includes(v)) { if (!autonomy.amend.includes(v as AmendClass)) autonomy.amend.push(v as AmendClass) }
-      else err("autonomy.amend", `unknown change class "${String(value)}"; allowed: ${AMEND_CLASSES.join(", ")}`)
-    }
   }
   const verificationRaw = isRecord(raw.verification) ? raw.verification : {}
   const mode = pick<VerificationMode>("verification.mode", verificationRaw.mode, ["host", "host+verifier", "strict"] as const, "host+verifier")

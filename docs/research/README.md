@@ -8,6 +8,7 @@ Collected 2026-10-02 while designing the plugin. Read them in this order.
 | [opencode2-plugin-api.md](opencode2-plugin-api.md) | Cited reference of the OpenCode 2.0.22 plugin system (server hooks, events, sessions, tools, commands, TUI slots, RPC, skills, the `question` tool), every fact tagged VERIFIED-SOURCE / VERIFIED-DOCS / INFERRED with path:line at tag v2.0.22. Section 0.6 is an addendum. |
 | [wr-goal-teardown.md](wr-goal-teardown.md) | Line-cited teardown of william-ricchiuti/OpenCode-goal-plugin v0.11.0: architecture, data model, loop, completion, V2 bridge, CHANGELOG lessons, steal/avoid lists. |
 | [prior-art.md](prior-art.md) | Codex `/goal`, Claude Code `/goal` and ralph-loop, Huntley's Ralph, oh-my-openagent, six other OpenCode goal plugins (bybrawe, pw, js, loopd, bm, goalx), long-horizon research, and goal-writing interview methods (Pocock grilling, spec-kit clarify, Kiro EARS, BMAD, define-goal). Ends with the 12 ideas most worth stealing. |
+| [autonomy-levels.md](autonomy-levels.md) | T170: the owner-set `autonomy.level` ceiling (`conservative`/`standard`/`full`), what each level removes, the stops no level may waive, and the tests that pin each case. |
 | [../spikes.md](../spikes.md) | What OpenCode 2.0.22 actually did when probed (S1-S9). Where it disagrees with any doc, the spike wins. |
 
 ## Primary sources
