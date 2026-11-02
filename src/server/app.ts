@@ -149,6 +149,10 @@ export class GoalApp {
   private rpc?: { events: { emit: (name: any, data: any) => Promise<void> } }
   private controller = new AbortController()
   private disposed = false
+  /** T173: no goal entry may act until recovery has finished and the whole
+   *  surface is registered. Tools are only registered after recovery anyway;
+   *  this flag is the second lock on the same door. */
+  private ready = false
   private queue = Promise.resolve()
   private readonly packageRoot = join(dirname(fileURLToPath(import.meta.url)), "../..")
   private readonly capturedAt = Date.now()
@@ -181,14 +185,30 @@ export class GoalApp {
     // accident and silently run half an engine.
     const admission = this.adapter.admission()
     if (admission.kind !== "in-process") throw new Error(`${this.adapter.name} cannot admit a goal into the in-process engine: ${admission.reason}`)
+    // T173: recovery finishes BEFORE any tool, command or TUI surface exists.
+    // A hot-load that fails here never replaces a working surface, and a
+    // half-registered one is impossible (see the rollback below).
     this.recoverAmendmentCommits()
     this.recover()
-    await this.registerAgents()
-    await this.registerSkill()
-    await this.registerTools()
-    await this.registerCommand()
-    await this.registerHooks()
-    await this.registerRpc()
+    const mark = this.registrations.length
+    try {
+      await this.registerAgents()
+      await this.registerSkill()
+      await this.registerTools()
+      await this.registerCommand()
+      await this.registerHooks()
+      await this.registerRpc()
+    } catch (error) {
+      // The surface is registered as one unit: dispose everything this attempt
+      // registered, keep nothing callable, and surface the real failure.
+      await this.disposeRegistrations(mark)
+      throw error
+    }
+    this.ready = true
+    // T173: a plugin hot-load re-runs setup while sessions already exist.
+    // Re-announce the derived surface so those sessions are not left with the
+    // surface they were created under.
+    await this.announceSurface()
     void this.eventLoop()
     // Prompt admission waits for location plugins to finish setup. Awaiting
     // a recovery prompt here would wait for our own setup and deadlock.
@@ -241,11 +261,44 @@ export class GoalApp {
 
   async stop() {
     this.disposed = true
+    this.ready = false
     this.controller.abort()
     clearTimeout(this.launchRecoveryTimer)
     for (const t of this.timers.values()) clearTimeout(t)
     this.timers.clear()
-    for (const r of this.registrations.splice(0)) await Promise.resolve(r.dispose()).catch(() => {})
+    await this.disposeRegistrations()
+  }
+
+  /** Dispose registrations from `from` onward, newest first, never throwing.
+   *  Used by stop() and by the atomic setup rollback. */
+  private async disposeRegistrations(from = 0) {
+    for (const r of this.registrations.splice(from).reverse()) await Promise.resolve(r.dispose()).catch(() => {})
+  }
+
+  /**
+   * T173: make a hot-loaded surface reach sessions that already exist. Adding
+   * a transform is not enough on every host: a session can keep the surface it
+   * was created under. Each domain's reload() re-derives and re-announces the
+   * effective set. Failure is recorded but never fatal — the tools registered
+   * above are still real.
+   */
+  private async announceSurface(): Promise<string[]> {
+    const steps: Array<[string, () => Promise<unknown>]> = [
+      ["tools", async () => (this.ctx.tool as any).reload?.()],
+      ["commands", async () => (this.ctx.command as any).reload?.()],
+      ["skills", async () => (this.ctx.skill as any).reload?.()],
+      ["agents", async () => (this.ctx.agent as any).reload?.()],
+    ]
+    const failed: string[] = []
+    for (const [surface, run] of steps) {
+      try {
+        await run()
+      } catch (error) {
+        failed.push(surface)
+        this.store.ledger("_errors", { type: "surface-reload-failed", surface, error: String(error) })
+      }
+    }
+    return failed
   }
 
   /**
@@ -294,6 +347,142 @@ export class GoalApp {
       }
       this.runs.set(state.sessionID, state)
     }
+  }
+
+  // ───────────────────────────── T173: disk-backed reads
+
+  /** The run.json on disk, or undefined when absent or unreadable. A read must
+   *  never throw because one goal folder is torn. */
+  private diskRun(slug: string, options: { archived?: boolean } = {}): RunState | undefined {
+    try { return this.store.readRun(slug, options) } catch { return undefined }
+  }
+
+  /** True when the in-memory copy is current: the same generation the disk
+   *  holds and not older than it. A changed runId or lock means memory is a
+   *  stale generation; a newer disk write within one generation means memory
+   *  missed it. Otherwise memory wins (it may carry a mid-turn field that has
+   *  not been persisted yet). */
+  private fresh(state: RunState | undefined): boolean {
+    if (!state) return false
+    const disk = this.diskRun(state.slug)
+    if (!disk) return true
+    if (disk.runId !== state.runId || disk.lock !== state.lock) return false
+    return this.recency(disk) <= this.recency(state)
+  }
+
+  /** T072 rule shared by every read path: a terminal in-memory sibling never
+   *  shadows a live run. */
+  private shadowSafe(memory: RunState, disk: RunState): boolean {
+    return !isTerminal(memory.status) && isTerminal(disk.status)
+  }
+
+  private recency(state: RunState): number {
+    return Number(state.updatedAt ?? state.createdAt ?? 0)
+  }
+
+  /** The disk run that names this session, preferring a live generation and
+   *  then the most recently touched one. One session can own several goals
+   *  over time; a finished sibling must not shadow the current run. */
+  private findRunForSession(sessionID: string): RunState | undefined {
+    let best: RunState | undefined
+    for (const slug of this.store.slugs()) {
+      const disk = this.diskRun(slug)
+      if (!disk || disk.sessionID !== sessionID) continue
+      if (!best) { best = disk; continue }
+      const bestLive = !isTerminal(best.status), diskLive = !isTerminal(disk.status)
+      if (bestLive !== diskLive) { if (diskLive) best = disk; continue }
+      if (this.recency(disk) > this.recency(best)) best = disk
+    }
+    return best
+  }
+
+  /** T173: resolve THIS session's run for a READ. Memory wins only when it is
+   *  the generation on disk; an empty or stale memory falls back to disk. The
+   *  lookup mutates nothing — no ledger write, no run.json write, no resume
+   *  decision. Write paths adopt explicitly through adopt() after their guards. */
+  private stateFor(sessionID: string | undefined): RunState | undefined {
+    if (!sessionID) return undefined
+    const held = this.runs.get(sessionID)
+    if (!held) return this.findRunForSession(sessionID)
+    if (this.fresh(held)) return held
+    const disk = this.diskRun(held.slug)
+    if (disk && this.shadowSafe(held, disk)) return held
+    return this.findRunForSession(sessionID)
+  }
+
+  /** Read a run by its exact generation: memory when it is that generation,
+   *  otherwise the disk copy. Never bypasses a guard. */
+  private runOf(slug: string, runId: string | undefined): RunState | undefined {
+    const held = [...this.runs.values()].find((s) => s.slug === slug && s.runId === runId)
+    if (held && this.fresh(held)) return held
+    const disk = this.diskRun(slug)
+    return disk?.runId === runId ? disk : held
+  }
+
+  /** The project's live run for a slug, from memory when it is current and
+   *  from disk otherwise. */
+  private liveRunOf(slug: string): RunState | undefined {
+    const held = [...this.runs.values()].find((s) => s.slug === slug && !isTerminal(s.status))
+    const disk = this.diskRun(slug)
+    if (disk && !isTerminal(disk.status) && (!held || disk.runId !== held.runId || disk.lock !== held.lock)) return disk
+    return held ?? (disk && !isTerminal(disk.status) ? disk : undefined)
+  }
+
+  /** A write path resolved this run from disk and its guards passed; mirror it
+   *  so the rest of the engine (hooks, continuation) sees the same object. It
+   *  never replaces another live generation of the same session. */
+  private adopt(state: RunState): boolean {
+    const held = this.runs.get(state.sessionID)
+    if (held === state) return true
+    if (held?.runId === state.runId && held.lock === state.lock) return true
+    // A same-run amendment changed the lock: replace the stale object. A
+    // different generation may replace only a terminal sibling.
+    if (held && held.runId !== state.runId && !isTerminal(held.status)) return false
+    this.runs.set(state.sessionID, state)
+    return true
+  }
+
+  /** Mirror every goal folder into memory WITHOUT writing anything and without
+   *  taking a restart decision. This is the explicit reconcile path. */
+  private mirrorDisk(): Array<{ slug: string; sessionID: string; runId: string; status: Status; changed: boolean }> {
+    const out: Array<{ slug: string; sessionID: string; runId: string; status: Status; changed: boolean }> = []
+    for (const slug of this.store.slugs()) {
+      const disk = this.diskRun(slug)
+      if (!disk) continue
+      const held = this.runs.get(disk.sessionID)
+      const current = held === disk
+        || held?.runId === disk.runId && held.lock === disk.lock && this.recency(disk) <= this.recency(held)
+      if (current) {
+        const state = held ?? disk
+        out.push({ slug, sessionID: state.sessionID, runId: state.runId, status: state.status, changed: false })
+        continue
+      }
+      // A newer in-memory generation is never regressed to older disk bytes.
+      if (held && (this.shadowSafe(held, disk) || this.recency(held) > this.recency(disk))) {
+        out.push({ slug, sessionID: held.sessionID, runId: held.runId, status: held.status, changed: false })
+        continue
+      }
+      this.runs.set(disk.sessionID, disk)
+      out.push({ slug, sessionID: disk.sessionID, runId: disk.runId, status: disk.status, changed: true })
+    }
+    return out
+  }
+
+  /** The one supported reconcile (/goal reload): re-read disk, re-announce the
+   *  surface, and say what this server now sees. No disk writes, no resume. */
+  private async reconcile(sessionID: string): Promise<string> {
+    const mirrored = this.mirrorDisk()
+    const failed = await this.announceSurface()
+    const attached = mirrored.filter((m) => m.changed)
+    const here = this.stateFor(sessionID)
+    const lines = [
+      `Goal surface re-announced for this location${failed.length ? ` (${failed.join(", ")} reload reported a problem; the registered tools are real)` : ` (tools, commands, skills and agents)`}.`,
+      attached.length
+        ? `Mirrored ${attached.length} disk run(s) into this server: ${attached.map((m) => `${m.slug} (${m.status})`).join(", ")}. Nothing was written or resumed.`
+        : `No disk run needed mirroring; this server already holds ${mirrored.length} run(s).`,
+      here ? `This session: ${here.slug} — ${here.status}${here.lock ? ` · lock ${here.lock.slice(0, 12)}` : ""}.` : "This session has no goal bound to it.",
+    ]
+    return lines.join("\n")
   }
 
   /** T108: a run.json that is malformed or carries duplicate keys is never
@@ -1384,8 +1573,11 @@ export class GoalApp {
    * that includes `recover`, an in-policy difference is adopted directly. */
   private async recoverDivergence(sessionID: string, input: { slug: string; expectedLock: string }) {
     const outcome = await this.serial(async () => {
-      const state = [...this.runs.values()].find((s) => s.slug === input.slug && !isTerminal(s.status))
+      // T173: recovery is a read of disk state too — a hot-loaded engine must
+      // find the run from run.json, not require it to be mirrored in memory.
+      const state = this.liveRunOf(input.slug)
       if (!state) throw new Error("No live run for the selected goal")
+      if (!this.adopt(state)) throw new Error("The selected goal's session is running another goal; nothing recovered")
       if (state.lock !== input.expectedLock) throw new Error("Recovery targets a stale lock; re-read the selected goal")
       if (state.status === "verifying") throw new Error("The selected goal is verifying; wait for its verdict before recovering")
       if (this.amendmentReviews.all().some((p) => p.slug === state.slug && p.status === "executing")) throw new Error("An accepted amendment is committing; reload to recover it first")
@@ -3161,8 +3353,13 @@ export class GoalApp {
         this.emitUpdate(target)
         return { ok: true, message: `Goal "${target.slug}" attached to this session (${target.status}).` }
       }
-       let state = selected ? [...this.runs.values()].find((s) => s.slug === selected.slug && s.runId === selected.runId) ?? this.store.readRun(selected.slug) : this.runs.get(sessionID)
+       let state = selected ? this.runOf(selected.slug, selected.runId) : this.stateFor(sessionID)
        if (selected && !state) return { ok: false, message: "The selected goal has no live run to manage." }
+      // T173: an owner action may have resolved the generation from disk (a
+      // hot-load never witnessed it). Mirror it only now, after the action's
+      // own guards, so the continuation and hooks share one object.
+      if (state && !this.adopt(state) && this.runs.get(state.sessionID)?.runId !== state.runId)
+        return { ok: false, message: `Session ${state.sessionID} already owns a different live goal; nothing executed.` }
       if (!state) {
         // T049: goals escape their session. With no goal here, act on the
         // project's unique non-terminal goal, or the slug the owner names
@@ -3300,7 +3497,7 @@ export class GoalApp {
     const entries = Array.isArray(listed) ? listed : listed?.data ?? []
     const entry = entries.find((p: any) => p.id === "open-goal" || p.id === "opencode-goal")
     const source = entry?.source ?? { type: "unknown" }
-    const state = sessionID ? this.runs.get(sessionID) : undefined
+    const state = sessionID ? this.stateFor(sessionID) : undefined
     const result: RuntimeProvenance = {
       schema: "opencode-goal/provenance/v1", serverPID: process.pid,
       openCodeVersion: this.ctx.app.version, location: this.root,
@@ -3324,23 +3521,24 @@ export class GoalApp {
     const name = `${this.options.verifierAgent}-${createHash("sha256").update(roots.join("\n")).digest("hex").slice(0, 10)}`
     if (this.scopedVerifierAgents.has(name)) return name
     const variants = (root: string) => { const plain = root.replace(/^\/private(?=\/(?:var|tmp)\/)/, ""); return /^\/(?:var|tmp)\//.test(plain) ? [plain, `/private${plain}`] : [root] }
+    const grant = (list: any[], entry: any) => {
+      if (!list.some((p) => p?.action === entry.action && p?.resource === entry.resource && p?.effect === entry.effect)) list.push(entry)
+    }
     this.registrations.push(await this.ctx.agent.transform((editor: any) => {
       editor.update(name, (agent: any) => {
         agent.name = "Goal verifier (scoped)"
         agent.description = "Independent read-only verifier with owner-listed extra read roots."
         agent.mode = "subagent"
         agent.hidden = true
-        agent.permissions.push(
-          { action: "*", resource: "*", effect: "deny" },
-          { action: "read", resource: "*", effect: "allow" },
-          { action: "glob", resource: "*", effect: "allow" },
-          { action: "grep", resource: "*", effect: "allow" },
-          { action: "goal_verdict", resource: "*", effect: "allow" },
-          ...roots.flatMap((root) => variants(root).flatMap((path) => [
-            { action: "external_directory", resource: path, effect: "allow" },
-            { action: "external_directory", resource: `${path}/*`, effect: "allow" },
-          ])),
-        )
+        grant(agent.permissions, { action: "*", resource: "*", effect: "deny" })
+        grant(agent.permissions, { action: "read", resource: "*", effect: "allow" })
+        grant(agent.permissions, { action: "glob", resource: "*", effect: "allow" })
+        grant(agent.permissions, { action: "grep", resource: "*", effect: "allow" })
+        grant(agent.permissions, { action: "goal_verdict", resource: "*", effect: "allow" })
+        for (const entry of roots.flatMap((root) => variants(root).flatMap((path) => [
+          { action: "external_directory", resource: path, effect: "allow" },
+          { action: "external_directory", resource: `${path}/*`, effect: "allow" },
+        ]))) grant(agent.permissions, entry)
       })
     }))
     this.scopedVerifierAgents.add(name)
@@ -3349,6 +3547,12 @@ export class GoalApp {
 
   private async registerAgents() {
     const name = this.options.verifierAgent
+    // T173: setup can run more than once and announceSurface() reloads agents,
+    // which re-runs this transform. Granting the same permission twice would
+    // grow the list without changing the effective policy.
+    const grant = (list: any[], entry: any) => {
+      if (!list.some((p) => p?.action === entry.action && p?.resource === entry.resource && p?.effect === entry.effect)) list.push(entry)
+    }
     this.registrations.push(
       await this.ctx.agent.transform((editor: any) => {
         editor.update(name, (agent: any) => {
@@ -3356,17 +3560,15 @@ export class GoalApp {
           agent.description = "Independent read-only verifier for goal completion claims."
           agent.mode = "subagent"
           agent.hidden = true
-          agent.permissions.push(
-            { action: "*", resource: "*", effect: "deny" },
-            { action: "read", resource: "*", effect: "allow" },
-            { action: "glob", resource: "*", effect: "allow" },
-            { action: "grep", resource: "*", effect: "allow" },
-            { action: "goal_verdict", resource: "*", effect: "allow" },
-          )
+          grant(agent.permissions, { action: "*", resource: "*", effect: "deny" })
+          grant(agent.permissions, { action: "read", resource: "*", effect: "allow" })
+          grant(agent.permissions, { action: "glob", resource: "*", effect: "allow" })
+          grant(agent.permissions, { action: "grep", resource: "*", effect: "allow" })
+          grant(agent.permissions, { action: "goal_verdict", resource: "*", effect: "allow" })
         })
         for (const agent of editor.list()) {
           if (String(agent.id) === name || String(agent.id).startsWith(`${name}-`)) continue
-          editor.update(String(agent.id), (item: any) => item.permissions.push({ action: "goal_verdict", resource: "*", effect: "deny" }))
+          editor.update(String(agent.id), (item: any) => grant(item.permissions, { action: "goal_verdict", resource: "*", effect: "deny" }))
         }
       }),
     )
@@ -3471,7 +3673,7 @@ export class GoalApp {
     switch (sub) {
       case "":
       case "status": {
-        const state = this.runs.get(sessionID)
+        const state = this.stateFor(sessionID)
         if (!state) return say(this.listText() || "No goal in this session. /goal new <what you want> writes one; /goal start <slug> runs an existing one.")
         void this.rpc?.events.emit("notice", { sessionID, level: "info", text: this.statusText(state), panel: true }).catch(() => {})
         return
@@ -3486,6 +3688,13 @@ export class GoalApp {
             ? `${archived.length} archived goal(s): ${archived.map((g) => g.slug).join(", ")} (/goal list all)`
             : ""
         return say([live, archivedText].filter(Boolean).join("\n"))
+      }
+      case "reload":
+      case "reconcile": {
+        // T173: the explicit, supported reconcile. A hot-load can leave a
+        // pre-existing session without its surface or with stale memory; this
+        // re-announces the surface and mirrors disk without a service restart.
+        return say(await this.reconcile(sessionID), "success")
       }
       case "new":
       case "write": {
@@ -3626,7 +3835,7 @@ export class GoalApp {
   }
 
   private async goalIntent(sessionID: string, text: string) {
-    const state = this.runs.get(sessionID)
+    const state = this.stateFor(sessionID)
     const inventory = this.list().map((g) => ({ slug: g.slug, title: g.title, status: g.status, sessionID: g.sessionID }))
     const prompt = [
       "Goal entry — interpret the owner's intent, not merely the first word.",
@@ -3711,7 +3920,7 @@ export class GoalApp {
         }
         return { ok: false, message: "This selected goal is read-only (draft, archived or invalid); review/launch a valid draft instead." }
       }
-      const state = [...this.runs.values()].find((s) => s.slug === selected.slug && s.runId === selected.runId) ?? this.store.readRun(selected.slug)
+      const state = selected ? this.runOf(selected.slug, selected.runId) : this.stateFor(sessionID)
       if (!state) return { ok: false, message: "The selected run is unavailable; no other goal was used as a fallback." }
       const unavailable = action === "attach" ? !selected.attachable ? "Only a stopped live goal can attach." : undefined : ownerCan(state, action)
       if (unavailable) return { ok: false, message: unavailable }
@@ -3847,7 +4056,7 @@ export class GoalApp {
     // R5 + S3: render the contract into every request for sessions with a live goal.
     this.registrations.push(
       await this.ctx.session.hook("context", (event: any) => {
-        const state = this.runs.get(event.sessionID)
+        const state = this.stateFor(event.sessionID)
         if (!state || isTerminal(state.status) || state.status === "aborted") return
         const contract = this.contractOf(state)
         if (!contract) return
@@ -3867,7 +4076,7 @@ export class GoalApp {
     )
     this.registrations.push(
       await this.ctx.session.hook("compaction", (event: any) => {
-        const state = this.runs.get(event.sessionID)
+        const state = this.stateFor(event.sessionID)
         const contract = state && this.contractOf(state)
         if (!state || !contract || isTerminal(state.status)) return
         event.system.push({ type: "text", text: `${renderSystemBlock(contract, state.lock)}\n\nPreserve in the summary: the goal "${contract.title}" is ${state.status}; progress so far: ${state.progress?.note ?? "none recorded"}; next: ${state.progress?.next ?? "continue the plan"}.` })
@@ -3908,7 +4117,7 @@ export class GoalApp {
       const registration: any = await (this.ctx.rpc as any).register(GoalRpc, {
         provenance: async (input: { sessionID?: string }) => this.provenance(input.sessionID),
         snapshot: async (input: { sessionID: string }) => {
-          const state = this.runs.get(input.sessionID)
+          const state = this.stateFor(input.sessionID)
           const launches = this.launches.all(input.sessionID).map(launchView)
           return { view: state ? (this.view(state) ?? null) : null, launches }
         },
@@ -3948,6 +4157,9 @@ export class GoalApp {
       options: { namespace: "goal", codemode: false, ...extra },
       input: { type: "object", additionalProperties: false, ...input },
       execute: async (args: any, context: any) => {
+        // T173: nothing may act on a half-recovered engine. Tools are only
+        // registered after recovery, so this is a second lock, not the gate.
+        if (!this.ready) throw new Error("The goal engine is not ready to act: it is still recovering this project's runs, or shutting down. Nothing was changed.")
         const out = await execute(args ?? {}, context)
         return typeof out === "string" ? { content: out } : { content: json(out), metadata: out }
       },
@@ -3978,7 +4190,9 @@ export class GoalApp {
       tool("prepare_launch", "Validate and stage an exact goal contract for native owner review and same/fresh-session launch. Runs the project goal inventory + intent/outcome triage first and refuses a duplicate as continue/repair/consolidate with the existing goal/run/lock named; only genuinely new work reaches owner review. The host executes the owner's choice directly, including after reload or an interrupted question result. Preparation is not permission to start or approve yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, fresh: { type: "boolean" } }, required: ["slug"] }, async (args, context) => this.prepareLaunch(context.sessionID, String(args.slug), args.fresh === true)),
       tool("provenance", "Report the actual server PID, location, installed Git revision and loaded server/UI/skill artifact hashes for this goal session. Never substitute an unscoped shared-service or newest-cache lookup for this evidence.", { properties: {} }, async (_args, context) => ({ ...await this.provenance(context.sessionID) })),
       tool("status", "Show the active goal: status, criteria board, plan, budget, last verdict. Cheap; use it after a compaction or when unsure what remains.", { properties: {} }, async (_args, context) => {
-        const state = forSession(context)
+        // T173: after a hot-load this process may never have witnessed the run.
+        // The read resolves from disk instead of claiming no goal is running.
+        const state = this.stateFor(context.sessionID)
         if (!state) return "No goal is running in this session."
         return this.view(state) ?? { status: state.status }
       }),

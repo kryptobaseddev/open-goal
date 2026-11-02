@@ -18,6 +18,7 @@ export function goalHelp({ version }: HelpFacts): string {
     "- `/goal archive` — demote a finished goal to .opencode/goals-archive/ (never deleted)",
     "- `/goal approve <C#>` · `/goal reject <C#> <why>` — owner sign-off for human criteria",
     "- `/goal validate <slug>` · `/goal list [all]` — validate a contract; list live (or +archived) goals",
+    "- `/goal reload` — after a plugin hot-load: re-announce the tool/command surface and mirror disk runs into this server; writes nothing and resumes nothing",
     "- `/goal cleo [install|init|sync]` — probe the CLEO CLI and this project's .cleo workspace (initialized / uninitialized / CLI absent); `install` and `init` run the exact documented command only on your explicit choice, never silently and never with sudo",
     "",
     "## Worker tools (the agent in the loop)",

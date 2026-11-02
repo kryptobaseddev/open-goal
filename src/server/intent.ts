@@ -14,6 +14,8 @@ export function directGoalCommand(text: string, slugs: readonly string[]): boole
     case "validate": case "pause": case "resume": case "abort": case "verify": case "archive": case "attach": case "revert":
       return !arg || rest.length === 1 && named(rest[0]!)
     case "cleo": return true
+    // T173: the supported reconcile after a plugin hot-load.
+    case "reload": case "reconcile": return !arg
     case "amend": return !arg || arg === "confirm" || rest.length === 1 && named(rest[0]!)
     case "approve": return /^C\d+(?:\s+[a-z0-9-]+)?$/i.test(arg)
     case "reject": return /^C\d+(?:\s|$)/i.test(arg)

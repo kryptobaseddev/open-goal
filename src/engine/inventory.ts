@@ -10,6 +10,22 @@ import { launchView, type LaunchRequest } from "./launches"
 
 const readableRun = (value?: RunState): value is RunState => !!value && typeof value.slug === "string" && typeof value.runId === "string" && typeof value.lock === "string" && typeof value.sessionID === "string" && typeof value.status === "string" && !!value.criteria && typeof value.criteria === "object" && !Array.isArray(value.criteria) && !!value.steps && typeof value.steps === "object"
 
+/** T173: memory is a cache of the run; run.json is the truth a reload must be
+ * able to serve. An in-memory copy is stale when the disk generation (runId or
+ * lock) differs, or when the disk wrote later within the same generation. A
+ * terminal in-memory sibling never shadows a live disk run (the T072 rule). */
+export function preferredRun(disk: RunState | undefined, memory: RunState | undefined): RunState | undefined {
+  if (!disk) return memory
+  if (!memory) return disk
+  if (disk.runId === memory.runId && disk.lock === memory.lock) {
+    // Same generation: a disk write newer than memory means memory is the
+    // stale copy; equal or older keeps memory, which may be mid-turn.
+    return Number(disk.updatedAt ?? 0) > Number(memory.updatedAt ?? 0) ? disk : memory
+  }
+  if (!isTerminal(memory.status) && isTerminal(disk.status)) return memory
+  return disk
+}
+
 /** Project-local, source-of-truth inventory. Archives are READ ONLY. The
  * machine registry and CLEO task tree are not a substitute for goal folders. */
 export function projectInventory(store: Store, live: Iterable<RunState> = [], options: { detailsForKey?: string; launches?: LaunchRequest[] } = {}): GoalSummary[] {
@@ -22,7 +38,7 @@ export function projectInventory(store: Store, live: Iterable<RunState> = [], op
       let read: ReturnType<Store["readContract"]> = undefined
       try { read = store.readContract(slug, { archived }) } catch { issues.push("Contract could not be read") }
       for (const i of read?.issues ?? []) if (i.level === "error") issues.push(`${i.path}: ${i.message}`)
-      const saved = !archived ? liveBySlug.get(slug) ?? store.readRun(slug) : store.readRun(slug, { archived: true })
+      const saved = !archived ? preferredRun(store.readRun(slug), liveBySlug.get(slug)) : store.readRun(slug, { archived: true })
       const run = readableRun(saved) ? saved : undefined
       if (existsSync(join(dir, "run.json")) && !run) issues.push("Run state is unreadable; status/progress/session cannot be inferred")
       let contract: Contract | undefined = read?.contract
