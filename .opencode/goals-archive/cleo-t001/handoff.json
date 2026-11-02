@@ -1,0 +1,40 @@
+{
+  "schema": "opencode-goal/handoff/v1",
+  "generatedAt": "2026-10-17T05:28:50.897Z",
+  "slug": "cleo-t001",
+  "title": "opencode-goal: goal mode for OpenCode 2",
+  "fromSessionID": "ses_eb82b0d09ffeS3UJBJeRLw1idx",
+  "toSessionID": "ses_eb7aa6d24ffeFHv9JyyeiljOmI",
+  "prior": {
+    "slug": "proactive-continuation",
+    "runId": "147dfba0e001",
+    "lock": "6c7020ff9443ba49a4ea814f197c66ec2f98703374febbe1f2be403da51fb984",
+    "status": "complete",
+    "turn": 2,
+    "evidence": ".opencode/goals/proactive-continuation/evidence/147dfba0e001/"
+  },
+  "repo": {
+    "head": "91140ea11f5bf0266b6f093596c10726cb37a1a8",
+    "branch": "main",
+    "dirty": [
+      "?? .opencode/dogfood/"
+    ]
+  },
+  "baseline": [],
+  "nextAction": {
+    "step": "S1",
+    "title": "Complete T001 and prove its acceptance"
+  },
+  "authority": {
+    "trust": [
+      "goal.yaml (the locked contract)",
+      "docs/HANDOFF-v0.8.0.md"
+    ],
+    "stale": [
+      "docs/HANDOFF.md (its historical body; read the current-state banner before trusting it)"
+    ]
+  },
+  "evidence": [
+    ".opencode/goals/cleo-t001/evidence/14855957d001/"
+  ]
+}

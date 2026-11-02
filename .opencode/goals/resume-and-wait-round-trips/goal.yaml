@@ -1,0 +1,78 @@
+schema: goal/v1
+id: resume-and-wait-round-trips
+title: 'v0.4.7: owner resume and waiting round-trips are immediate and exactly-once'
+priority: high
+intent:
+  verbatim: "Also carried forward, not re-filed: T091/T092 (resume and wait round-trips) already exist, and I have a validated, unlaunched contract for them at .opencode/goals/resume-and-wait-round-trips/ - you redirected that round to the run-state work. [next-goal interview 2026-10-15: chose Resume + wait round-trips (T091/T092); red-first tests + patch release; Patch v0.4.7; own-run busy resume + the goal-less case; boundaries as listed.]"
+outcome: A new immutable v0.4.7 patch is published and actually loaded in this goal session, in which an owner resume during a busy turn takes effect immediately (the run is running, exactly one resumed receipt is journalled and the published snapshot reflects it, with no double admission), the existing deferral carve-outs still hold for a pending native form, a cross-session target, a terminal run and worker-sent consent, and a waiting goal's claim or expired wait drains exactly once behind a busy owner turn without stranding.
+why: 'T091 and T092 were filed against two live control-flow gaps the owner hit: a resume that only takes effect after the busy turn ends, and waits/claims that can be stranded or double-admitted when a busy turn overlaps a wait wakeup. The deferral carve-outs are load-bearing authority guards, so the fix must be exactly-once, not looser.'
+scope:
+  in: [src/server/app.ts, src/engine/state.ts, src/contract/render.ts, test/host, docs/research, CHANGELOG.md, package.json]
+  out: [other projects' production state, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - The completed v0.4.6 run or any completed goal run and its history
+  - The T093-T098 decision and amendment round-trip cluster
+  - Editing production goal state, receipts, locks, criteria, protected oracles, provider/permission settings or an existing immutable tag
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay authority guards
+  - Changing when owner commands are deferred beyond resume and wait
+  - Any release other than the single v0.4.7 patch
+criteria:
+  - id: C1
+    statement: WHEN the owner resumes their own run during a busy turn THE run SHALL be running without waiting for the turn to end, exactly one resumed receipt SHALL be journalled, and the published snapshot SHALL show the running status with no second admission
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/resume-busy-turn.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C2
+    statement: WHEN a resume targets a run behind a pending native form, a cross-session target, a terminal run, or is sent by the worker THE command SHALL stay deferred or refused exactly as today, and none of those cases SHALL admit the run
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/resume-deferral-cases.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C3
+    statement: WHEN a wait expires during a busy owner turn THE run SHALL drain exactly one continue admission afterwards, and WHEN a claim ends a wait THE obsolete wait wakeup SHALL be cancelled
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/wait-drain-round-trip.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C4
+    statement: WHEN a waiting run's claim is processed behind a busy owner turn THE host SHALL verify exactly once and admit at most one continuation
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/claim-behind-busy-turn.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C5
+    statement: A patch newer than v0.4.6 SHALL be immutably published and actually loaded by this exact goal session before its completing round, with matching installed revision and artifact hashes
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.4.7 --assert-release', expect: {exit: 0}, timeout: 120}
+  - id: C6
+    statement: The new resume and wait round-trip tests SHALL pass from the immutable v0.4.7 tag installed by OpenCode
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/resume-busy-turn.test.ts test/host/resume-deferral-cases.test.ts test/host/wait-drain-round-trip.test.ts test/host/claim-behind-busy-turn.test.ts', expect: {exit: 0}, timeout: 1800}
+invariants:
+  - id: I1
+    statement: The existing owner-resume, busy-owner-resume, command-ack, waiting-completion and lifecycle-authority host suites SHALL CONTINUE TO pass without oracle edits
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/owner-resume.test.ts test/host/busy-owner-resume.test.ts test/host/command-ack.test.ts test/host/waiting-completion.test.ts test/host/lifecycle-authority.test.ts', timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/owner-resume.test.ts
+  - test/host/busy-owner-resume.test.ts
+  - test/host/command-ack.test.ts
+  - test/host/waiting-completion.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/harness.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: 'Red-first author failing host tests for the busy resume, the deferral carve-outs, the wait drain and the claim behind a busy turn', proves: []}
+  - {id: S2, title: Immediate own-run busy resume with one receipt and a published snapshot, proves: [C1], depends_on: [S1]}
+  - {id: S3, title: Keep the pending-form, cross-session, terminal and worker-consent deferrals exact, proves: [C2], depends_on: [S1]}
+  - {id: S4, title: Drain waits and claims exactly once behind a busy turn; cancel the obsolete wait wakeup, proves: [C3, C4], depends_on: [S1]}
+  - {id: S5, title: Publish v0.4.7 and prove it loaded in this session, proves: [C5, C6], depends_on: [S2, S3, S4]}
+assumptions:
+  - {id: A1, text: The release is a single new immutable v0.4.7 patch using the project's existing recipe; no old tag is moved and no contract schema changes., rationale: Owner chose a patch; the changes are timing fixes inside the existing contract., reversible: true}
+  - {id: A2, text: Only EXISTING oracles are protected; the four new red-first tests are left unprotected so the worker can author them., rationale: The v0.4.6 run was impossible as written because protect listed the tests the worker had to create., reversible: true}
+  - {id: A3, text: Exactly one receipt means one resumed ledger event and one admission for that resume; the test reads the ledger and the rpc snapshot., rationale: The ledger is the authoritative, already-tested record of owner actions., reversible: true}
+  - {id: A4, text: The published snapshot is the rpc snapshot view; an immediate busy resume must emit it rather than only persisting., rationale: T091 observed that the resume case persists but does not publish, so a busy resume can be invisible to the TUI., reversible: true}
+  - {id: A5, text: The goal-less/cross-session cases keep today's deferral rather than a new policy., rationale: Owner chose the reviewed draft scope; changing deferral breadth is a non-goal., reversible: true}
+stop:
+  escalate_when:
+    - A fix requires weakening owner, exact-target, expiry, cross-session or once-only replay guards
+    - Recovery requires editing production goal state, receipts, locks, protected oracles, providers, permissions or an existing immutable tag
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+    - The fix needs a deferral-policy change beyond resume and wait
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

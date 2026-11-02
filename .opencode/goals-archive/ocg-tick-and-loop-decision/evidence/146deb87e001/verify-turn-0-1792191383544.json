@@ -1,0 +1,68 @@
+{
+  "source": "owner",
+  "claim": null,
+  "outcome": {
+    "passed": true,
+    "needsHuman": [],
+    "results": [
+      {
+        "id": "C1",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 0.8s"
+      },
+      {
+        "id": "C2",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 0.8s"
+      },
+      {
+        "id": "C4",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 0.2s"
+      },
+      {
+        "id": "C5",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 1.3s"
+      },
+      {
+        "id": "C6",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 1.1s"
+      },
+      {
+        "id": "I1",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 33.0s"
+      },
+      {
+        "id": "I2",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 3.8s"
+      },
+      {
+        "id": "C3",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 8 quote(s)"
+      },
+      {
+        "id": "C7",
+        "pass": true,
+        "by": "human",
+        "detail": "approved by the owner"
+      }
+    ],
+    "integrity": [],
+    "lines": [
+      "All required criteria passed."
+    ]
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "pass": true,
+  "before": {
+    "version": 1,
+    "slug": "qa-manager-one",
+    "title": "qa-manager-one",
+    "sessionID": "ses_eb943ab3effefdquBH0drbgaHk",
+    "runId": "146bc5643001",
+    "lock": "bf82f2a7e138c31f833d7dd4db58caf95acecd4c9dbb7b9d766821b841982f5d",
+    "status": "paused",
+    "createdAt": 1792188110414,
+    "updatedAt": 1792188147379,
+    "turn": 1,
+    "activeMs": 36965,
+    "activeSince": null,
+    "usage": {
+      "tokens": 16298,
+      "cost": 0.004067364,
+      "baseTokens": 6857,
+      "baseCost": 0.0012039479999999998
+    },
+    "base": {
+      "commit": "d92a7ad01c88228c356a2b8e6c8f1b84d17e6afe"
+    },
+    "counters": {
+      "noProgress": 0,
+      "failures": 0
+    },
+    "wrapup": false,
+    "criteria": {
+      "C1": {
+        "status": "unknown",
+        "rejections": 0
+      },
+      "C2": {
+        "status": "unknown",
+        "rejections": 0
+      }
+    },
+    "steps": {},
+    "turnFacts": {
+      "tools": 0,
+      "goalCalls": 0,
+      "stepsChanged": false,
+      "progressRecorded": false
+    },
+    "steers": 0,
+    "compacted": false,
+    "flags": [],
+    "amendments": [],
+    "fingerprint": "89a1bbbc593b5d2861d4",
+    "lastUsageEmit": 1792188127339,
+    "progress": {
+      "note": "Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk.",
+      "next": "Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold.",
+      "at": 1792188123298,
+      "turn": 1
+    },
+    "reason": "paused by you"
+  },
+  "after": {
+    "version": 1,
+    "slug": "qa-manager-one",
+    "title": "qa-manager-one",
+    "sessionID": "ses_eb943ab3effefdquBH0drbgaHk",
+    "runId": "146bc5643001",
+    "lock": "bf82f2a7e138c31f833d7dd4db58caf95acecd4c9dbb7b9d766821b841982f5d",
+    "status": "waiting",
+    "createdAt": 1792188110414,
+    "updatedAt": 1792188165001,
+    "turn": 1,
+    "activeMs": 45263,
+    "activeSince": 1792188165001,
+    "usage": {
+      "tokens": 27304,
+      "cost": 0.007187664,
+      "baseTokens": 6857,
+      "baseCost": 0.0012039479999999998
+    },
+    "base": {
+      "commit": "d92a7ad01c88228c356a2b8e6c8f1b84d17e6afe"
+    },
+    "counters": {
+      "noProgress": 0,
+      "failures": 0
+    },
+    "wrapup": false,
+    "criteria": {
+      "C1": {
+        "status": "unknown",
+        "rejections": 0
+      },
+      "C2": {
+        "status": "unknown",
+        "rejections": 0
+      }
+    },
+    "steps": {},
+    "turnFacts": {
+      "tools": 0,
+      "goalCalls": 0,
+      "stepsChanged": false,
+      "progressRecorded": false
+    },
+    "steers": 0,
+    "compacted": false,
+    "flags": [],
+    "amendments": [],
+    "fingerprint": "1bb30b5663c8aa2dec6e",
+    "activity": {
+      "kind": "waiting",
+      "since": 1792188165001,
+      "until": 1792188462813,
+      "detail": "Contract constraint: after writing manager-one.txt, always call goal_wait for 300 seconds and do not claim during this inspection."
+    },
+    "lastUsageEmit": 1792188164964,
+    "progress": {
+      "note": "Resumed run 146bc5643001; re-verified manager-one.txt exists at repo root and contains \"status: ok\" (cat). C1/C2 still hold on disk.",
+      "next": "Per constraint, do not claim during inspection: call goal_wait 300s and hold; re-check state after resume.",
+      "at": 1792188161320,
+      "turn": 1
+    },
+    "wait": {
+      "until": 1792188462813,
+      "reason": "Contract constraint: after writing manager-one.txt, always call goal_wait for 300 seconds and do not claim during this inspection."
+    },
+    "reason": "Contract constraint: after writing manager-one.txt, always call goal_wait for 300 seconds and do not claim during this inspection."
+  },
+  "ownerMessageID": "msg_146bcfacc001MvB7df3icPCozf",
+  "consumption": {
+    "t": 1792188156702,
+    "type": "owner-message-consumed",
+    "ownerMessageID": "msg_146bcfacc001MvB7df3icPCozf",
+    "decisionId": "5658286d-278d-489a-8e12-452dd5dfa63e",
+    "actorSessionID": "ses_eb943ab3effefdquBH0drbgaHk",
+    "targetRunId": "146bc5643001",
+    "lock": "bf82f2a7e138c31f833d7dd4db58caf95acecd4c9dbb7b9d766821b841982f5d",
+    "action": "resume"
+  },
+  "resolution": {
+    "t": 1792188156740,
+    "type": "decision-resolved",
+    "decision": "5658286d-278d-489a-8e12-452dd5dfa63e",
+    "kind": "owner-operation",
+    "action": "resume",
+    "via": "owner-message",
+    "ok": true,
+    "message": "Goal resumed: qa-manager-one — /goal status · /goal pause"
+  },
+  "forms": [],
+  "automatedQATestOwner": true,
+  "providerIsFixture": false
+}

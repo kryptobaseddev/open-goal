@@ -1,0 +1,100 @@
+schema: goal/v1
+id: unblock-divergent-goals-and-verifier-timeouts
+title: 'Recover divergent contracts, owner-set agent autonomy, diagnosable verifier'
+priority: high
+intent:
+  verbatim: |
+    Still not fixed:
+    1. release-lane-completion is still blocked. Its goal file on disk says timeout 900, but the locked contract says 600. Something changed the file outside the engine; axiom thinks it was its earlier, now-dead session. The amendment proposing that change was never accepted. v0.3.15 correctly refuses to continue, and the engine has no supported way to recover from this yet. That's task T101, option 1 in my last message.
+    2. Verifier timeouts. The verifier can't read sibling project folders, and a timeout saves an empty transcript, so the cause isn't visible. Nothing has changed here yet.
+    3. Mixed-up goal names when launching in parallel. I couldn't reproduce it on the current OpenCode version (2.0.28), and the original records from 2.0.27 are missing. It's documented as unresolved, not fixed. Better information when the verifier times out. Today a timeout records an empty transcript, because the engine stops the verifier before saving its messages. The fix would save the transcript first and report the cause, such as being denied access to sibling folders. It's smaller and low-risk, but it doesn't unblock axiom's goal.
+    Additionally, we should be able to have the agent be more autonomous without having to engage the owner to fix or handle these amendments, changes, or any of the issues that modified the file.
+outcome: A new immutable opencode-goal release is published and loaded in this session. A goal whose disk contract is ahead of its lock has a supported recovery (owner review-and-pick, or automatic within an owner-set autonomy policy), and axiom-lab-dev's release-lane-completion is actually recovered through it. Agents apply in-policy amendments themselves without owner prompts, while criterion-weakening, oracle, scope, verification and policy changes still require the owner. Verifier timeouts keep their transcript and name the cause, and contracts may grant the verifier extra read-only folders. Parallel launch slugs are re-tested on the current OpenCode version with honest results.
+why: Axiom's goal is stuck on an unjournalled disk edit the engine cannot recover, routine amendments keep pulling the owner in, and verifier timeouts are undiagnosable.
+non_goals:
+  - Hand-editing any goal's lock, run status, review receipt, ledger or criterion proof (in this or another project) instead of a supported, journalled host operation
+  - Treating an old pending proposal, a byte match, or a relayed peer message as owner acceptance outside an owner-set policy
+  - Letting the agent weaken or remove a criterion, change a check, edit protected paths, widen scope, change verification mode, or grant/extend its own autonomy policy
+  - Giving the verifier write access, network access, or any read path the contract does not list
+  - Changing global provider/permission configuration or moving any existing release tag
+  - Claiming parallel slug mix-ups fixed without a reproduction
+scope:
+  in: [src, test, docs/research, skills/write-goal, CHANGELOG.md, package.json, bounded release and installed proof, axiom release-lane-completion via supported recovery operations only]
+  out: [global provider and permission configuration, existing immutable tags, other projects' goals except release-lane-completion]
+constraints:
+  - Every agent-applied amendment or recovery is journalled before it takes effect, visible in status and banner, and reversible by the owner
+  - Recovery shows the exact disk vs locked difference and last-writer provenance, with unknowns marked
+criteria:
+  - id: C1
+    statement: WHEN a goal's disk contract differs from its lock (including disk equal to an unaccepted proposal's nextLock with a dead author session) THE owner SHALL be able to review the exact difference and adopt the disk version as a new journalled generation or restore the locked version, from any live session of that project; no prior proposal or consent SHALL be counted.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/divergent-contract-recovery.test.ts', timeout: 1200}
+  - id: C2
+    statement: WHEN an owner-set autonomy policy allows a change class THE agent SHALL apply that amendment or divergence recovery itself without an owner prompt, journalled and reversible; out-of-policy changes SHALL be refused and routed to the owner, and the agent SHALL NOT set or extend its own policy.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/autonomy-policy.test.ts', timeout: 1200}
+  - id: C3
+    statement: WHEN a verifier round times out THE engine SHALL save the child transcript before ending it and the verdict SHALL name the cause (e.g. denied external_directory path); WHEN a contract lists extra verifier read paths THE verifier SHALL read only those, read-only.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/verifier-diagnostics.test.ts', timeout: 1200}
+  - id: C4
+    statement: Parallel launches on the currently installed OpenCode SHALL keep each call's own input slug and correlated output, and the findings SHALL record the OpenCode version tested and whether the historical mix-up reproduced.
+    check: {kind: command, run: 'OCGOAL_REPORTING_ORACLE=1 cleo run --wait --class test -- bun test test/host/lab-lifecycle-triage.test.ts', timeout: 1200}
+  - id: C5
+    statement: The new recovery, autonomy and verifier tests SHALL faithfully reproduce the reported shapes, have been red before the fix, and not have been weakened afterwards; guards stay separate from diagnostics.
+    check: {kind: verifier, ask: 'Read the new tests (divergent-contract-recovery, autonomy-policy, verifier-diagnostics), their git history and the changed src. Do they reproduce axiom''s exact shape (disk == unaccepted nextLock, no commit journal, dead author), the timeout-before-transcript bug and sibling external_directory denial? Is there a recorded red run before the fix and no later weakening? Are in-policy agent changes journalled/reversible, and are criterion-weakening, check, protect, scope, verification-mode and policy changes refused for the agent? Is verifier access limited to listed read-only paths? Is the parallel-slug result on the current OpenCode version recorded honestly in docs/research? Quote files.'}
+  - id: C6
+    statement: The published release SHALL pass the same new recovery, autonomy and verifier tests when installed by OpenCode from its immutable package-version tag.
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/divergent-contract-recovery.test.ts test/host/autonomy-policy.test.ts test/host/verifier-diagnostics.test.ts', timeout: 1800}
+  - id: C7
+    statement: A release newer than v0.3.15 SHALL be immutably published and actually loaded by this goal session, with matching Git revision, server, UI and skill hashes.
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.3.16 --assert-release', timeout: 120}
+  - id: C8
+    statement: Axiom-lab-dev's release-lane-completion SHALL be recovered through the new supported path (no hand edits) and able to continue or complete.
+    check: {kind: human, ask: 'Has release-lane-completion been recovered through the new supported recovery (adopt-disk or restore-locked, journalled), with axiom-lab-dev reporting it resumed or completed? Approve only if no lock/receipt/ledger was hand-edited.'}
+invariants:
+  - id: I1
+    statement: Existing exact-target, launch, Composer acceptance, owner-chat launch and amendment-prerequisite scenarios SHALL CONTINUE TO pass without oracle edits.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/target-bound-decisions.test.ts test/host/goal-launch-flow.test.ts test/host/composer-amendment.test.ts test/host/owner-chat-launch.test.ts test/host/amendment-resume-prerequisite.test.ts', timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass.
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/lab-lifecycle-triage.test.ts
+  - test/fixtures/lab-tool-boundary/**
+  - test/host/target-bound-decisions.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/composer-amendment.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/amendment-resume-prerequisite.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: Write red tests for divergence, autonomy policy and verifier timeout/read paths, proves: [C5]}
+  - {id: S2, title: Implement review-and-pick divergence recovery from any live project session, proves: [C1], depends_on: [S1]}
+  - {id: S3, title: Implement owner-set autonomy policy with journalled reversible agent changes, proves: [C2], depends_on: [S2]}
+  - {id: S4, title: Save transcript before timeout, name cause, add opt-in verifier read paths, proves: [C3], depends_on: [S1]}
+  - {id: S5, title: Re-run parallel slug oracle on current OpenCode and record findings, proves: [C4]}
+  - {id: S6, title: Publish immutable release and reinstall into this session, proves: [C6, C7], depends_on: [S2, S3, S4, S5]}
+  - {id: S7, title: Recover release-lane-completion with axiom via the supported path, proves: [C8], depends_on: [S6]}
+assumptions:
+  - id: A1
+    text: The release is the next immutable version at or above 0.3.16 (minor bump allowed for the new optional contract fields).
+    rationale: Policy and verifier read paths are additive optional schema fields; checks use a minimum version, never an exact string.
+    reversible: true
+  - id: A2
+    text: Adopting the disk version follows amendment semantics; proof resets only for criteria whose statement or check changed.
+    rationale: Matches existing amendment behaviour and keeps unchanged proof.
+    reversible: true
+  - id: A3
+    text: The autonomy policy is set by the owner (launch review or config), defaults to today's owner-only behaviour, and is outside the agent's reach.
+    rationale: Owner chose an owner-set policy; criteria, oracles, verdicts and the policy itself stay owner-only.
+    reversible: true
+  - id: A4
+    text: Current OpenCode version means the binary installed at run time (2.0.29 at recon).
+    rationale: Owner asked to test against the current version; 2.0.27 records remain missing.
+    reversible: true
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier}
+stop:
+  escalate_when:
+    - Recovery would require hand-editing a lock, run status, receipt, ledger or proof
+    - Axiom's recovery needs anything beyond the supported operation and the owner's pick
+    - The parallel slug mix-up reproduces and the fix needs an OpenCode core change
+    - A design would let the agent loosen its own criteria, oracles, verdict or policy

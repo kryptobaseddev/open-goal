@@ -1,0 +1,41 @@
+   Deployed Real-Model Manager   +
+                                                                                       █   Goals manager · this project  ┃                                                       ┃
+                                                                                       █    ▶ Close manager · F9: return ┃  MCP server needs authentication  › Open MCP servers  ┃
+                                                                                       █   Tab: focus · ↑↓: select · Ente┃                                                       ┃
+                                                                                       █    ▶ qa-manager-two             ┃  Connect "parallel-task" to use its tools.            ┃
+                                                                                       █      waiting · 0/2 proven       ┃                                                       ┃
+                                                                                       █      qa-manager-one
+                                                                                       █      waiting · 0/2 proven
+                                                                                       █      QA proof.txt contains the single line status ok
+                                                                                       █      paused · 0/3 proven
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+
+  ┃
+  ┃
+  ┃
+  ┃  Build auto · DeepSeek V4.1 Flash DeepSeek · high
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  /…/83wg9xhx…/T/opencode/real-model-goal-K7rG3s:main  shift+tab agents  ctrl+p commands

@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "slug": "cleo-t001",
+  "title": "opencode-goal: goal mode for OpenCode 2",
+  "sessionID": "ses_eb7aa6d24ffeFHv9JyyeiljOmI",
+  "runId": "14855957d001",
+  "lock": "5ade1bb045423939ead1cf05ad9c64d8720248a4fd0bfaa7026f948b6365be94",
+  "status": "complete",
+  "createdAt": 1792214930821,
+  "updatedAt": 1792252456683,
+  "turn": 2,
+  "activeMs": 1260302,
+  "activeSince": null,
+  "usage": {
+    "tokens": 702641,
+    "cost": 0.34230876599999965,
+    "baseTokens": 14542,
+    "baseCost": 0.0023617919999999997
+  },
+  "base": {
+    "commit": "91140ea11f5bf0266b6f093596c10726cb37a1a8"
+  },
+  "counters": {
+    "noProgress": 0,
+    "failures": 0
+  },
+  "wrapup": false,
+  "criteria": {
+    "C1": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 4 quote(s)",
+      "rejections": 0
+    },
+    "C2": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 4 quote(s)",
+      "rejections": 0
+    },
+    "C3": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 3 quote(s)",
+      "rejections": 0
+    },
+    "C4": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 3 quote(s)",
+      "rejections": 0
+    },
+    "C5": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 4 quote(s)",
+      "rejections": 0
+    },
+    "C6": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 3 quote(s)",
+      "rejections": 0
+    },
+    "C7": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 2 quote(s)",
+      "rejections": 0
+    },
+    "C8": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 2 quote(s)",
+      "rejections": 0
+    },
+    "C9": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792216191123,
+      "detail": "proven with 2 quote(s)",
+      "rejections": 0
+    }
+  },
+  "steps": {
+    "S1": "done"
+  },
+  "turnFacts": {
+    "tools": 348,
+    "goalCalls": 2,
+    "stepsChanged": true,
+    "progressRecorded": true
+  },
+  "steers": 0,
+  "compacted": false,
+  "flags": [],
+  "amendments": [],
+  "handoff": {
+    "fromSessionID": "ses_eb82b0d09ffeS3UJBJeRLw1idx",
+    "toSessionID": "ses_eb7aa6d24ffeFHv9JyyeiljOmI",
+    "agent": "build",
+    "model": {
+      "providerID": "deepseek",
+      "id": "deepseek-flash",
+      "variant": "high"
+    },
+    "file": "handoff.md"
+  },
+  "fingerprint": "42f43630f69d5923fece",
+  "lastUsageEmit": 1792252456683,
+  "progress": {
+    "note": "Added and committed docs/cleo-t001-completion.md with literal `cleo show`/`cleo list` captures (all five tasks done, zero pending children) and a dated pointer at the top of docs/dogfood-6.md; commit e2cc751.",
+    "next": "Re-claim with repository-visible completion receipts for C6, C8 and C9.",
+    "at": 1792216078836,
+    "turn": 2
+  },
+  "reason": "all required criteria verified",
+  "verdict": {
+    "at": 1792216191123,
+    "turn": 2,
+    "passed": true,
+    "lines": [
+      "All required criteria passed."
+    ]
+  }
+}

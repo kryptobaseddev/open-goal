@@ -1,0 +1,83 @@
+schema: goal/v1
+id: flaky-host-suite-reproduction
+title: 'The protected host suite is reproducible, and its flake is explained or fixed'
+priority: high
+intent:
+  verbatim: |
+    Chase the intermittent launch-test failure. The host's run of the protected suites failed once on
+    'a launch choice cannot approve contract bytes changed after the displayed review' (37 pass / 1 fail);
+    three identical re-runs passed 38/38 and the launch code was untouched by that goal's commits.
+    Owner decisions: stress first with no assumptions — reproduce under deliberate load before choosing a cause;
+    reproduce, fix, then five consecutive clean runs including one under parallel load; publish a release only
+    if src changes, otherwise the test-only fix stays on main.
+outcome: A committed, repeatable stress command exercises the protected host suite under deliberate concurrency and reports per-run outcomes. It has either reproduced the observed launch-suite failure with a captured artifact that names the mechanism, or recorded an explicit bound (load parameters and run count) with no fix claimed. If a cause is identified, it is fixed with a red-before/green-after test for that cause, and the protected suite then passes five consecutive full runs including one under parallel load. No protected oracle is edited and no authority guard changes.
+why: An intermittently failing protected test makes every future goal's I1 verdict unreliable; the last goal was failed once by an unexplained run.
+non_goals:
+  - Editing any protected oracle (goal-launch-flow.test.ts, target-bound-decisions.test.ts, composer-amendment.test.ts, owner-chat-launch.test.ts, amendment-resume-prerequisite.test.ts, lab-lifecycle-triage.test.ts, the lab-tool-boundary fixture, scripts/check-installed-goal.ts)
+  - Claiming a specific cause or a fix the evidence does not show, or weakening a test to make it pass
+  - Changing engine behaviour that no captured evidence ties to the observed failure
+  - Publishing a release when only test infrastructure changed
+  - Raising timeouts or retries in protected tests to paper over a race
+scope:
+  in: [test/host/harness.ts, test/host, test/fixtures, scripts, src only if captured evidence demands it, docs/research, CHANGELOG.md and package.json only when src changed]
+  out: [protected oracle files, global provider and permission configuration, existing immutable tags, other projects]
+constraints:
+  - Every cause claim must cite a captured run artifact (junit, host log, or recorded request trace)
+  - A fix for test infrastructure must not make a failing assertion pass by rerunning or waiting longer
+criteria:
+  - id: C1
+    statement: A committed stress command SHALL run the protected host suite under explicit, recorded concurrency and emit a machine-readable per-run outcome (pass, fail with test name, or harness error) without editing any protected file.
+    check: {kind: command, run: 'bun scripts/stress-host-suite.ts --runs 1 --concurrency 3 --report /dev/stdout', timeout: 2400}
+  - id: C2
+    statement: A single stress run SHALL complete and persist its artifacts (per-run outcomes plus retained host logs for any failure) under .tmp/verification/flake/.
+    check: {kind: command, run: 'bun scripts/stress-host-suite.ts --runs 3 --concurrency 3 --assert-artifacts', timeout: 2400}
+  - id: C3
+    statement: The findings document SHALL state, from the captured artifacts, either the reproduced failure with its mechanism, or an explicit not-reproduced bound naming the load parameters and run count; it SHALL NOT claim a cause or fix the artifacts do not show.
+    check: {kind: verifier, ask: 'Read docs/research/host-suite-flake-findings.md and the artifacts it cites under .tmp/verification/flake/. Does every claim trace to a captured run (junit, host log or trace)? If it claims a mechanism or a fix, does the artifact show that failure, and is there a red-before/green-after test for it? If it claims no reproduction, does it state the exact load parameters and a run count consistent with the saved artifacts? Is any protected oracle edited? Quote files.'}
+  - id: C4
+    statement: WHEN a cause is identified THE fix SHALL carry a test that fails without it and passes with it; WHEN no cause is identified no source fix SHALL be claimed and the goal SHALL stop for the owner instead.
+    check: {kind: verifier, ask: 'For any source or harness change: does a committed test fail without the change and pass with it, and does the captured artifact tie that change to the observed failure? If the findings document says no cause was found, confirm that no source or harness behaviour change was shipped as a "fix" and that the goal recorded the bound and stopped. Quote the test and the artifact.'}
+  - id: C5
+    statement: The protected host suite SHALL pass five consecutive full runs on the final source, at least one of them under parallel load, with or without a fix.
+    check: {kind: command, run: 'bun scripts/stress-host-suite.ts --runs 5 --concurrency 3 --require-clean', timeout: 3600}
+invariants:
+  - id: I1
+    statement: Existing recovery, autonomy, verifier diagnostics, target, launch, Composer, owner-chat and prerequisite host scenarios SHALL CONTINUE TO pass without protected-file edits.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/divergent-contract-recovery.test.ts test/host/goal-launch-flow.test.ts test/host/target-bound-decisions.test.ts test/host/composer-amendment.test.ts test/host/owner-chat-launch.test.ts test/host/amendment-resume-prerequisite.test.ts', timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass.
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/lab-lifecycle-triage.test.ts
+  - test/fixtures/lab-tool-boundary/**
+  - test/host/target-bound-decisions.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/composer-amendment.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/amendment-resume-prerequisite.test.ts
+  - test/host/divergent-contract-recovery.test.ts
+  - test/host/verifier-diagnostics.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: Build the stress command and capture a baseline under load, proves: [C1, C2]}
+  - {id: S2, title: Name the mechanism from the captured artifacts, or record the honest bound, proves: [C3]}
+  - {id: S3, title: Fix the cause with a red-before/green-after test, or stop with the bound, proves: [C4], depends_on: [S2]}
+  - {id: S4, title: Prove five consecutive clean runs including one under load, proves: [C5], depends_on: [S3]}
+  - {id: S5, title: Publish only if src changed, else record why not, proves: []}
+assumptions:
+  - id: A1
+    text: The stress command drives the real bun test runner over the protected suite with several files at once and several rounds, rather than re-implementing the tests.
+    rationale: The host's failure came from that exact command shape; a re-implementation could not reproduce it.
+    reversible: true
+  - id: A2
+    text: A not-reproduced outcome is a valid completion for C1/C2/C5, with C3/C4 proving the bound is honest and no fix is claimed.
+    rationale: The owner asked to reproduce first without assuming a cause; inventing one is worse than an explicit bound.
+    reversible: true
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier}
+stop:
+  escalate_when:
+    - The failure cannot be reproduced within the recorded run budget (stop with the bound)
+    - A cause would require changing engine behaviour with no captured artifact tying it to the failure
+    - A fix would need to edit a protected oracle or lengthen a protected test's timeout
+    - The only way to make the suite pass is to rerun failures until they pass

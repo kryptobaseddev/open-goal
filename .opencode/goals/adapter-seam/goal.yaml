@@ -1,0 +1,95 @@
+schema: goal/v1
+id: adapter-seam
+title: One seam, many harnesses
+priority: high
+intent:
+  verbatim: "fully plan all 3 goals and lock them in each make sure that there are CLEO tasks as each major goal is a Saga to Epic to Tasks with their respective goals logged making sure we have CLEAR path to a agnostic 'OCG' goal system that breaks away from 'opencode' as single operating harness."
+outcome: One explicit HarnessAdapter seam drives the OpenCode in-process engine and the CLEO tick, a real Claude project completes a host-only goal through CLEO's Stop dispatcher, and a capability matrix states exactly what each harness can and cannot do.
+why: Today the OpenCode adapter and the tick are two code paths with implicit differences. Without a seam and a capability matrix, adding a harness means copying behavior and guessing what it supports; with them, a new harness is a declaration plus a test.
+scope:
+  in: [src/server, src/engine, src/cli, cli, test/unit, test/host, docs/research]
+  out: [cleocode repository, the goal-store relocation, npm deprecation, user-global harness config]
+workspace: .worktrees/adapter-seam
+non_goals:
+  - Moving the goal store to a harness-neutral path (separate goal)
+  - Full behavioral parity for every harness (only the declared capabilities)
+  - A TUI abstraction for harnesses that have no TUI
+  - Writing user-global ~/.claude, ~/.codex or ~/.config files
+constraints:
+  - OpenCode's observable continuation, tools and TUI must not change
+  - Merging requires reviewer approval on the exact PR head; work happens in .worktrees/adapter-seam and goes forward as a new PR
+  - Harness capabilities are declared, never inferred from a transcript
+criteria:
+  - id: C1
+    statement: WHEN the engine is constructed THE OpenCode in-process path and the CLEO tick SHALL implement one HarnessAdapter interface with declared identity and capabilities
+    essential: true
+    check: {kind: command, run: "bun test test/unit/harness-adapter.test.ts", expect: {exit: 0}, timeout: 600}
+  - id: C2
+    statement: The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits, proving the OpenCode behavior is unchanged
+    essential: true
+    check: {kind: command, run: "cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts test/host/tick-bin.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/cleo-link.test.ts", timeout: 1800}
+  - id: C3
+    statement: WHEN a host-only goal runs in a real Claude project with cleo goal install --harness claude THE Stop dispatcher SHALL drive the tick to a verified complete, and status --json SHALL report harness claude
+    essential: true
+    check: {kind: command, run: "bun test test/host/claude-harness.test.ts", expect: {exit: 0}, timeout: 1800}
+  - id: C4
+    statement: The design note SHALL state the capability matrix for OpenCode, Claude, Codex, Hermes and Kimi, and what the tick cannot do
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/harness-adapter.md. Does it name the adapter seam, list tools/forms/events/verifier/TUI per harness, state exactly what the CLEO tick cannot do (no forms, no verifier child, host-only goals), and quote the code that declares the capabilities?"}
+  - id: C5
+    statement: WHEN the tick runs under CLEO_HOOK_PROVIDER=codex, claude-code, or another value THE run SHALL record codex, claude, or unknown, and the capability set SHALL mark forms and the verifier child absent
+    essential: true
+    check: {kind: command, run: "bun test test/unit/harness-matrix.test.ts", expect: {exit: 0}, timeout: 600}
+  - id: C6
+    statement: A minor release SHALL be published and actually loaded by this exact goal session before its completing round
+    essential: true
+    check: {kind: command, run: "bun scripts/check-installed-goal.ts --min-version 0.10.0 --assert-release --accept-package-at-tag", expect: {exit: 0}, timeout: 120}
+invariants:
+  - id: I1
+    statement: The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits
+    check: {kind: command, run: "cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts test/host/tick-bin.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/cleo-link.test.ts", timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI/CLI freshness SHALL CONTINUE TO pass
+    check: {kind: command, run: "cleo run --wait --class build -- bun run typecheck", timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/cleo-health.test.ts
+  - test/host/cleo-linkage.test.ts
+  - test/host/cleo-evidence-bridge.test.ts
+  - test/host/tick-bin.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/cleo-link.test.ts
+  - test/unit/loop-decision.test.ts
+assumptions:
+  - {id: A1, text: "The seam covers identity, capabilities, start, continuation, events, forms and verification; the TUI remains OpenCode-specific", rationale: "a harness without a TUI cannot be forced to invent one", reversible: true}
+  - {id: A2, text: "The Claude proof is a real project-level install plus a simulated Stop event through the CLEO dispatcher; a manual Claude Code session is recorded as a human caveat, not a host check", rationale: "deterministic host proof without requiring a person to click in Claude", reversible: true}
+  - {id: A3, text: "Codex/Hermes/Kimi are install-and-tick smoke cases, not full parity claims", rationale: "the tick path is shared; only capability declarations differ", reversible: true}
+  - {id: A4, text: "Merging requires reviewer approval on the exact PR head; tags are created only after CI on that commit is green (v0.9.1 became a dead tag); no force-push on shared branches", rationale: "review-release approved a618897..e10ed69; PRs still need approval on the exact head", reversible: false}
+plan:
+  - {id: S1, title: "Define the adapter interface and capability model", proves: [C1]}
+  - {id: S2, title: "Extract the OpenCode adapter with no behavior change", proves: [C2]}
+  - {id: S3, title: "Implement the tick adapter and prove Claude/Codex/Hermes/Kimi", proves: [C3, C4, C5, C6]}
+stop:
+  when: All essential criteria are host-verified and invariants hold
+  escalate_when:
+    - "A merge is requested without reviewer approval on the exact PR head"
+    - "The real Claude proof needs a user-global setting or a manual step that cannot be scripted"
+    - "A harness needs a capability the tick cannot honestly provide"
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: resume-on-message}
+verification: {mode: host+verifier, max_rejections: 3, read: ["../cleocode"]}
+execution: {agent: build}
+meta:
+  release: 0.10.0
+  cleo:
+    saga: T137
+    epics: [T138, T142, T146]
+    tasks: [T139, T140, T141, T143, T144, T145, T147, T148, T149]
+  goal_of: "OCG Adapter Seam"
+  workspace: ".worktrees/adapter-seam"
+  depends_on: harness-identity

@@ -1,0 +1,1022 @@
+{
+  "pid": 52050,
+  "time": 1792188148404,
+  "directory": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s",
+  "width": 70,
+  "height": 42,
+  "route": {
+    "type": "session",
+    "sessionID": "ses_eb943ae5dffekm8WSbbjxlhHlR"
+  },
+  "tabsEnabled": true,
+  "tabs": [
+    {
+      "sessionID": "ses_eb943ae5dffekm8WSbbjxlhHlR",
+      "title": "Deployed Real-Model Manager",
+      "active": true,
+      "promptPulse": 0,
+      "attention": false,
+      "busy": false,
+      "renaming": false
+    },
+    {
+      "sessionID": "ses_eb943ab3effefdquBH0drbgaHk",
+      "title": "First Real-Model Manager Goal",
+      "active": false,
+      "promptPulse": 0,
+      "attention": false,
+      "busy": false,
+      "renaming": false
+    }
+  ],
+  "nodes": [],
+  "pointerControls": [
+    {
+      "id": "box-1",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 70,
+      "height": 42,
+      "mouseHandlers": [
+        "down",
+        "up"
+      ],
+      "text": "Deployed Real-Model Manager First Real-Model Manager Goal  +  Subagents Shell Terminals esc show inactive ctrl+a tabs \u2190/\u2192 Build auto \u00b7 DeepSeek V4.1 Flash DeepSeek \u00b7 high /\u2026/real-model-goal-K7rG3s:main shift+tab agents ctrl+p commands \u2026/agents                                          Switch agent \u2026/btw                                             One-shot answer from the session's context without adding to the conversation \u2026/cd                                              Change working directory \u2026/clear                                           Clear session \u2026/cloudflare-bindings:workers-prompt-full         Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/cloudflare-docs:workers-prompt-full             Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/cloudflare-observability:workers-prompt-full    Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/compact                                         Compact session \u2026/connect                                         Connect an integration \u2026/continue                                        Switch session \u2026/copy                                            Copy session transcript \u2026/debug                                           View debug info \u2026/diff                                            Open diff viewer \u2026/editor                                          Open editor \u2026/effort                                          Switch model variant \u2026/exit                                            Exit the app \u2026/export                                          Export session transcript \u2026/fork                                            Fork session \u2026/goal                                            Goal mode: /goal new <what you"
+    },
+    {
+      "id": "box-2",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 70,
+      "height": 42,
+      "mouseHandlers": [
+        "drag",
+        "drag-end",
+        "up"
+      ],
+      "text": "Deployed Real-Model Manager First Real-Model Manager Goal  +  Subagents Shell Terminals esc show inactive ctrl+a tabs \u2190/\u2192 Build auto \u00b7 DeepSeek V4.1 Flash DeepSeek \u00b7 high /\u2026/real-model-goal-K7rG3s:main shift+tab agents ctrl+p commands \u2026/agents                                          Switch agent \u2026/btw                                             One-shot answer from the session's context without adding to the conversation \u2026/cd                                              Change working directory \u2026/clear                                           Clear session \u2026/cloudflare-bindings:workers-prompt-full         Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/cloudflare-docs:workers-prompt-full             Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/cloudflare-observability:workers-prompt-full    Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/compact                                         Compact session \u2026/connect                                         Connect an integration \u2026/continue                                        Switch session \u2026/copy                                            Copy session transcript \u2026/debug                                           View debug info \u2026/diff                                            Open diff viewer \u2026/editor                                          Open editor \u2026/effort                                          Switch model variant \u2026/exit                                            Exit the app \u2026/export                                          Export session transcript \u2026/fork                                            Fork session \u2026/goal                                            Goal mode: /goal new <what you"
+    },
+    {
+      "id": "box-412",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 70,
+      "height": 1,
+      "mouseHandlers": [
+        "out",
+        "up",
+        "drag",
+        "drag-end"
+      ],
+      "text": "Deployed Real-Model Manager First Real-Model Manager Goal  + "
+    },
+    {
+      "id": "box-413",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down"
+      ],
+      "text": "Deployed Real-Model Manager"
+    },
+    {
+      "id": "text-629",
+      "class": "ts",
+      "visible": true,
+      "x": 30,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down",
+        "up"
+      ],
+      "text": ""
+    },
+    {
+      "id": "box-416",
+      "class": "Ya",
+      "visible": true,
+      "x": 32,
+      "y": 0,
+      "width": 32,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down"
+      ],
+      "text": "First Real-Model Manager Goal"
+    },
+    {
+      "id": "text-631",
+      "class": "ts",
+      "visible": true,
+      "x": 62,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down",
+        "up"
+      ],
+      "text": ""
+    },
+    {
+      "id": "text-633",
+      "class": "ts",
+      "visible": true,
+      "x": 64,
+      "y": 0,
+      "width": 3,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down",
+        "up",
+        "drag-end"
+      ],
+      "text": " + "
+    },
+    {
+      "id": "box-301",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 1,
+      "width": 70,
+      "height": 41,
+      "mouseHandlers": [
+        "drag-end",
+        "up",
+        "drag"
+      ],
+      "text": "Subagents Shell Terminals esc show inactive ctrl+a tabs \u2190/\u2192 Build auto \u00b7 DeepSeek V4.1 Flash DeepSeek \u00b7 high /\u2026/real-model-goal-K7rG3s:main shift+tab agents ctrl+p commands \u2026/agents                                          Switch agent \u2026/btw                                             One-shot answer from the session's context without adding to the conversation \u2026/cd                                              Change working directory \u2026/clear                                           Clear session \u2026/cloudflare-bindings:workers-prompt-full         Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/cloudflare-docs:workers-prompt-full             Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/cloudflare-observability:workers-prompt-full    Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt \u2026/compact                                         Compact session \u2026/connect                                         Connect an integration \u2026/continue                                        Switch session \u2026/copy                                            Copy session transcript \u2026/debug                                           View debug info \u2026/diff                                            Open diff viewer \u2026/editor                                          Open editor \u2026/effort                                          Switch model variant \u2026/exit                                            Exit the app \u2026/export                                          Export session transcript \u2026/fork                                            Fork session \u2026/goal                                            Goal mode: /goal new <what you want> \u00b7 start <slug> \u00b7 status \u00b7 pause \u00b7 resume \u00b7 verify \u00b7 abo"
+    },
+    {
+      "id": "scrollbox-8",
+      "class": "Ok",
+      "visible": true,
+      "x": 2,
+      "y": 1,
+      "width": 66,
+      "height": 33,
+      "mouseHandlers": [
+        "scroll"
+      ],
+      "text": ""
+    },
+    {
+      "id": "text-430",
+      "class": "ts",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "esc"
+    },
+    {
+      "id": "textarea-3",
+      "class": "kh",
+      "visible": true,
+      "x": 5,
+      "y": 36,
+      "width": 61,
+      "height": 1,
+      "mouseHandlers": [
+        "down"
+      ],
+      "text": ""
+    },
+    {
+      "id": "prompt.footer.location",
+      "class": "ts",
+      "visible": true,
+      "x": 2,
+      "y": 40,
+      "width": 31,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "/\u2026/real-model-goal-K7rG3s:main"
+    },
+    {
+      "id": "box-325",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/agents                                          Switch agent"
+    },
+    {
+      "id": "box-326",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/btw                                             One-shot answer from the session's context without adding to the conversation"
+    },
+    {
+      "id": "box-327",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/cd                                              Change working directory"
+    },
+    {
+      "id": "box-328",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/clear                                           Clear session"
+    },
+    {
+      "id": "box-329",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/cloudflare-bindings:workers-prompt-full         Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt"
+    },
+    {
+      "id": "box-330",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/cloudflare-docs:workers-prompt-full             Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt"
+    },
+    {
+      "id": "box-331",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/cloudflare-observability:workers-prompt-full    Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt"
+    },
+    {
+      "id": "box-332",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/compact                                         Compact session"
+    },
+    {
+      "id": "box-333",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/connect                                         Connect an integration"
+    },
+    {
+      "id": "box-334",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/continue                                        Switch session"
+    },
+    {
+      "id": "box-335",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/copy                                            Copy session transcript"
+    },
+    {
+      "id": "box-336",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/debug                                           View debug info"
+    },
+    {
+      "id": "box-337",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/diff                                            Open diff viewer"
+    },
+    {
+      "id": "box-338",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/editor                                          Open editor"
+    },
+    {
+      "id": "box-339",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/effort                                          Switch model variant"
+    },
+    {
+      "id": "box-340",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/exit                                            Exit the app"
+    },
+    {
+      "id": "box-341",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/export                                          Export session transcript"
+    },
+    {
+      "id": "box-342",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/fork                                            Fork session"
+    },
+    {
+      "id": "box-343",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/goal                                            Goal mode: /goal new <what you want> \u00b7 start <slug> \u00b7 status \u00b7 pause \u00b7 resume \u00b7 verify \u00b7 abort \u00b7 approve <C#> \u00b7 list"
+    },
+    {
+      "id": "box-344",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/help                                            Help"
+    },
+    {
+      "id": "box-345",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/init                                            guided AGENTS.md setup"
+    },
+    {
+      "id": "box-346",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/mbx                                             AgentMBX: open status dashboard"
+    },
+    {
+      "id": "box-347",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/mbx:mbx_guide                                   Load the AgentMBX guide for this version: how to read, answer, address and coordinate with other agents."
+    },
+    {
+      "id": "box-348",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/mcps                                            MCP servers"
+    },
+    {
+      "id": "box-349",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/models                                          Switch model"
+    },
+    {
+      "id": "box-350",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/new                                             New session"
+    },
+    {
+      "id": "box-351",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/open                                            Open session or project"
+    },
+    {
+      "id": "box-352",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/pair                                            Pair device"
+    },
+    {
+      "id": "box-353",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/plugins                                         Plugins"
+    },
+    {
+      "id": "box-354",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/project                                         Open session or project"
+    },
+    {
+      "id": "box-355",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/projects                                        Open session or project"
+    },
+    {
+      "id": "box-356",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/q                                               Exit the app"
+    },
+    {
+      "id": "box-357",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/quit                                            Exit the app"
+    },
+    {
+      "id": "box-358",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/reload                                          Reload configuration"
+    },
+    {
+      "id": "box-359",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/rename                                          Rename session"
+    },
+    {
+      "id": "box-360",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/resume                                          Switch session"
+    },
+    {
+      "id": "box-361",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/review                                          review changes [commit|branch|pr], defaults to uncommitted"
+    },
+    {
+      "id": "box-362",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/sessions                                        Switch session"
+    },
+    {
+      "id": "box-363",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/settings                                        Open settings"
+    },
+    {
+      "id": "box-393",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/skills                                          Skills"
+    },
+    {
+      "id": "box-419",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/stats                                           Usage statistics"
+    },
+    {
+      "id": "box-420",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/status                                          View status"
+    },
+    {
+      "id": "box-421",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/terminal                                        New terminal"
+    },
+    {
+      "id": "box-422",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/themes                                          Switch theme"
+    },
+    {
+      "id": "box-423",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/thinking                                        Switch model variant"
+    },
+    {
+      "id": "box-424",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/timeline                                        Jump to message"
+    },
+    {
+      "id": "box-425",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/undo                                            Undo previous message"
+    },
+    {
+      "id": "box-426",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/update                                          Update OpenCode"
+    },
+    {
+      "id": "box-427",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/variants                                        Switch model variant"
+    },
+    {
+      "id": "box-428",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/web                                             Pair device"
+    },
+    {
+      "id": "box-429",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 35,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/worktrees                                       Manage workspaces"
+    },
+    {
+      "id": "box-115",
+      "class": "Ya",
+      "visible": true,
+      "x": 11,
+      "y": 1,
+      "width": 57,
+      "height": 5,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "MCP server needs authentication \u203a Open MCP servers Connect \"parallel-task\" to use its tools."
+    },
+    {
+      "id": "box-4",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "mouseHandlers": [
+        "down",
+        "up"
+      ],
+      "text": ""
+    }
+  ]
+}

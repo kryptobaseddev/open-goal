@@ -1,0 +1,85 @@
+{
+  "source": "claim",
+  "claim": {
+    "at": 1792215712102,
+    "turn": 1,
+    "summary": "T001 is complete: its four child sagas T002, T024, T035 and T039 are all `done` in CLEO, and the five functional acceptance criteria are proven against the repository at release v0.8.0 (commit 91140ea). Evidence: a scoped JUnit run of 103 tests (103 passed, 0 failed) covering git install, restart/resume, compaction, HOST VERDICT rejection, provenance binding, contract validation and TUI rendering; `bun run typecheck` exit 0; live `goal_provenance` shows the plugin serving from `github:kryptobaseddev/opencode-goal#v0.8.0` on OpenCode 2.0.29 with server/TUI/rpc active. T001 records implemented + testsPassed + qaPassed with AC1–AC9 bindings.",
+    "evidence": {
+      "C1": "test/host/git-install.test.ts run with OCGOAL_GIT_INSTALL=1 OCGOAL_GIT_SPEC=github:kryptobaseddev/opencode-goal#v0.8.0: 1 pass, 0 fail (registers /goal, the write-goal skill, and resolves @opentui/solid for the TUI). goal_provenance: source.target github:kryptobaseddev/opencode-goal#v0.8.0, packageVersion 0.8.0, openCodeVersion 2.0.29, features server/tui/rpc true.",
+      "C2": "test/host/goal.test.ts 'a clean reload resumes a running goal by itself' passed; test/host/paths.test.ts 'the compaction hook records the event and the run continues' passed (7/7). Run state persists in .opencode/goals/cleo-t001/run.json and handoff.json; this session is itself a resumed goal in a new session.",
+      "C3": "test/host/goal.test.ts 'a false claim gets a HOST VERDICT; the fix completes only after host checks and the verifier pass' passed; test/host/persistent-feedback.test.ts (rejected claim leaves a HOST VERDICT transcript row) 2/2 passed; test/host/runtime-provenance.test.ts (host verification binds provenance, read-only tool writes nothing) passed; src/verify/pipeline.ts and src/server/app.ts record verdicts.",
+      "C4": "TUI suites passed: test/unit/tui-card.test.ts 6, tui-dashboard.test.ts 12, tui-format.test.ts 2, installed-tui.test.ts 7, multi-goal-sidebar.test.ts 3. test/host/goal.test.ts 'status and pause run without a model turn; resume sends exactly one continuation' passed, and goal_provenance reports features.tui true.",
+      "C5": "skills/write-goal/SKILL.md ships and is registered by the plugin (asserted by the git-install test and goal.test.ts 'the plugin registers write-goal and /goal new attaches it'); test/unit/contract.test.ts 33 tests passed; skills/write-goal/assets/goal.template.yaml parses with 0 errors via src/contract/parse.ts.",
+      "C6": "cleo show T002 → status done; all 79 children done (cleo list --parent T002 --status pending returned none).",
+      "C7": "cleo show T024 → status done.",
+      "C8": "cleo show T035 → status done; children T036, T037, T038 all done; implemented gate bound to release commit 06d9bfc with rehearsal (src/server/app.ts:1737), amendment store (src/engine/amendments.ts) and amend host tests.",
+      "C9": "cleo show T039 → status done; children T040–T043 all done; v0.2.0 tag resolves to 06d9bfc/5700867 and docs/dogfood-2.md records the reworked run."
+    }
+  },
+  "outcome": {
+    "passed": false,
+    "needsHuman": [],
+    "results": [
+      {
+        "id": "C1",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 5 quote(s)"
+      },
+      {
+        "id": "C2",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 6 quote(s)"
+      },
+      {
+        "id": "C3",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 6 quote(s)"
+      },
+      {
+        "id": "C4",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 5 quote(s)"
+      },
+      {
+        "id": "C5",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 5 quote(s)"
+      },
+      {
+        "id": "C6",
+        "pass": false,
+        "by": "verifier",
+        "detail": "No repository text records T002's status as done. The latest narrative snapshot says T002 is 50/61 and 'not a completed parent' (docs/dogfood-6.md:83), and the 2026-10-16 recon still lists 4 T002 children pending (T080/T081/T082/T102) after the closure pass (cleo-first-class-integration/context.md:37). The only 2026-10-17 T002 records are 'implemented' gate sets; a gate is not a completion (T080 had three gates yet stayed uncompleted), and there is no cleo show/complete capture in the repo."
+      },
+      {
+        "id": "C7",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 2 quote(s)"
+      },
+      {
+        "id": "C8",
+        "pass": false,
+        "by": "verifier",
+        "detail": "The repo holds only an 'implemented' gate set for T035 (2026-10-17T05:34:49Z) binding AC1–AC4 to 06d9bfc; there is no testsPassed/qaPassed gate, no completion receipt, and no status capture for T035. The latest narrative record still puts T035's parent requirement pending (docs/dogfood-6.md:160), and gates alone do not equal done in this project's own history (T080)."
+      },
+      {
+        "id": "C9",
+        "pass": false,
+        "by": "verifier",
+        "detail": "The repo holds only an 'implemented' gate set for T039 (2026-10-17T05:35:15Z) binding AC1–AC5 to 5700867; there is no testsPassed/qaPassed gate, completion receipt, or status capture. docs/dogfood-2.md and the v0.2.0 tag prove the v0.2.0 deliverable, not that the T039 task is done, and the latest inventory record still lists T039's parent requirement pending (docs/dogfood-6.md:160)."
+      }
+    ],
+    "integrity": [],
+    "lines": [
+      "C6 FAILED [verifier] T001 acceptance 6: Complete child T002: opencode-goal v0.1: OpenCode 2 goal plugin with bundled write-goal skill\n    No repository text records T002's status as done. The latest narrative snapshot says T002 is 50/61 and 'not a completed parent' (docs/dogfood-6.md:83), and the 2026-10-16 recon still lists 4 T002 children pending (T080/T081/T082/T102) after the closure pass (cleo-first-class-integration/context.md:37). The only 2026-10-17 T002 records are 'implemented' gate sets; a gate is not a completion (T080 had three gates yet stayed uncompleted), and there is no cleo show/complete capture in the repo.",
+      "C8 FAILED [verifier] T001 acceptance 8: Complete child T035: v0.2.0 integrity model (council 145323Z-a46b2ff9): rehearsal, write-guard, amendment\n    The repo holds only an 'implemented' gate set for T035 (2026-10-17T05:34:49Z) binding AC1–AC4 to 06d9bfc; there is no testsPassed/qaPassed gate, no completion receipt, and no status capture for T035. The latest narrative record still puts T035's parent requirement pending (docs/dogfood-6.md:160), and gates alone do not equal done in this project's own history (T080).",
+      "C9 FAILED [verifier] T001 acceptance 9: Complete child T039: v0.2.0 hardening, coverage and release\n    The repo holds only an 'implemented' gate set for T039 (2026-10-17T05:35:15Z) binding AC1–AC5 to 5700867; there is no testsPassed/qaPassed gate, completion receipt, or status capture. docs/dogfood-2.md and the v0.2.0 tag prove the v0.2.0 deliverable, not that the T039 task is done, and the latest inventory record still lists T039's parent requirement pending (docs/dogfood-6.md:160)."
+    ]
+  }
+}

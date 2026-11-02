@@ -1,0 +1,6 @@
+{"t":"2026-10-16T22:45:00Z","q":"What should the next goal own?","options":["ocg tick + a pure decide() loop function","The full @ocg/core split + npm publication","CLEO verb wiring (Phase 2 - still blocked)"],"a":"ocg tick + a pure decide() loop function","by":"owner"}
+{"t":"2026-10-16T22:45:00Z","q":"Confirm the boundaries and non-goals?","options":["As listed","Also prepare npm publication metadata","As listed, but no release"],"a":"As listed, plus prepare the npm publication metadata (without publishing)","by":"owner"}
+{"t":"2026-10-16T22:45:00Z","q":"Should the next goal carry a budget?","options":["No budget","Token budget (6M)"],"a":"No budget","by":"owner"}
+{"t":"2026-10-16T22:50:00Z","q":"How should this goal ship?","options":["Minor v0.6.0 + installed proof","Patch v0.5.3","Source + tests, no release"],"a":"Minor v0.6.0 + installed proof","by":"owner"}
+{"t":"2026-10-16T22:50:00Z","q":"What should the tick emit as its continuation reason?","options":["The exact adapter continuation","A short harness-neutral instruction","A minimal fixed string"],"a":"The exact adapter continuation","by":"owner"}
+{"t":"2026-10-16T22:50:00Z","q":"What evidence standard should this goal use?","options":["host+verifier","strict","host checks only"],"a":"host+verifier","by":"owner"}

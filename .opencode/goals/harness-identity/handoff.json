@@ -1,0 +1,55 @@
+{
+  "schema": "opencode-goal/handoff/v1",
+  "generatedAt": "2026-10-28T18:01:16.376Z",
+  "slug": "harness-identity",
+  "title": "Every goal run knows its harness",
+  "fromSessionID": "ses_e7cd53effffe4eTnSrU4iQwCDX",
+  "toSessionID": "ses_e7c7261a6ffev4NKnJIxSHxrrx",
+  "repo": {
+    "head": "478517f7b849d2bbe8f824a8b8936a9e2d6f6c50",
+    "branch": "harness-identity",
+    "dirty": []
+  },
+  "baseline": [
+    {
+      "id": "C1",
+      "pass": false
+    },
+    {
+      "id": "C2",
+      "pass": false
+    },
+    {
+      "id": "C3",
+      "pass": false
+    },
+    {
+      "id": "C5",
+      "pass": false
+    },
+    {
+      "id": "I1",
+      "pass": false
+    },
+    {
+      "id": "I2",
+      "pass": false
+    }
+  ],
+  "nextAction": {
+    "step": "S1",
+    "title": "Run-state identity: record and expose the harness"
+  },
+  "authority": {
+    "trust": [
+      "goal.yaml (the locked contract)",
+      "docs/HANDOFF-v0.8.0.md"
+    ],
+    "stale": [
+      "docs/HANDOFF.md (its historical body; read the current-state banner before trusting it)"
+    ]
+  },
+  "evidence": [
+    ".opencode/goals/harness-identity/evidence/183ac66ad001/"
+  ]
+}

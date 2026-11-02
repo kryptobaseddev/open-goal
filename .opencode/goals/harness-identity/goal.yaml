@@ -1,0 +1,89 @@
+schema: goal/v1
+id: harness-identity
+title: Every goal run knows its harness
+priority: high
+intent:
+  verbatim: "fully plan all 3 goals and lock them in each make sure that there are CLEO tasks as each major goal is a Saga to Epic to Tasks with their respective goals logged making sure we have CLEAR path to a agnostic 'OCG' goal system that breaks away from 'opencode' as single operating harness. as all goals currently store in the project's '.opencode/goals/*' path too"
+outcome: Every goal run records which harness produced it and what that harness can do, and both goal_status and cleo-goal status --json report it without a schema bump.
+why: The engine is OpenCode-branded in its state and status surfaces; a second harness cannot be trusted, debugged or compared until each run says which harness it is and which capabilities it actually has.
+scope:
+  in: [src/engine, src/server, src/cli, cli, test/unit, test/host, docs/research]
+  out: [cleocode repository, the goal-store relocation, npm deprecation, the adapter refactor]
+workspace: .worktrees/harness-identity
+non_goals:
+  - Refactoring the OpenCode path into an explicit HarnessAdapter seam (separate goal)
+  - Moving the goal store away from .opencode/goals (separate goal)
+  - Publishing or deprecating npm versions
+  - Changing OpenCode's observable continuation or tool behaviour
+constraints:
+  - Merging requires reviewer approval on the exact PR head, and tags are created only after CI on that commit is green; this goal works in .worktrees/harness-identity and opens a new PR
+  - The harness signal is declared, never sniffed from a transcript
+  - The field is optional and additive: schemaVersion 1 stays, and old runs without it still parse
+criteria:
+  - id: C1
+    statement: WHEN a goal starts under OpenCode THE run state and ledger SHALL record harness {name:"opencode", version, capabilities[]}, and goal_status SHALL expose it
+    essential: true
+    check: {kind: command, run: "bun test test/host/harness-identity.test.ts", expect: {exit: 0}, timeout: 1800}
+  - id: C2
+    statement: WHEN cleo-goal status --json reads a run with harness THE JSON SHALL include it, and a run without it SHALL still parse as schemaVersion 1
+    essential: true
+    check: {kind: command, run: "bun test test/unit/status-harness.test.ts", expect: {exit: 0}, timeout: 600}
+  - id: C3
+    statement: WHEN the tick runs with CLEO_HOOK_PROVIDER=claude-code or codex THE run SHALL record claude or codex, and with neither SHALL record unknown without guessing from the transcript
+    essential: true
+    check: {kind: command, run: "bun test test/unit/tick-harness.test.ts", expect: {exit: 0}, timeout: 600}
+  - id: C4
+    statement: The design note SHALL record the CLEO T13875 optional harness contract, the dispatcher signal, and the capability meanings, quoting the CLEO contract file and doctor output
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/harness-identity.md and the read-only CLEO contract at ../cleocode/packages/contracts/src/goal-runtime.ts. Does the note name the optional harness {name, version, capabilities[]}, the CLEO_HOOK_PROVIDER signal (claude-code/codex, otherwise unknown), and what each capability means, with quotes that match the files?"}
+  - id: C5
+    statement: A patch release SHALL be published and actually loaded by this exact goal session before its completing round
+    essential: true
+    check: {kind: command, run: "bun scripts/check-installed-goal.ts --min-version 0.9.5 --assert-release", expect: {exit: 0}, timeout: 120}
+invariants:
+  - id: I1
+    statement: The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits
+    check: {kind: command, run: "cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts test/host/tick-bin.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/cleo-link.test.ts", timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI/CLI freshness SHALL CONTINUE TO pass
+    check: {kind: command, run: "cleo run --wait --class build -- bun run typecheck", timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/cleo-health.test.ts
+  - test/host/cleo-linkage.test.ts
+  - test/host/cleo-evidence-bridge.test.ts
+  - test/host/tick-bin.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/cleo-link.test.ts
+  - test/unit/loop-decision.test.ts
+assumptions:
+  - {id: A1, text: "CLEO_HOOK_PROVIDER is the dispatcher signal (T13884), with values claude-code or codex; map claude-code to claude, leave version and capabilities null on the dispatcher path, and add no OCGOAL_HARNESS variable or --harness flag", rationale: "CLEO dev confirmed the single convention and T13884; the OpenCode adapter supplies version/capabilities directly", reversible: true}
+  - {id: A2, text: "A patch release (0.9.5) is enough for an additive optional field", rationale: "schemaVersion 1 does not change and old runs stay valid", reversible: true}
+  - {id: A3, text: "Merging requires reviewer approval on the exact PR head; tags are created only after CI on that commit is green (v0.9.1 became a dead tag); no force-push on shared branches", rationale: "review-release approved a618897..e10ed69; PRs still need approval on the exact head", reversible: false}
+plan:
+  - {id: S1, title: "Run-state identity: record and expose the harness", proves: [C1]}
+  - {id: S2, title: "CLI/status and tick identity", proves: [C2, C3]}
+  - {id: S3, title: "CLEO contract, docs and release", proves: [C4, C5]}
+stop:
+  when: All essential criteria are host-verified and invariants hold
+  escalate_when:
+    - "A merge is requested without reviewer approval on the exact PR head"
+    - "The dispatcher signal differs from CLEO_HOOK_PROVIDER and CLEO dev has not confirmed a change"
+    - "A change would require editing the CLEO repository or the shared npm branch"
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: resume-on-message}
+verification: {mode: host+verifier, max_rejections: 3, read: ["../cleocode"]}
+execution: {agent: build}
+meta:
+  release: 0.9.5
+  cleo:
+    saga: T124
+    epics: [T125, T129, T133]
+    tasks: [T126, T127, T128, T130, T131, T132, T134, T135, T136]
+  goal_of: "OCG Harness Identity"
+  workspace: ".worktrees/harness-identity"

@@ -1,0 +1,42 @@
+ Goals manager · this project
+  ▶ Close m┃                                                       ┃
+ Tab: focus┃  MCP server needs authentication  › Open MCP servers  ┃
+  ▶ qa-mana┃                                                       ┃
+    paused ┃  Connect "parallel-task" to use its tools.            ┃
+           ┃                                                       ┃
+ paused · 0/2 host-proven · build
+ Session: First Real-Model Manager Goal
+ Goal paused: qa-manager-one — /goal resume · /goal abort
+ Details · Tab to focus · wheel/PgUp/PgDn scroll
+ Outcome
+ Goal: qa-manager-one
+ manager-one.txt contains status ok
+ Session ID: ses_eb943ab3effefdquBH0drbgaHk
+ Evidence
+ C1 [unknown] manager-one.txt exists
+ C2 [unknown] manager-one.txt states status ok
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Actions · ↑↓ and Enter, or click
+  ▶ Open goal session
+    Resume selected goal
+    Verify selected goal
+    Attach selected goal here
+    Abort selected goal
+    Back to all goals

@@ -1,0 +1,67 @@
+{
+  "schema": "opencode-goal/handoff/v1",
+  "generatedAt": "2026-10-29T05:18:50.771Z",
+  "slug": "adapter-seam",
+  "title": "One seam, many harnesses",
+  "fromSessionID": "ses_e7c7261a6ffev4NKnJIxSHxrrx",
+  "toSessionID": "ses_e7a1766caffe6OVxUY46xjOzwT",
+  "prior": {
+    "slug": "harness-identity",
+    "runId": "183ac66ad001",
+    "lock": "267672c43855a63f7b1e2f67ac268ad504efe95bc2d529d152f6132ebba61b9f",
+    "status": "complete",
+    "turn": 7,
+    "evidence": ".opencode/goals/harness-identity/evidence/183ac66ad001/"
+  },
+  "repo": {
+    "head": "fc7470439dca708ca898f4b8f20f756939f6a559",
+    "branch": "adapter-seam",
+    "dirty": []
+  },
+  "baseline": [
+    {
+      "id": "C1",
+      "pass": true
+    },
+    {
+      "id": "C2",
+      "pass": true
+    },
+    {
+      "id": "C3",
+      "pass": false
+    },
+    {
+      "id": "C5",
+      "pass": true
+    },
+    {
+      "id": "C6",
+      "pass": false
+    },
+    {
+      "id": "I1",
+      "pass": false
+    },
+    {
+      "id": "I2",
+      "pass": false
+    }
+  ],
+  "nextAction": {
+    "step": "S1",
+    "title": "Define the adapter interface and capability model"
+  },
+  "authority": {
+    "trust": [
+      "goal.yaml (the locked contract)",
+      "docs/HANDOFF-v0.8.0.md"
+    ],
+    "stale": [
+      "docs/HANDOFF.md (its historical body; read the current-state banner before trusting it)"
+    ]
+  },
+  "evidence": [
+    ".opencode/goals/adapter-seam/evidence/18618bcce001/"
+  ]
+}

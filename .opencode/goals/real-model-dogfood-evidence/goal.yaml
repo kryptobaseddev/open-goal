@@ -1,0 +1,101 @@
+schema: goal/v1
+id: real-model-dogfood-evidence
+title: 'v0.5.1: exact-release real-model dogfood and a readable evidence export'
+priority: high
+intent:
+  verbatim: "next-goal interview 2026-10-16 (after v0.5.0 completed 13/13): chose T102: real-model dogfood + readable evidence export; boundaries also fold in the OCG-side Phase-2 items (GoalAcRef three satisfies forms, proves as the sole binding with acs deprecated, reportSha256); All five flows for real; Both places; Patch v0.5.1 + installed proof; host+verifier. [CLEO T102: Automate exact-release real-model dogfood and independently readable proof export. Extend, rather than duplicate, completed T012 dogfood work: the final summary C13 carries an actual owner-final provenance caveat that must not be rewritten or re-graded. For future releases, consolidate the existing real-model interview/handoff, manager, chat/lifecycle and completion drivers into a bounded, exact-release workflow, and export independently readable proof.]"
+outcome: "A new immutable v0.5.1 patch is published and loaded in this goal session, in which the five existing real-model dogfood drivers are consolidated into ONE bounded, exact-release workflow that records, for every one of the five native flows, the exact release SHA, its own serving PID and location, the model and agent selections and the server/UI/skill artifact hashes, and preserves the raw owner messages, forms and tool calls with their outcomes; all five flows are actually exercised against the installed v0.5.1 artifact, and the run writes a readable, project-local evidence export in both places (a committed human-readable summary under docs/research plus the raw machine-readable records under .opencode) that keeps raw hashes, request IDs and bounded read coordinates and labels fixtures, stale-cache failures, partial successes and timeouts honestly; and the OCG-side schema work lands so that a criterion may carry any of the three satisfies AC-reference forms, proves is the sole AC binding with the legacy acs map warned as deprecated, and a test-run report records its own sha256 beside its path; with the completed T012/C13 dogfood evidence extended and never rewritten."
+why: "T102 is the last pending task under the epic, and the five real-model drivers today are five separate programs with no shared record format and no single export, so a release's real-model proof cannot be read or re-checked independently. A consolidated, honest export is what makes a future release's evaluation auditable, and the small schema items are the ones the CLEO maintainer asked for that need no CLEO change."
+scope:
+  in: [scripts, src/contract, src/engine, src/server, test/unit, test/host, docs/research, .opencode/dogfood, CHANGELOG.md, package.json]
+  out: [the completed docs/dogfood-1..6.md history (read-only), CLEO's own repository and packages, any other project, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - Rewriting, re-grading or deleting the completed T012/C13 dogfood evidence (docs/dogfood-*.md) - it is extended, never rewritten
+  - Changing CLEO itself, or depending on the unmerged cleo goal draft/close or cleo tasks changeset verbs
+  - Committing secrets, credentials, tokens or raw provider payloads into either half of the export
+  - Manual criterion approval, an oracle edit, or replaying old consent to make the real-model flows pass
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay guards
+  - Any release other than the single v0.5.1 patch
+constraints:
+  - The export half that is committed carries hashes, request IDs and bounded read coordinates - never raw credentials or full provider payloads
+  - The workflow runs against the INSTALLED artifact and records that artifact's hashes, not the working tree's
+criteria:
+  - id: C1
+    statement: "WHEN the consolidated workflow and its evidence-export suites run THE result SHALL exit 0, covering the record shape, the two-place export, the honest labels for fixtures, stale-cache failures, partial successes and timeouts, and a resumed run that reuses a verified record instead of re-running a flow"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/dogfood-record.test.ts test/host/dogfood-workflow.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C2
+    statement: "WHEN the workflow exercises all five native flows against the installed artifact THE run SHALL exit 0 and write both halves of the export"
+    essential: true
+    check: {kind: command, run: 'bun scripts/real-model-dogfood.ts --assert', expect: {exit: 0}, timeout: 2700}
+  - id: C3
+    statement: "The readable export and its raw records SHALL cover all five native flows, naming the release SHA, the serving PID and location, the model and agent selections, the server/UI/skill artifact hashes, the request IDs and the bounded read coordinates, and SHALL label fixtures, stale-cache failures, partial successes and timeouts honestly rather than as passes"
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/real-model-dogfood/<version>.md and the raw records it points at under .opencode/dogfood/. Do all FIVE native flows appear, each with the release SHA, the serving PID and location, the model and agent selections, the server/UI/skill artifact hashes, a request ID and a bounded read coordinate? Does it label fixtures, stale-cache failures, partial successes and timeouts honestly instead of presenting them as passes, and does it avoid claiming a flow it did not run? Quote the export, not this contract."}
+  - id: C4
+    statement: "A criterion SHALL be able to carry any of the three satisfies AC-reference forms, proves SHALL be the sole AC binding with the legacy acs map read and warned as deprecated, and a recorded test-run report SHALL carry its own sha256 - all proven by the focused contract and bridge suites"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/contract.test.ts test/host/cleo-evidence-bridge.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C5
+    statement: "A new patch SHALL be immutably published and actually loaded by this exact goal session before its completing round, with matching installed revision and artifact hashes"
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.5.1 --assert-release', expect: {exit: 0}, timeout: 120}
+  - id: C6
+    statement: "The new dogfood and schema tests SHALL pass from the immutable v0.5.x tag installed by OpenCode"
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/unit/dogfood-record.test.ts test/host/dogfood-workflow.test.ts test/unit/contract.test.ts test/host/cleo-evidence-bridge.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C7
+    statement: "The owner SHALL approve the readable export as honest and readable before the goal completes"
+    essential: true
+    check: {kind: human, ask: "Approve docs/research/real-model-dogfood/<version>.md as an honest, readable record of this release's real-model dogfood? Approving ratifies the export only; it does not re-grade or alter the completed T012/C13 evidence."}
+invariants:
+  - id: I1
+    statement: "The existing goal-loop and CLEO oracle suites SHALL CONTINUE TO pass without oracle edits"
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/artifact.test.ts test/unit/cleo-link.test.ts', timeout: 1800}
+  - id: I2
+    statement: "Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass"
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/cleo-health.test.ts
+  - test/host/cleo-linkage.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/artifact.test.ts
+  - test/unit/cleo-link.test.ts
+  - scripts/check-installed-goal.ts
+  - docs/dogfood-1.md
+  - docs/dogfood-2.md
+  - docs/dogfood-3.md
+  - docs/dogfood-4.md
+  - docs/dogfood-5.md
+  - docs/dogfood-6.md
+  - docs/dogfood-6-history.md
+plan:
+  - {id: S1, title: 'Recon the five drivers and the completed evidence read-only, and author the red record, export and workflow tests', proves: []}
+  - {id: S2, title: 'Build the consolidated exact-release workflow and the two-place honest export', proves: [C1], depends_on: [S1]}
+  - {id: S3, title: 'Land the OCG-side schema items: three satisfies AC-reference forms, proves as the sole binding with acs deprecated, and reportSha256', proves: [C4], depends_on: [S1]}
+  - {id: S4, title: 'Publish v0.5.1, reinstall it and prove it loaded here and from its tag', proves: [C5, C6], depends_on: [S2, S3]}
+  - {id: S5, title: 'Exercise all five native flows against the installed v0.5.1 and write both halves of the export', proves: [C2, C3], depends_on: [S4]}
+  - {id: S6, title: 'Obtain the owner sign-off on the readable export', proves: [C7], depends_on: [S5]}
+assumptions:
+  - {id: A1, text: 'The five native flows are the five existing drivers: interview/fresh handoff (real-model-goal-dogfood), manager (real-model-manager-dogfood), lifecycle (real-model-lifecycle-dogfood), completion (real-model-completion-dogfood) and amendment (real-model-amendment-dogfood).', rationale: T102 names interview/handoff, manager, chat/lifecycle and completion, and the repo holds exactly these five drivers., reversible: true}
+  - {id: A2, text: 'Nothing in this goal depends on the unmerged CLEO verbs (cleo goal draft/close, cleo tasks changeset); the schema items are OCG-side only.', rationale: 'Recon on cleo 2026.10.17 shows none of the verbs exist yet (PRs 2299/2300/2301 are in review).', reversible: true}
+  - {id: A3, text: 'The export lives in BOTH places: the readable summary and JSON index under docs/research/real-model-dogfood/<version>.md|.json, and the raw per-flow records under .opencode/dogfood/<release>/.', rationale: 'The owner chose both places - committed readability and raw runtime records.', reversible: true}
+  - {id: A4, text: 'Only EXISTING oracles are protected; the new dogfood tests are left unprotected so the worker can author them, and the completed docs/dogfood-*.md history is protected read-only.', rationale: The v0.4.6 run was impossible as written because protect listed the tests the worker had to create; the owner restated this., reversible: true}
+  - {id: A5, text: 'The workflow keeps a verified per-flow record keyed by the release SHA and the artifact hashes, so the start rehearsal and the completing check reuse a real record instead of re-running five real-model flows; --force re-runs.', rationale: A command check is rehearsed at start and re-run at verify, and five real flows twice would be slow and costly; the record stays real., reversible: true}
+  - {id: A6, text: 'A provider hang or error during a flow is reported as an honest blocker, never retried in a loop and never recorded as a pass.', rationale: Earlier goals lost runs to hung provider calls; the export must label timeouts honestly., reversible: true}
+stop:
+  escalate_when:
+    - A flow needs a credential, provider or permission the owner has not granted
+    - The real-model provider hangs or errors such that a flow cannot produce a real record
+    - The fix would require rewriting or re-grading the completed T012/C13 evidence, or editing a protected oracle
+    - A fix requires weakening owner, exact-target, expiry, cross-session or once-only replay guards
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

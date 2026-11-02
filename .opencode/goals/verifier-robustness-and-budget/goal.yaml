@@ -1,0 +1,112 @@
+schema: goal/v1
+id: verifier-robustness-and-budget
+title: 'v0.4.6: robust verifier, honest read-only and worktree progress'
+priority: high
+intent:
+  verbatim: |
+    you need to complete and continue new goal with your oustanding findings from last session and recover your opencode-goal lead inbox you had previous and check any mbx handoff you have
+
+    New follow-ups (all under epic T002, all high priority, each with acceptance criteria):
+    ID	Task	Why it exists
+    T107	Verifier criteria may name their model and effort	The C4/C5 timeouts: the criterion can't say which model judges it, so a fast model can burn the whole budget on reading
+    T108	Verifier evidence quotes tolerate JUnit and XML escaping	The C5 failure: a quote of a line containing &#10;/&quot; didn't match the raw XML
+    T109	Verifier can answer a criterion about git history without a shell	The real timeout cause: the verifier has read/glob/grep only, so "check the git history" is unanswerable directly
+    T110	Verifier long-round budget is testable below the 60s floor	The tests that prove verdict handling need a lower per-round budget to run quickly
+    T111	Stall notices name the on_stall option and your choices	With the policy shipped, the stall notice should point at /goal resume and autonomy.on_stall
+    T112	Bound and document what the live-goal write guard cannot see	The contract's own assumption A4: a static path check can't name every writer, so the residual risk needs recording
+    Linked: T108 <-> T109 (verifier robustness) and T107 <-> T110 (verifier budget/model effort).
+    Also carried forward, not re-filed: T091/T092 (resume and wait round-trips) already exist, and I have a validated, unlaunched contract for them at .opencode/goals/resume-and-wait-round-trips/ - you redirected that round to the run-state work.
+    One bookkeeping correction to report honestly: two research notes I attached earlier used task ids (T107, T108) that did not exist at the time. The new tasks now occupy those ids, so those attachments point at the wrong titles. The canonical documents are correct and current in docs/research/host-suite-flake-findings.md and docs/research/host-owned-run-state-integrity.md; my attempt to re-point them created two stray copies, which I have archived. Nothing else was touched.
+
+    [plus the two items my mbx inbox held, which the owner chose to include: (a) goal_provenance (read-only) writes under a live goal folder and it looks like an agent hand-edited run.json; (b) src/util/git.ts fingerprint covers only the shared project root, so work in .worktrees/<slug> records changed:false and three such turns tripped the stall auto-pause.]
+outcome: A new immutable v0.4.6 patch is published and actually loaded in this goal session, in which the independent verifier runs on the contract-named model and effort (an invalid value falling back with a recorded ledger reason), matches evidence quotes against the equivalent decoded text of JUnit and XML-escaped files, answers a commit-history criterion from a host-provided digest without any external path, and its per-round floor is exercisable below 60s by a verdict-grace test that still completes under 90 seconds; stalled-run notices name the owner-set autonomy.on_stall option and the owner's choices; the live-goal write guard's unseeable writes are bounded and documented from a captured example; read-only calls write nothing under .opencode/goals; and a linked-worktree commit counts as progress, with any VidaPeps-reported item that does not reproduce on the current version documented from its exact trace instead of a speculative fix.
+why: The last two goal runs burned verifier rounds on budget and quoting defects, and one defect was discovered by reading the engine's own verdict on this work. The VidaPeps mailbox report is the same class found in production.
+scope:
+  in: [src/server/app.ts, src/verify, src/util/git.ts, src/contract, src/server/messages.ts, test/host, docs/research, CHANGELOG.md, package.json]
+  out: [other projects' production state, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - The carried-forward resume-and-wait round-trips (T091/T092) - untouched in this goal
+  - Reopening, regrading, archiving or editing any completed goal run or its history
+  - Editing production goal state, receipts, locks, criteria, protected oracles, provider/permission settings or an existing immutable tag
+  - Weakening owner, exact-target, expiry or once-only replay authority guards
+  - Repointing or editing CLEO task attachments - reported only, never changed
+  - Any release other than the single v0.4.6 patch
+criteria:
+  - id: C1
+    statement: WHEN a contract names the verifier's model and effort THE verifier child SHALL use them, and an invalid value SHALL fall back to the default resolution with the reason recorded in the ledger
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/verifier-model-effort.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C2
+    statement: WHEN the verifier quotes a line from a JUnit/XML file whose raw bytes carry entity escapes THE host quote re-read SHALL accept the equivalent decoded text, for both the raw junit and the plain-text renderer
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/verifier-quote-escaping.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C3
+    statement: WHEN a criterion asks about commit history THE verifier SHALL judge it from a host-provided git digest, with no external path and no shell
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/verifier-git-digest.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C4
+    statement: WHEN the verdict-grace test runs with the per-round floor set below 60s THE test SHALL complete in under 90 seconds and still prove a late goal_verdict is used
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/verifier-budget-floor.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C5
+    statement: WHEN the stall detector pauses a run THE notice SHALL name the owner-set autonomy.on_stall option and the owner's available choices, and the findings doc SHALL record the wording
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/stall-notice-policy.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C6
+    statement: The live-goal write-guard assessment SHALL cite the guard code and a captured example and state the residual risk without claiming full coverage
+    essential: true
+    check: {kind: verifier, ask: 'Read docs/research/live-goal-write-guard-bounds.md together with the guard code (shellWriteTargets in src/server/app.ts) and the write-guard host test. Does the assessment name the concrete guard mechanism and its limits, cite a captured example of a refused write (and of a read that is allowed), and state the residual risk - writes a static path scan cannot see - without claiming full coverage? Quote the files, not this contract.'}
+  - id: C7
+    statement: WHEN goal_status, goal_provenance or goal_inventory runs against a live run THE call SHALL create and modify no file under .opencode/goals
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/read-only-calls.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C8
+    statement: WHEN a linked worktree under .worktrees gains a commit THE run's progress fingerprint SHALL report changed, so worktree work does not trip the stall auto-pause
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/worktree-progress.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C9
+    statement: The new verifier, stall, read-only and worktree tests SHALL pass from the immutable v0.4.6 tag installed by OpenCode
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/verifier-model-effort.test.ts test/host/verifier-quote-escaping.test.ts test/host/verifier-git-digest.test.ts test/host/verifier-budget-floor.test.ts test/host/stall-notice-policy.test.ts test/host/read-only-calls.test.ts test/host/worktree-progress.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C10
+    statement: A patch newer than v0.4.5 SHALL be immutably published and actually loaded by this exact goal session before its completing round, with matching installed revision and artifact hashes
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.4.6 --assert-release', expect: {exit: 0}, timeout: 120}
+invariants:
+  - id: I1
+    statement: The existing verifier, stall, run-state and authority host suites SHALL CONTINUE TO pass without oracle edits
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/verifier-diagnostics.test.ts test/host/verifier-reliability.test.ts test/host/verifier-empty-response.test.ts test/host/verifier-verdict-grace.test.ts test/host/run-state-write-guard.test.ts test/host/stall-activity-and-policy.test.ts test/host/lifecycle-authority.test.ts', timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/harness.ts
+  - scripts/check-installed-goal.ts
+  - test/host/verifier-diagnostics.test.ts
+  - test/host/verifier-reliability.test.ts
+  - test/host/verifier-empty-response.test.ts
+  - test/host/verifier-verdict-grace.test.ts
+  - test/host/run-state-write-guard.test.ts
+  - test/host/stall-activity-and-policy.test.ts
+  - test/host/lifecycle-authority.test.ts
+plan:
+  - {id: S1, title: Reproduce each finding red-first on the current version (verifier model/effort, quote escaping, git-history criterion, round floor, stall notice, read-only writes, worktree progress) and record the baseline, proves: []}
+  - {id: S2, title: Contract-named verifier model/effort with recorded fallback, and a per-round floor testable below 60s, proves: [C1, C4], depends_on: [S1]}
+  - {id: S3, title: Quote re-read tolerates JUnit/XML escapes and the verifier gets a host git-history digest, proves: [C2, C3], depends_on: [S1]}
+  - {id: S4, title: Stall notice names on_stall and the owner choices; bound and document the write guard, proves: [C5, C6], depends_on: [S1]}
+  - {id: S5, title: Read-only calls write nothing under a goal folder and worktree commits count as progress, proves: [C7, C8], depends_on: [S1]}
+  - {id: S6, title: Publish v0.4.6 and prove it loaded in this session, proves: [C9, C10], depends_on: [S2, S3, S4, S5]}
+assumptions:
+  - {id: A1, text: The VidaPeps report is against v0.4.2; each item is reproduced on the current version first, and anything that does not reproduce is documented from its exact trace rather than fixed speculatively., rationale: Owner chose reproduce-first; the project never claims an unreproduced fix., reversible: true}
+  - {id: A2, text: Read-only means goal_status, goal_provenance and goal_inventory create and modify no file under .opencode/goals., rationale: Owner picked the strict meaning so a read can never look like an agent hand-edit., reversible: true}
+  - {id: A3, text: The contract names the verifier model and effort at the verification level (verification.model and verification.effort), accepted by the parser and passed to the child; an invalid value falls back and the ledger records why., rationale: Smallest reversible schema addition that answers T107 without a per-criterion schema., reversible: true}
+  - {id: A4, text: The release is a single new immutable v0.4.6 patch using the project's existing recipe; no old tag is moved., rationale: Owner chose a patch; the completing verifier then runs the installed patch., reversible: true}
+  - {id: A5, text: The mis-pointed research-note attachments and the archived stray copies are reported in the run summary and no CLEO attachment is changed., rationale: The owner said nothing else was touched; attachments are bookkeeping, not code., reversible: true}
+stop:
+  escalate_when:
+    - A fix requires weakening owner, exact-target, expiry or once-only replay guards
+    - Recovery requires editing production goal state, receipts, locks, protected oracles, providers, permissions or an existing immutable tag
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+    - A VidaPeps-reported item does not reproduce and the owner must decide whether to keep chasing it
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

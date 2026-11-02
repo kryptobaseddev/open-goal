@@ -1,0 +1,44 @@
+{
+  "form": {
+    "id": "frm_146bc174d001vve49pF2aR3YvF",
+    "sessionID": "ses_eb944dfebffeFPklfEPbNMS9Bm",
+    "title": "Questions",
+    "metadata": {
+      "kind": "question",
+      "tool": {
+        "messageID": "msg_146bc0cf9001VNkAXtMzQN1DOe",
+        "id": "call_00_ET_XyQdPzjWvqOdErItcWJb7641"
+      }
+    },
+    "fields": [
+      {
+        "key": "q0",
+        "title": "Goal",
+        "description": "Review and launch: QA proof.txt contains the single line status ok\nGoal: qa-interview. Contract SHA256: 44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9.\nOutcome: proof.txt exists at the project root and contains the single line 'status: ok'\nMode: new root session; the original session and history are NOT cleared.\nCriteria:\n- C1: WHEN the goal is verified THE file proof.txt SHALL exist at the project root\n- C2: WHEN the goal is verified THE file proof.txt SHALL contain the text 'status: ok'\nNon-goals: Editing production code or any repository other than this isolated QA project; Creating CLEO tasks or AgentMBX identities; Changing global settings, providers, models or agents\nRevise or save instead if anything should change. Only choosing the offered launch option starts this exact contract.\nDecision: f4424bd4-5c7c-4b01-bedc-7e59701e9154",
+        "type": "string",
+        "options": [
+          {
+            "value": "Start goal now (Recommended)",
+            "label": "Start goal now (Recommended)",
+            "description": "Launch exactly this validated contract in the displayed session mode."
+          },
+          {
+            "value": "Revise this goal",
+            "label": "Revise this goal",
+            "description": "Return to the interview with changes; nothing launches."
+          },
+          {
+            "value": "Save for later",
+            "label": "Save for later",
+            "description": "Keep the validated draft; nothing launches."
+          }
+        ],
+        "custom": true
+      }
+    ]
+  },
+  "answer": {
+    "q0": "Start goal now (Recommended)"
+  },
+  "automatedQATestOwner": true
+}

@@ -1,0 +1,103 @@
+schema: goal/v1
+id: proactive-continuation
+title: 'v0.8.0: a loop that keeps finding work'
+priority: high
+intent:
+  verbatim: "owner steer 2026-10-17 (after v0.7.1 completed 9/9): the loop must not stop at one goal - it should take the next ready CLEO item without asking, announce availability to peers over AgentMBX on every idle transition, and ask the owner only for a human criterion, a real blocker or an outward/destructive act. A clean restart must resume by itself; an accepted amendment must resume by itself; a superseded decision must never resurface. Interview answers: auto-start the next CLEO item; always announce on idle; stop only for human criteria, blockers and outward/destructive acts. [The gap v0.7.1 left: completion offers start-next as a prompt, nothing asks whether more work exists, and two engine defects force resume prompts - app.ts refuses to resume after an accepted amendment, and autonomy.on_interrupt defaults to pause so any restart demands a click.]"
+outcome: "After a goal completes the loop looks for more work and keeps going without lifecycle prompts: it takes the next ready CLEO item by itself and starts it (recording a notification, never asking), it announces availability to peers over AgentMBX once per idle transition and turns replies into candidate work, and it stops the owner only for a human criterion, a real blocker, or an outward/destructive act. A restart with an unchanged lock and an intact run resumes by itself; an owner-accepted amendment resumes in the same act that accepts it; and a superseded, expired or already-answered decision is never re-presented. The design note states the continuation policy - the sources and their order, the rate limits, and what is never automatic - and the whole thing is proven by host scenarios over the real engine plus unit tests over the pure decisions, with the existing oracle suites unchanged."
+why: "The owner runs several agents against goal mode and the friction is the product, not a nuisance: every resume prompt and every completion that stops dead is a point where a machine that should be working sits waiting for a human click. Goal mode already proves one goal rigorously; the missing half is deciding what happens next without asking, and doing it while keeping the guards that make autonomy safe."
+scope:
+  in: [src/engine, src/server, src/contract, src/tui, cli/ocg.ts, test/unit, test/host, docs/research, package.json, CHANGELOG.md, skills/write-goal]
+  out: [CLEO's own repository and packages, any other project, the npm registry, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - Publishing anything to npm (an `npm pack` dry run only)
+  - Answering a human criterion automatically, or approving evidence on the owner's behalf
+  - Any outward or destructive act unattended (publish, deploy, merge, delete, secrets, spend)
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay guards
+  - Soliciting peers more than once per idle transition, or re-announcing while an announcement is unanswered
+  - Changing the OpenCode adapter's observable behaviour, its tools or the continuation it sends
+  - Any release other than the single v0.8.0 minor
+constraints:
+  - A human criterion, a real blocker and an outward/destructive act must still stop the loop and ask - proven by tests, not by intent
+  - Every automatic continuation must be recorded (ledger plus a notification the owner can read), never silent
+  - The next-work decision must be a pure function over injected inputs, so it is testable without a host
+  - A restart resumes only when the lock is unchanged and the run is intact; a changed contract, a divergent run or an interrupted write still pauses
+  - The peer channel is injectable, so tests never touch the network
+criteria:
+  - id: C1
+    statement: "WHEN the host restarts with an unchanged lock and an intact run THE engine SHALL resume the run by itself, and WHEN the contract changed under the run, the run diverged, or a write was interrupted THE engine SHALL still pause and ask"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/interrupt-policy.test.ts test/host/restart-continuity.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C2
+    statement: "WHEN the owner accepts a staged amendment THE run SHALL resume in that same acceptance, with no second owner decision created"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/amendment-continuity.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C3
+    statement: "WHEN a decision's target has been superseded, or the decision expired or was already answered THE engine SHALL never re-present it to the owner"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/stale-decisions.test.ts test/host/stale-decision-silence.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C4
+    statement: "WHEN a goal completes and the project has a ready CLEO item THE loop SHALL start the next goal from it by itself, recording a notification and creating no owner question"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/continue-work.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C5
+    statement: "WHEN the loop goes idle THE engine SHALL announce availability to peers exactly once through the injected peer channel, SHALL not re-announce while that announcement is unanswered, and SHALL turn replies into candidate work"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/peer-announce.test.ts test/host/peer-announce-host.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C6
+    statement: "WHEN a human criterion is pending, a blocker is reported, or an outward or destructive act would be required THE loop SHALL stop and ask the owner, and SHALL NOT continue past a first visit to a new project or an exhausted budget unless the contract says otherwise"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/loop-stop-rules.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C7
+    statement: "The design note SHALL state the continuation policy - the sources and their order, the rate limits, the stop rules, and what is never automatic - and SHALL state plainly that nothing was published to npm"
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/proactive-continuation.md (and any note it supersedes). Does it name the sources the loop consults after a goal completes and their order, the rate limit on peer announcements, exactly what still stops the loop and asks the owner, what is never automatic, and whether anything was published to npm? Quote the document, not this contract."}
+  - id: C8
+    statement: "A new minor release SHALL be immutably published and actually loaded by this exact goal session before its completing round"
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.8.0 --assert-release', expect: {exit: 0}, timeout: 120}
+invariants:
+  - id: I1
+    statement: "The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits"
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts test/host/tick-bin.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/cleo-link.test.ts', timeout: 1800}
+  - id: I2
+    statement: "Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass"
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/cleo-health.test.ts
+  - test/host/cleo-linkage.test.ts
+  - test/host/cleo-evidence-bridge.test.ts
+  - test/host/tick-bin.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/cleo-link.test.ts
+  - test/unit/loop-decision.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: 'Recon the completion, restart and amendment paths; author the red tests for every continuation and stop rule', proves: [], depends_on: []}
+  - {id: S2, title: 'Make a clean restart and an accepted amendment resume in the same act, and stop stale decisions resurfacing', proves: [C1, C2, C3], depends_on: [S1]}
+  - {id: S3, title: 'Add the pure next-work decision and make completion start the next ready CLEO item by itself', proves: [C4], depends_on: [S1]}
+  - {id: S4, title: 'Add the injectable peer channel and the rate-limited idle announcement', proves: [C5], depends_on: [S1]}
+  - {id: S5, title: 'Encode the stop rules as a tested policy', proves: [C6], depends_on: [S2, S3, S4]}
+  - {id: S6, title: 'Write the design note for the continuation policy', proves: [C7], depends_on: [S5]}
+  - {id: S7, title: 'Publish v0.8.0, reinstall it and prove it loaded here', proves: [C8], depends_on: [S2, S3, S4, S5, S6]}
+assumptions:
+  - {id: A1, text: 'The next ready CLEO item is the right work to start by itself; the owner chose auto-start over proposing.', rationale: 'It is work the owner already queued, so starting it is the point rather than a surprise.', reversible: true}
+  - {id: A2, text: 'Peers may be asked on every idle transition, but only one outstanding announcement at a time.', rationale: 'The owner chose always-announce; the rate limit keeps that from becoming noise for other agents.', reversible: true}
+  - {id: A3, text: 'This goal itself may still pause on its own restarts, because auto-resume is what it is building.', rationale: 'The capability does not exist until it ships; the alternative is disabling the guard mid-flight.', reversible: false}
+  - {id: A4, text: 'The peer channel shells out to agentmbx rather than embedding a client, and tests inject a fake transport.', rationale: 'The plugin has no runtime dependencies and tests must never touch the network.', reversible: true}
+stop:
+  escalate_when:
+    - A human criterion needs the owner, or an outward/destructive act would be required
+    - A real blocker is reported (missing credential, access, or a decision only the owner can make)
+    - Continuing would weaken an owner, exact-target, expiry, cross-session or once-only replay guard
+    - The next-work decision cannot be made without inventing a fact the engine cannot observe
+    - The release would require a registry credential or an actual publish
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: resume-on-message}
+verification: {mode: host+verifier, max_rejections: 3}

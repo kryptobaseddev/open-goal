@@ -1,0 +1,13 @@
+{
+  "pass": true,
+  "checks": [
+    "two-rendered-cards",
+    "goal-less-native-manager",
+    "expand-before-jump",
+    "explicit-session-jump",
+    "selected-action-isolated",
+    "narrow-focus-and-bounds",
+    "visible-close-to-sidebar",
+    "f9-reopen-selected-focus"
+  ]
+}

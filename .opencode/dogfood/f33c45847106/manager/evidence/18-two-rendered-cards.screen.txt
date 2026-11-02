@@ -1,0 +1,41 @@
+   Deployed Real-Model Manager   +
+                                                                                                                         ┃                                                       ┃
+                                                                                                                         ┃  MCP server needs authentication  › Open MCP servers  ┃
+                                                                                                                         ┃                                                       ┃
+                                                                                                                         ┃  Connect "parallel-task" to use its tools.            ┃
+                                                                                                                         ┃                                                       ┃
+                                                                                                                                       █    • cloudflare-bindings       Connected
+                                                                                                                                       █    • cloudflare-builds         Connected
+                                                                                                                                       █    • cloudflare-docs           Connected
+                                                                                                                                       █    • cloudflare-observability  Connected
+                                                                                                                                       █    • context7                  Connected
+                                                                                                                                       █    • firecrawl                   Sign in
+                                                                                                                                       █    • mbx                       Connected
+                                                                                                                                       █    • obsidian                  Connected
+                                                                                                                                       █    • parallel-search           Connected
+                                                                                                                                       █    • parallel-task               Sign in
+                                                                                                                                       █    • playwright                Connected
+                                                                                                                                       █    • railway                   Connected
+                                                                                                                                       █
+                                                                                                                                       █    ▸ AgentMBX
+                                                                                                                                       █    mbx unbound — claim or register a
+                                                                                                                                       █    persona
+                                                                                                                                       █
+                                                                                                                                       █    Ask agent: mbx_identity list; claim
+                                                                                                                                       █    your persona or register real-model-
+                                                                                                                                       █    goal-k7rg3s-dev
+                                                                                                                                       █
+                                                                                                                                       █    Goals (3)
+                                                                                                                                       █
+                                                                                                                                       █     qa-manager-two
+                                                                                                                                       █     waiting · elsewhere
+                                                                                                                                       █    0/2 proven · build
+                                                                                                                                       █
+                                                                                                                                       █     qa-manager-one
+                                                                                                                                             waiting · elsewhere
+  ┃                                                                                                                                         0/2 proven · build
+  ┃                                                                                                                                          ▶ +1 goal — F9 manager
+  ┃
+  ┃  Build auto · DeepSeek V4.1 Flash DeepSeek · high
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  /private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s:main        shift+tab agents  ctrl+p commands    /…/openco…/real-model-goal-K7rG3s:main

@@ -1,0 +1,99 @@
+schema: goal/v1
+id: host-owned-run-state-integrity
+title: 'Host-owned run state cannot be corrupted, and agents never need to edit it'
+priority: high
+intent:
+  verbatim: |
+    NOTE in your next goal work there is a weird issue I am seeing with agents having to manually edit the run.json file every turn. I see this they are doing Updated .opencode/goals/purchasing-receiving-workflow/run.json (+5 -5)
+    "updatedAt" twice, "tokens"/"cost" twice, "tools" twice, "lastUsageEmit" twice.
+    'Owner answers: block write paths (any tool, including shell and scripts) and detect corruption; repair what the engine can prove, else stop; owner-set on_stall policy; only the owner resumes a stopped run unless the policy says otherwise; ship as patch v0.4.3, installed and proven. Owner question answered by this contract: how does run.json get updated correctly so no hand editing is needed, and how do agents get more autonomy over their run?' 
+outcome: "A live goal folder refuses every write path an agent can reach — structured edits and shell/script writes alike — naming the supported tool; a run.json that is malformed or carries duplicate keys is detected on load and either repaired from the run's own provable evidence with the raw bytes kept and a ledger event, or refused with the goal stopped for the owner. Host-visible activity (tool calls and verification results) counts as activity so real work is no longer reported as a stall, and an owner-set `autonomy.on_stall: continue` lets a genuinely stalled-but-active run continue with a recorded stall report instead of pausing (default stays `pause`). A stopped run still belongs to the owner: no agent tool, message or file edit resumes, extends or clears it. Shipped as an immutable patch newer than v0.4.2, loaded in this session and passing the new tests from its tag."
+why: An agent hand-merged run.json (duplicate keys, silently last-wins) because a stalled run refused goal_progress and the write guard did not cover shell writes; host-owned state must never depend on an agent editing a file.
+non_goals:
+  - Giving any agent the ability to resume, extend, clear or claim a stopped run (the owner-set on_stall policy is the only exception, and it is the owner's grant)
+  - Editing, repairing or claiming anything about another project's goal state (the VidaPeps and axiom runs are read-only evidence), or asserting that the reported VidaPeps file is now fixed
+  - Changing the run.json schema version, rewriting historical ledgers, or normalising an archived goal
+  - Weakening any existing authority, expiry, once-only, target or criterion guard
+  - Blocking reads of goal state, or blocking writes to another project's or an archived folder
+scope:
+  in: [src, test, docs/research, CHANGELOG.md, package.json, bounded release and installed proof]
+  out: [other projects' goal state, global provider and permission configuration, existing immutable tags]
+constraints:
+  - A repair must be provable from the run's own bytes (its locked evidence snapshots and ledger); when it is not, the goal stops instead of guessing
+  - Every refusal must name the supported tool (goal_progress, goal_wait, goal_block, goal_flag, goal_claim, goal_manage, goal_recover_divergence), never leave editing the file as the apparent option
+criteria:
+  - id: C1
+    statement: WHEN a tool call would write inside a live goal folder (edit, write, patch, or a shell command or script that writes there) THE host SHALL refuse it and name the supported tool instead; reading goal state SHALL stay allowed, and a folder belonging to another project or to an archived goal SHALL be unaffected.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/run-state-write-guard.test.ts', timeout: 1200}
+  - id: C2
+    statement: WHEN the engine loads a run.json that is malformed or contains duplicate keys THE engine SHALL detect it and either repair exactly the fields it can prove from the run's own evidence snapshots and ledger (atomic rewrite, raw bytes kept, ledger event) or refuse that goal and stop it for the owner; it SHALL never silently read the last duplicate value as the run's state.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/run-state-corruption.test.ts', timeout: 1200}
+  - id: C3
+    statement: 'WHEN a run records host-visible activity (tool calls, verification results) THE stall detector SHALL count it as activity rather than treating it as no progress; WHEN the contract sets the owner-set `autonomy.on_stall: continue` a counter stall SHALL continue with a recorded stall report instead of pausing, while the default SHALL remain `pause`.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/stall-activity-and-policy.test.ts', timeout: 1200}
+  - id: C4
+    statement: A stopped, paused or stalled run SHALL remain the owner's to resume — no agent tool, agent message, correction of run.json, or hand edit SHALL resume, extend, clear or claim it — and the only exception SHALL be the owner-set `on_stall` policy granted in the contract, which is journalled, visible and reversible, and SHALL never apply to a run the owner paused themselves.
+    check: {kind: verifier, ask: 'Read the guard code and the new tests. Can any agent-reachable path resume, extend, clear or claim a stopped/paused run? Is the on_stall exception limited to the owner-set contract field, journalled and reversible, and does it leave an owner-paused run stopped? Can a hand-edited or repaired run.json cause a resume, a criterion pass or a claim? Quote the code and tests, and say plainly if any path violates this.'}
+  - id: C5
+    statement: The new tests SHALL have been red before each fix and SHALL not have been weakened afterwards, and no existing authority, expiry, once-only, target or criterion guard SHALL be relaxed to make them pass.
+    check: {kind: verifier, ask: 'Read the three new test files, their git history and the changed src. Do they reproduce the reported shapes (a hand-merged run.json with duplicate keys, a shell write into a live goal folder, a stalled but active run)? Is there a recorded red run before each fix and no later weakening? Are the existing authority/expiry/once-only/target/criterion guards untouched? Quote files.'}
+  - id: C6
+    statement: A release newer than v0.4.2 SHALL be immutably published and actually loaded by this goal session, with matching Git revision, server, UI and skill hashes.
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.4.3 --assert-release', timeout: 120}
+  - id: C7
+    statement: The published release SHALL pass the same new guard, corruption and stall tests when installed by OpenCode from its immutable package-version tag.
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/run-state-write-guard.test.ts test/host/run-state-corruption.test.ts test/host/stall-activity-and-policy.test.ts', timeout: 1800}
+invariants:
+  - id: I1
+    statement: Existing recovery, autonomy, verifier diagnostics, launch, target, Composer, owner-chat, prerequisite and resume/ack host scenarios SHALL CONTINUE TO pass without protected-file edits.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/divergent-contract-recovery.test.ts test/host/autonomy-policy.test.ts test/host/goal-launch-flow.test.ts test/host/target-bound-decisions.test.ts test/host/composer-amendment.test.ts test/host/owner-chat-launch.test.ts test/host/amendment-resume-prerequisite.test.ts test/host/owner-resume.test.ts test/host/busy-owner-resume.test.ts test/host/command-ack.test.ts test/host/waiting-completion.test.ts', timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass.
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/divergent-contract-recovery.test.ts
+  - test/host/verifier-diagnostics.test.ts
+  - test/host/lab-lifecycle-triage.test.ts
+  - test/fixtures/lab-tool-boundary/**
+  - test/host/target-bound-decisions.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/composer-amendment.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/amendment-resume-prerequisite.test.ts
+  - test/host/owner-resume.test.ts
+  - test/host/busy-owner-resume.test.ts
+  - test/host/command-ack.test.ts
+  - test/host/waiting-completion.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: 'Red oracles: shell write into a live goal folder, duplicate-key run.json, stalled-but-active run', proves: []}
+  - {id: S2, title: Refuse every write path into a live goal folder and name the supported tool, proves: [C1], depends_on: [S1]}
+  - {id: S3, title: Detect malformed/duplicate run.json and repair from provable evidence or stop, proves: [C2], depends_on: [S1]}
+  - {id: S4, title: Count host-visible activity and add the owner-set on_stall policy, proves: [C3], depends_on: [S1]}
+  - {id: S5, title: Prove the stopped-run guards and the fix honesty with the independent verifier, proves: [C4, C5], depends_on: [S2, S3, S4]}
+  - {id: S6, title: Publish v0.4.3 and prove it installed from the tag, proves: [C6, C7], depends_on: [S5]}
+assumptions:
+  - id: A1
+    text: Duplicate keys are detected with a raw-text scan of the run.json bytes before JSON.parse, because JSON itself silently keeps the last value.
+    rationale: The observed hand-merged file parses cleanly, so a parse-only check cannot see it.
+    reversible: true
+  - id: A2
+    text: The repair source of truth is the run's own evidence snapshots and ledger in its folder; nothing is taken from the corrupted bytes.
+    rationale: A hand edit is exactly the input that cannot be trusted; the durable record can be.
+    reversible: true
+  - id: A3
+    text: '`autonomy.on_stall: pause | continue` is a new optional owner-set contract field whose default is `pause` (today''s behaviour), and an amendment that changes it is never agent-applicable.'
+    rationale: The policy is the owner's grant, like autonomy.amend; the classifier already blocks autonomy changes for the agent.
+    reversible: true
+  - id: A4
+    text: Blocking shell writes matches the path a shell command names; an unnameable write (an opaque binary that writes the folder) is covered by the load-time corruption detection rather than by static analysis.
+    rationale: Static call-path analysis cannot prove every runtime writer; the two defences are deliberately complementary.
+    reversible: true
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier}
+stop:
+  escalate_when:
+    - The only way to stop hand edits would be to give an agent authority over a stopped run
+    - A repair would need to invent a value the run's evidence and ledger cannot prove
+    - The write guard would have to block reads, or writes to another project or an archived goal
+    - The owner-paused case would have to be auto-continued to satisfy the stall policy

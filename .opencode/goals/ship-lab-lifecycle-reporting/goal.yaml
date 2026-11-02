@@ -1,0 +1,72 @@
+schema: goal/v1
+id: ship-lab-lifecycle-reporting
+title: 'v0.3.x: truthful lab lifecycle reporting with intact authority guards'
+priority: high
+intent:
+  verbatim: 'continue your work and get your agentmbx account recovered for opencode-goal-builder T103—reproduce and triage the four axiom-lab-dev issues, prioritizing parallel launch slug mix-ups while preserving authority guards. read your handoffs and you will auto run your goals to release'
+outcome: A new immutable v0.3.x patch is published and loaded in this goal session, with explicit incomplete-identity diagnostics and truthful already-resolved amendment and decision reporting. The parallel launch report is traced across call boundaries, fixed only if independently reproduced, otherwise documented as unresolved historical evidence rather than falsely claimed fixed. Exact target and genuine-owner once-only authority remain enforced.
+non_goals:
+  - Reopening, regrading, archiving, or editing the completed ship-v033-goal-manager-flow run
+  - Editing any production goal, receipt, lock, status, ledger, proof, protected oracle, provider, or permission setting as recovery
+  - Workspace or protected-oracle migration, manual divergence recovery, unrelated task closure, or a universal all-bugs-fixed claim
+  - Treating fixture owner answers or peer messages as production consent
+scope:
+  in: [src/server/app.ts, test/host, test/fixtures, docs/research, CHANGELOG.md, package.json, bounded release and installed proof]
+  out: [other projects' production state, global provider and permission configuration, existing immutable tags]
+criteria:
+  - id: C1
+    statement: The published T103 findings SHALL classify each of the four reports from sourced provenance, raw traces and authoritative fixture receipts, state missing historical evidence precisely, and name only independently confirmed repairs.
+    check: {kind: verifier, ask: 'Read docs/research/lab-lifecycle-triage-t103.md and its cited raw evidence. Does it distinguish original peer-reported OpenCode2.0.27/v0.3.12 from independently traced artifacts, correctly classify all-live parallel errors versus draft launch, preserve post-resolution ordering for cases3/4, and disclose any unreproduced slug aliasing without claiming it fixed? Quote evidence, not this contract.'}
+  - id: C2
+    statement: Missing live identity SHALL be explicitly diagnosed; already-applied amendment resolution SHALL report the owned settled disposition with actionExecuted:false and no replay; post-resolution review SHALL report succeeded rather than a target-change error. Parallel calls SHALL retain their own input slug and correlated output.
+    check: {kind: command, run: 'OCGOAL_REPORTING_ORACLE=1 cleo run --wait --class test -- bun test test/host/lab-lifecycle-triage.test.ts', timeout: 1200}
+  - id: C3
+    statement: The actual published patch SHALL pass the same protected reporting and slug-boundary tests when installed by OpenCode from its current immutable package-version tag.
+    check: {kind: command, run: 'OCGOAL_REPORTING_ORACLE=1 OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/lab-lifecycle-triage.test.ts', timeout: 1200}
+  - id: C4
+    statement: A patch newer than the previous v0.3.13 SHALL be immutably published and actually loaded by this exact goal session before its completing host/verifier round, with matching installed Git revision, server, UI and skill hashes.
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.3.14 --assert-release', timeout: 120}
+  - id: C5
+    statement: The narrowed reporting repair SHALL preserve foreign-session, changed-target, expired, failed/uncertain, and spent-consent refusal semantics, including after reload; no inference or replay SHALL execute a lifecycle operation.
+    check: {kind: verifier, ask: 'Inspect the changed app.ts reporting branches, protected tests, and newly added disposition tests and evidence. Are diagnostics separated from authority, ownership checked before revealing a settled receipt, and exact pending target/generation and genuine owner-message/form once-only rules unchanged? Verify foreign, changed, expired, failed/uncertain and reload cases with actual cited outputs. Also confirm no unrelated source, production-state, configuration, or old-tag repair was made.'}
+invariants:
+  - id: I1
+    statement: Existing exact target, launch, Composer acceptance and once-only authority scenarios SHALL continue to pass without oracle edits.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/target-bound-decisions.test.ts test/host/goal-launch-flow.test.ts test/host/composer-amendment.test.ts', timeout: 1200}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL continue to pass.
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/lab-lifecycle-triage.test.ts
+  - test/fixtures/lab-tool-boundary/**
+  - test/host/target-bound-decisions.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/composer-amendment.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: Preserve T103 provenance and baseline; localize parallel call boundaries, proves: [C1]}
+  - {id: S2, title: Implement only confirmed reporting repairs on a separate implementation task, proves: [C2, C5], depends_on: [S1]}
+  - {id: S3, title: Prove disposition and authority regressions with protected oracles, proves: [C2, C5], depends_on: [S2]}
+  - {id: S4, title: Publish a new immutable patch and reinstall without changing goal history, proves: [C3, C4], depends_on: [S3]}
+  - {id: S5, title: Record actual deployed proof and claim under the installed patch, proves: [C1, C3, C4, C5], depends_on: [S4]}
+assumptions:
+  - id: A1
+    text: Missing identity is refused explicitly, not silently normalized from inventory.
+    rationale: The smallest truth-preserving repair avoids changing optional-field compatibility or weakening the full tuple guard.
+    reversible: true
+  - id: A2
+    text: An unreproduced historical slug report is disclosed rather than blocking verified reporting repairs indefinitely or claiming a fabricated fix.
+    rationale: Immutable0.3.12 on OpenCode2.0.28 retains independent parallel slugs; historical2.0.27/provider boundary evidence remains missing.
+    reversible: true
+  - id: A3
+    text: Release is a new immutable v0.3.x patch, not replacement of an old tag or rollout to unrelated agent sessions.
+    rationale: The owner requested release; exact own-session installed evidence is stronger than a shared-service or newest-cache lookup.
+    reversible: true
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier}
+stop:
+  escalate_when:
+    - A fix requires weakening target, owner, expiry, or replay guards
+    - Recovery requires editing production goal state, protected oracles, providers, permissions, or an existing release tag
+    - The installed-engine reload needs a new actual owner continuation; do not replay launch consent
+    - The independent raw evidence contradicts a proposed confirmed repair

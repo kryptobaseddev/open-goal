@@ -1,0 +1,54 @@
+{
+  "at": 1792190363826,
+  "results": [
+    {
+      "id": "C1",
+      "pass": false,
+      "unrunnable": false,
+      "ms": 789,
+      "detail": "run 1/1: exit 1, expected 0\n[stderr]\n[cleo run] planned resources: heap 4096 MiB (CLEO default) × 1 worker(s) (default for this RAM) × 1 workspace package(s) at once = 4096 MiB of a 4096 MiB budget (64 GiB RAM)\n[cleo run] charged footprint: 1 named test file\nbun test v1.4.2 (50a8a8387)\nThe following filters did not match any test files:\n test/unit/loop-decision.test.ts\n305 files were searched [44."
+    },
+    {
+      "id": "C2",
+      "pass": false,
+      "unrunnable": false,
+      "ms": 697,
+      "detail": "run 1/1: exit 1, expected 0\n[stderr]\n[cleo run] planned resources: heap 4096 MiB (CLEO default) × 1 worker(s) (default for this RAM) × 1 workspace package(s) at once = 4096 MiB of a 4096 MiB budget (64 GiB RAM)\n[cleo run] charged footprint: 1 named test file\nbun test v1.4.2 (50a8a8387)\nThe following filters did not match any test files:\n test/host/tick-bin.test.ts\n305 files were searched [4.00ms]\n"
+    },
+    {
+      "id": "C4",
+      "pass": false,
+      "unrunnable": false,
+      "ms": 254,
+      "detail": "run 1/1: exit 1, expected 0\n"
+    },
+    {
+      "id": "C5",
+      "pass": false,
+      "unrunnable": false,
+      "ms": 680,
+      "detail": "run 1/1: exit 1, expected 0\n\n[stderr]\nINSTALL PROOF FAILED: No actual goal-session binding; refusing an unscoped shared-service lookup"
+    },
+    {
+      "id": "C6",
+      "pass": false,
+      "unrunnable": false,
+      "ms": 725,
+      "detail": "run 1/1: exit 1, expected 0\n[stderr]\n[cleo run] planned resources: heap 4096 MiB (CLEO default) × 2 worker(s) (default for this RAM) × 1 workspace package(s) at once = 8192 MiB of a 8192 MiB budget (64 GiB RAM)\n[cleo run] charged footprint: 2 named test files\nbun test v1.4.2 (50a8a8387)\nThe following filters did not match any test files:\n test/unit/loop-decision.test.ts test/unit/tick.test.ts\n305 "
+    },
+    {
+      "id": "I1",
+      "pass": true,
+      "unrunnable": false,
+      "ms": 31188,
+      "detail": "exit 0 in 31.2s"
+    },
+    {
+      "id": "I2",
+      "pass": true,
+      "unrunnable": false,
+      "ms": 3551,
+      "detail": "exit 0 in 3.5s"
+    }
+  ]
+}

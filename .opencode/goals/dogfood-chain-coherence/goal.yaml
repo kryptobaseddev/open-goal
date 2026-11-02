@@ -1,0 +1,106 @@
+schema: goal/v1
+id: dogfood-chain-coherence
+title: 'v0.5.2: a coherent dogfood chain, and T102 settled on real evidence'
+priority: high
+intent:
+  verbatim: "next-goal interview 2026-10-16 (after v0.5.1 completed 9/9): chose Make the dogfood chain coherent and settle T102; Run the chain for real; boundaries as listed plus the multi-task commit-citation rule; no budget; Close T102 only if honestly earned; Patch v0.5.2 + installed proof; host+verifier. [CLEO T102: Automate exact-release real-model dogfood and independently readable proof export. The v0.5.1 export records the manager flow as partial with 'QA serving PID changed' because the workflow reused an interview record created by a DIFFERENT serving engine (pid 24041 before the install, 30270 after), so the manager flow has never had a coherent run. The cache must bind the serving engine, not only the release and artifact hashes.]"
+outcome: "A new immutable v0.5.2 patch is published and loaded in this goal session, in which the exact-release dogfood workflow binds every recorded flow to the SERVING ENGINE it actually ran against (pid, location and endpoint) as well as the release and artifact hashes, so a restarted or replaced engine can never reuse another engine's record and a five-flow chain is coherent by construction; a real five-flow run against the installed v0.5.2 then produces honest labels, and CLEO task T102 is closed through the CLI-only bridge if and only if the manager flow passes on real evidence, while a genuine failure is recorded with its cause and T102 stays open; and a multi-task goal's run commits SHALL cite every linked CLEO task id, with that requirement rendered into the contract the worker sees."
+why: "The manager flow has never had a fair run: the attempt before it failed on a real model condition and the attempt after it failed because a cached record from a previous server was reused. Until the cache is bound to the serving engine, every result from that chain is suspect. Fixing it is also what lets T102 be settled honestly rather than closed on a technicality."
+scope:
+  in: [src/engine/dogfood-record.ts, src/contract/render.ts, scripts/real-model-dogfood.ts, scripts/dogfood-t102-coherence.ts, test/unit, test/host, docs/research, CHANGELOG.md, package.json]
+  out: [the completed docs/dogfood-1..6.md history (read-only), CLEO's own repository and packages, any other project, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - Rewriting, re-grading or deleting the completed T012/C13 dogfood evidence (docs/dogfood-*.md) - it is extended, never rewritten
+  - Closing CLEO task T102 when the manager flow did not pass on real evidence
+  - Changing CLEO itself, or depending on the unmerged cleo goal draft/close or cleo tasks changeset verbs
+  - Committing secrets, credentials, tokens or raw provider payloads into either half of the export
+  - Editing an oracle, replaying old consent, or hand-approving a criterion to make the chain look coherent
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay guards
+  - Any release other than the single v0.5.2 patch
+constraints:
+  - A recorded flow is reusable only when the release SHA, the artifact hashes AND the serving engine (pid, location, endpoint) all still match
+  - The export never presents a cache from another engine, a fixture, a partial success or a timeout as a pass
+criteria:
+  - id: C1
+    statement: "WHEN the dogfood workflow and record suites run THE result SHALL exit 0, covering a cache key that binds the serving engine (pid, location and endpoint) as well as the release SHA and the artifact hashes, a stale-cache label when any of them no longer matches, and reuse only on a full match"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/dogfood-record.test.ts test/host/dogfood-workflow.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C2
+    statement: "WHEN the workflow exercises all five native flows against the installed artifact THE run SHALL exit 0 and write both halves of the export"
+    essential: true
+    check: {kind: command, run: 'bun scripts/real-model-dogfood.ts --assert', expect: {exit: 0}, timeout: 2700}
+  - id: C3
+    statement: "Every flow in the readable export SHALL name the serving engine it actually ran against (pid, location and endpoint) alongside the release SHA and the artifact hashes, SHALL never be recorded against an engine other than the one that produced it, and SHALL be labelled honestly rather than as a pass"
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/real-model-dogfood/<version>.md and its raw records under .opencode/dogfood/. For EACH of the five flows, does it name the serving engine it actually ran against (pid AND location AND endpoint), next to the release SHA and the artifact hashes? Is every flow's recorded serving pid the same engine that produced it (no flow reusing another engine's record)? Are fixtures, stale-cache failures, partial successes and timeouts labelled honestly instead of as passes? Quote the export, not this contract."}
+  - id: C4
+    statement: "A multi-task goal's contract SHALL render the requirement that its run commits cite every linked CLEO task id, proven by the contract and linkage suites"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/contract.test.ts test/host/cleo-linkage.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C5
+    statement: "The export's manager verdict and CLEO task T102's status SHALL agree - T102 is done exactly when the manager flow is recorded as a pass"
+    essential: true
+    check: {kind: command, run: 'bun scripts/dogfood-t102-coherence.ts', expect: {exit: 0}, timeout: 300}
+  - id: C6
+    statement: "A new patch SHALL be immutably published and actually loaded by this exact goal session before its completing round"
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.5.2 --assert-release', expect: {exit: 0}, timeout: 120}
+  - id: C7
+    statement: "The new workflow and coherence tests SHALL pass from the immutable v0.5.x tag installed by OpenCode"
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/unit/dogfood-record.test.ts test/host/dogfood-workflow.test.ts test/unit/contract.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C8
+    statement: "The owner SHALL approve the readable dogfood export as an honest record of a coherent chain before the goal completes"
+    essential: true
+    check: {kind: human, ask: "Approve docs/research/real-model-dogfood/<version>.md as an honest record of this release's COHERENT five-flow chain, with each flow naming the serving engine it ran against? Approving ratifies the export only; it does not re-grade the completed T012/C13 evidence or close T102 by itself."}
+invariants:
+  - id: I1
+    statement: "The existing goal-loop and CLEO oracle suites SHALL CONTINUE TO pass without oracle edits"
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/cleo-link.test.ts', timeout: 1800}
+  - id: I2
+    statement: "Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass"
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/cleo-health.test.ts
+  - test/host/cleo-linkage.test.ts
+  - test/host/cleo-evidence-bridge.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/cleo-link.test.ts
+  - scripts/check-installed-goal.ts
+  - docs/dogfood-1.md
+  - docs/dogfood-2.md
+  - docs/dogfood-3.md
+  - docs/dogfood-4.md
+  - docs/dogfood-5.md
+  - docs/dogfood-6.md
+  - docs/dogfood-6-history.md
+plan:
+  - {id: S1, title: 'Reproduce the cross-engine cache reuse read-only, and author the red tests for a serving-engine-bound cache', proves: []}
+  - {id: S2, title: 'Bind the cache to the serving engine and add the export-to-T102 coherence check', proves: [C1, C5], depends_on: [S1]}
+  - {id: S3, title: 'Render the multi-task commit-citation requirement into the contract', proves: [C4], depends_on: [S1]}
+  - {id: S4, title: 'Publish v0.5.2, reinstall it and prove it loaded here and from its tag', proves: [C6, C7], depends_on: [S2, S3]}
+  - {id: S5, title: 'Run the five-flow chain for real against the installed v0.5.2, and close T102 if the manager flow passes', proves: [C2, C3], depends_on: [S4]}
+  - {id: S6, title: 'Obtain the owner sign-off on the readable export', proves: [C8], depends_on: [S5]}
+assumptions:
+  - {id: A1, text: 'The manager flow failed last time because of the stale-cache pid mismatch, not the model; whether it passes in a coherent chain is genuinely unknown and this goal finds out.', rationale: 'The two attempts failed for two different reasons; the first was a model condition, the second a pid mismatch.', reversible: true}
+  - {id: A2, text: 'T102 closes only if the manager flow passes on real evidence; otherwise the export records the failure and T102 stays open.', rationale: 'The owner chose to close T102 only if honestly earned, so a genuine failure does not get dressed up.', reversible: true}
+  - {id: A3, text: 'Nothing depends on the unmerged CLEO verbs; the commit-citation rule is OCG-side rendering only.', rationale: 'Recon shows cleo 2026.10.17 still has only goal set/status/advance and no tasks changeset.', reversible: true}
+  - {id: A4, text: 'Only EXISTING oracles are protected; the new dogfood and coherence tests are left unprotected so the worker can author them.', rationale: 'The v0.4.6 run was impossible as written because protect listed the tests the worker had to create.', reversible: true}
+  - {id: A5, text: 'A recorded flow is reusable only when release, artifacts AND serving engine all match; a reuse across engines is labelled stale-cache rather than silently presented as a pass.', rationale: 'The drivers themselves enforce pid/endpoint identity, so the cache must not be weaker than they are.', reversible: true}
+  - {id: A6, text: 'A provider hang or a start-up crash is an honest blocker or a partial with its cause, never retried in a loop and never recorded as a pass.', rationale: 'Learned in v0.5.1; a plumbing failure must not look like a model failure.', reversible: true}
+stop:
+  escalate_when:
+    - The manager flow fails for a reason that is not ours to fix (a genuine model or harness behaviour)
+    - A flow needs a credential, provider or permission the owner has not granted
+    - The fix would require rewriting the completed T012/C13 evidence or editing a protected oracle
+    - A fix requires weakening owner, exact-target, expiry, cross-session or once-only replay guards
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

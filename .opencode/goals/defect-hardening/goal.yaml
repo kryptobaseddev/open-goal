@@ -1,0 +1,68 @@
+schema: goal/v1
+id: defect-hardening
+title: Close D5, D7 and the registry flake
+priority: high
+intent:
+  verbatim: "A hardening goal — close all three (D5, D7 and the registry flake), not just the narrowest one."
+outcome: Goal completion never offers a stale "Start the next goal" while a successor run is already live, an inverse-intent stop rule is visible as a validation warning with the positive-phrasing rule stated in write-goal, and the registry test is deterministic across twenty repeats — with the continue-work, contract and stop-rule suites unchanged and typecheck/lint green.
+why: D5 still presents a completion question after a successor exists (seen at v0.7.1), D7 lets a contract encode the inverse of the owner's intent while validating cleanly, and one CI flake in the registry test undermines trust in a green suite.
+scope:
+  in: [src/server, src/engine, src/contract, src/tui, skills/write-goal, test/unit, test/host, docs/DEFECTS.md]
+  out: [auto-continuation behaviour, new autonomy features, the agnostic goal store, any release or version bump]
+workspace: .worktrees/defect-hardening
+non_goals:
+  - Changing the auto-continuation decision itself (which item is taken next)
+  - Adding autonomy features beyond the existing levels
+  - Starting the agnostic-goal-store goal
+  - Cutting a release unless a fix genuinely needs one
+constraints:
+  - A contract that parses today SHALL still parse; the new stop-rule guard is a warning, never a new error
+  - The protected oracles are read-only for this goal
+criteria:
+  - id: C1
+    statement: WHEN a goal completes while a successor run is already live THE engine SHALL NOT present a completion decision offering Start the next goal
+    essential: true
+    check: {kind: command, run: 'bun test test/host/complete-decision-live-successor.test.ts -t "live successor"', expect: {exit: 0}, timeout: 1800}
+  - id: C2
+    statement: WHEN a goal completes with no ready CLEO item and no live successor THE fallback SHALL be a notification without a stale Start the next goal offer
+    essential: true
+    check: {kind: command, run: 'bun test test/host/complete-decision-live-successor.test.ts -t "no ready item"', expect: {exit: 0}, timeout: 1800}
+  - id: C3
+    statement: WHEN a contract's stop rule is phrased as the inverse of continuing THE validator SHALL emit a warning naming the rule and SHALL NOT reject a contract that parses today
+    essential: true
+    check: {kind: command, run: "bun test test/unit/stop-rule-wording.test.ts", expect: {exit: 0}, timeout: 600}
+  - id: C4
+    statement: The write-goal skill SHALL state the positive-phrasing rule for stop rules
+    essential: true
+    check: {kind: contains, path: skills/write-goal/SKILL.md, text: "Stop rules are phrased positively"}
+  - id: C5
+    statement: WHEN the registry test suite runs twenty times THE outcome SHALL be identical and no run SHALL share another run's registry file
+    essential: true
+    check: {kind: command, run: "bun test test/unit/registry.test.ts --rerun-each 20", expect: {exit: 0}, timeout: 900}
+invariants:
+  - id: I1
+    statement: The auto-continuation, contract and stop-rule suites SHALL CONTINUE TO pass without edits
+    check: {kind: command, run: "bun test test/host/continue-work.test.ts test/unit/contract.test.ts test/unit/loop-stop-rules.test.ts", expect: {exit: 0}, timeout: 1800}
+  - id: I2
+    statement: TypeScript, generated TUI/CLI freshness and lint SHALL CONTINUE TO pass
+    check: {kind: command, run: "bun run typecheck && bun run lint", expect: {exit: 0}, timeout: 1800}
+protect:
+  - test/host/continue-work.test.ts
+  - test/unit/contract.test.ts
+  - test/unit/loop-stop-rules.test.ts
+assumptions:
+  - {id: A1, text: "The D5 fix leaves auto-continuation untouched; only the completion question and its fallback change", rationale: "the 0.8.0 continuation behaviour is not the defect", reversible: true}
+  - {id: A2, text: "The D7 guard is a warning, never a new parse error", rationale: "existing contracts must keep parsing; the contradiction must be visible at review time", reversible: true}
+  - {id: A3, text: "The registry flake is a temp-file collision in Registry.write (pid+Date.now); the fix is a unique temp name plus per-test paths, not an API change", rationale: "test isolation alone still flaked under --rerun-each 20; determinism is the observable contract", reversible: true}
+  - {id: A4, text: "No release: the fix lands in the worktree and shipping is a separate owner decision", rationale: "scope excludes a version bump unless a fix needs one", reversible: true}
+stop:
+  when: All essential criteria are host-verified and invariants hold
+  escalate_when:
+    - "A fix would require editing a protected oracle, rejecting a currently-valid contract or changing auto-continuation behaviour"
+    - "The flake cannot be made deterministic without changing the Registry API"
+plan:
+  - {id: S1, title: "Reproduce D5 and D7 red and isolate the flake", proves: []}
+  - {id: S2, title: "Suppress the stale completion question; make the fallback honest", proves: [C1, C2], depends_on: [S1]}
+  - {id: S3, title: "Warn on inverse-intent stop rules and state the positive-phrasing rule", proves: [C3, C4], depends_on: [S1]}
+  - {id: S4, title: "Fix the registry temp-file collision and prove twenty repeats", proves: [C5], depends_on: [S1]}
+  - {id: S5, title: "Update the defect register and run the invariants", proves: [], depends_on: [S2, S3, S4]}

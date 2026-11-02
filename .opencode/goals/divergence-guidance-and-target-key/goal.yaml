@@ -1,0 +1,84 @@
+schema: goal/v1
+id: divergence-guidance-and-target-key
+title: 'Divergence refusals name the fix; adoption returns the new target'
+priority: high
+intent:
+  verbatim: |
+    Clearer divergence and adoption messages (T106).
+    axiom-lab-release feedback: (a) goal_manage resume with the bare slug/lock failed with "Selected goal identity changed" after an adoption — the recovery flow should mention that the goal KEY changes to the live:<slug>:<runId> form (or goal_status should surface it) before retrying the resume; goal_inventory was the discoverable path. (b) The amendment-form loop (ask-form answered "Accept" → decision-form-operation-failed with "the latest actual owner chat does not authorize") never told the agent WHY — the divergence was the hidden cause. If the resolver detected the divergence it could have said "disk contract differs; run goal_recover_divergence" — would have saved hours.
+    Decisions: all four refusal paths name the fix when divergence is the cause; the new target tuple appears in the recover_divergence result and in goal_status; the engine refuses the impossible retry while disk differs from the lock; host tests plus an installed-tag run prove it; ship as v0.4.1.
+outcome: Every refusal whose real cause is a disk contract that differs from its locked generation names the locked and disk hashes and the exact goal_recover_divergence call, and stops re-offering the impossible amendment answer; recovering a divergence returns the refreshed live:<slug>:<runId> target tuple in the tool result and in goal_status, so the caller can resume without a lost round. A new immutable v0.4.1 patch is published, loaded in this session, and passes the new protected tests from its tag.
+why: axiom-lab-release answered an impossible amendment accept 10+ times and then lost a resume round to a replaced goal key, because both refusals hid the real cause.
+non_goals:
+  - Editing a goal's lock, run status, receipt, ledger or proof, or the shipped v0.4.0 history and any existing tag
+  - Rewriting unrelated refusals that have nothing to do with divergence
+  - Weakening or removing any existing authority, expiry, once-only or target-identity guard
+  - Treating an old proposal, a byte match or a peer message as owner consent
+  - A universal "all refusals now explain themselves" claim
+scope:
+  in: [src, test, docs/research, CHANGELOG.md, package.json, bounded release and installed proof]
+  out: [other projects' goal state, global provider and permission configuration, existing immutable tags]
+criteria:
+  - id: C1
+    statement: WHEN an owner-chat amendment resolution is refused because the disk contract differs from its locked generation THE refusal SHALL name both hashes, the divergence cause and the exact goal_recover_divergence call for that slug and lock; a refusal whose cause is not divergence SHALL keep its existing wording.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/divergence-guidance.test.ts', timeout: 1200}
+  - id: C2
+    statement: WHEN the disk differs from the lock THE engine SHALL refuse to re-offer or re-present the amendment acceptance review (goal_review included) while naming the recovery call, and SHALL offer the review again once the divergence is resolved.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/divergence-prerequisite-guidance.test.ts', timeout: 1200}
+  - id: C3
+    statement: WHEN an adopt or restore succeeds THE tool result and goal_status SHALL both carry the refreshed live:<slug>:<runId> target tuple (key, runId, sessionID, lock) that goal_manage accepts, and a resume using that exact tuple SHALL be offered without an identity-changed refusal.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/recovery-target-key.test.ts', timeout: 1200}
+  - id: C4
+    statement: The new tests SHALL have been red before the fix and SHALL not have been weakened afterwards, and no existing authority, expiry, once-only or target guard SHALL be relaxed to make them pass.
+    check: {kind: verifier, ask: 'Read the three new tests, their git history and the changed src. Do they reproduce axiom-lab-release''s two reported refusals and the replaced-key resume? Is there a recorded red run before the fix and no later weakening? Do the divergence checks run BEFORE (and stay separate from) the existing consent/target/expiry guards, with unrelated refusals keeping their wording? Quote files.'}
+  - id: C5
+    statement: A patch newer than v0.4.0 SHALL be immutably published and actually loaded by this goal session, with matching Git revision, server, UI and skill hashes.
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.4.1 --assert-release', timeout: 120}
+  - id: C6
+    statement: The published release SHALL pass the same new guidance and target tests when installed by OpenCode from its immutable package-version tag.
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/divergence-guidance.test.ts test/host/divergence-prerequisite-guidance.test.ts test/host/recovery-target-key.test.ts', timeout: 1800}
+invariants:
+  - id: I1
+    statement: Existing divergence recovery, autonomy policy, verifier diagnostics, target, launch, Composer acceptance, owner-chat launch and amendment-prerequisite scenarios SHALL CONTINUE TO pass without oracle edits.
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/divergent-contract-recovery.test.ts test/host/autonomy-policy.test.ts test/host/verifier-diagnostics.test.ts test/host/target-bound-decisions.test.ts test/host/goal-launch-flow.test.ts test/host/composer-amendment.test.ts test/host/owner-chat-launch.test.ts test/host/amendment-resume-prerequisite.test.ts', timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass.
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/divergent-contract-recovery.test.ts
+  - test/host/autonomy-policy.test.ts
+  - test/host/verifier-diagnostics.test.ts
+  - test/host/lab-lifecycle-triage.test.ts
+  - test/fixtures/lab-tool-boundary/**
+  - test/host/target-bound-decisions.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/composer-amendment.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/amendment-resume-prerequisite.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: Write red tests for the named-cause refusals and the recovered target tuple, proves: []}
+  - {id: S2, title: Name the divergence cause and the recover call in the four refusal paths, proves: [C1], depends_on: [S1]}
+  - {id: S3, title: Refuse the impossible re-offer while divergent and revive it after recovery, proves: [C2], depends_on: [S2]}
+  - {id: S4, title: Return the refreshed target tuple in the result and goal_status, proves: [C3], depends_on: [S2]}
+  - {id: S5, title: Publish v0.4.1 and prove it installed from the tag, proves: [C5, C6], depends_on: [S3, S4]}
+assumptions:
+  - id: A1
+    text: The target tuple is an additive optional field on the result and the status view; older clients ignore it.
+    rationale: Keeps existing consumers working; no schema break.
+    reversible: true
+  - id: A2
+    text: The divergence check is computed from the locked snapshot versus the disk bytes, never from the presence of a pending proposal.
+    rationale: The cause must be the actual mismatch; proposal presence alone is not divergence.
+    reversible: true
+  - id: A3
+    text: The release is the next immutable patch at or above 0.4.1; checks use a minimum version, never an exact string.
+    rationale: Matches the contract-drift lesson from earlier releases.
+    reversible: true
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier}
+stop:
+  escalate_when:
+    - A clear message would require weakening an authority, expiry, once-only or target-identity guard
+    - The divergence check would need to guess acceptance rather than read the locked snapshot and disk bytes
+    - The fix would need to rewrite unrelated refusal wording or touch shipped goal history

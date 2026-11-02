@@ -1,0 +1,112 @@
+[
+  {
+    "t": 1792188110490,
+    "type": "start",
+    "runId": "146bc5643001",
+    "sessionID": "ses_eb943ab3effefdquBH0drbgaHk",
+    "source": "command",
+    "lock": "bf82f2a7e138c31f833d7dd4db58caf95acecd4c9dbb7b9d766821b841982f5d",
+    "commit": "d92a7ad01c88228c356a2b8e6c8f1b84d17e6afe"
+  },
+  {
+    "t": 1792188110611,
+    "type": "cleo-health",
+    "state": "uninitialized",
+    "version": "2026.10.17"
+  },
+  {
+    "t": 1792188110613,
+    "type": "admit",
+    "kind": "kickoff",
+    "turn": 1,
+    "messageID": "msg_146bc5715001TCyXRBNxoURiqP"
+  },
+  {
+    "t": 1792188123298,
+    "type": "progress",
+    "turn": 1,
+    "done": false,
+    "note": "Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk.",
+    "next": "Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold."
+  },
+  {
+    "t": 1792188125422,
+    "type": "wait",
+    "seconds": 300,
+    "reason": "Contract constraint: after writing manager-one.txt, always wait 300s and do not claim during this manager inspection."
+  },
+  {
+    "t": 1792188127375,
+    "type": "turn",
+    "turn": 1,
+    "kind": "kickoff",
+    "tools": 10,
+    "activity": true,
+    "changed": true,
+    "progress": true,
+    "noProgress": 0
+  },
+  {
+    "t": 1792188147379,
+    "type": "paused",
+    "reason": "owner"
+  },
+  {
+    "t": 1792188147384,
+    "type": "manager-action",
+    "actorSessionID": "ses_eb943ae5dffekm8WSbbjxlhHlR",
+    "targetRunId": "146bc5643001",
+    "action": "pause",
+    "ok": true,
+    "message": "Goal paused: qa-manager-one — /goal resume · /goal abort"
+  },
+  {
+    "t": 1792188156702,
+    "type": "owner-message-consumed",
+    "ownerMessageID": "msg_146bcfacc001MvB7df3icPCozf",
+    "decisionId": "5658286d-278d-489a-8e12-452dd5dfa63e",
+    "actorSessionID": "ses_eb943ab3effefdquBH0drbgaHk",
+    "targetRunId": "146bc5643001",
+    "lock": "bf82f2a7e138c31f833d7dd4db58caf95acecd4c9dbb7b9d766821b841982f5d",
+    "action": "resume"
+  },
+  {
+    "t": 1792188156736,
+    "type": "resumed",
+    "by": "owner"
+  },
+  {
+    "t": 1792188156740,
+    "type": "decision-resolved",
+    "decision": "5658286d-278d-489a-8e12-452dd5dfa63e",
+    "kind": "owner-operation",
+    "action": "resume",
+    "via": "owner-message",
+    "ok": true,
+    "message": "Goal resumed: qa-manager-one — /goal status · /goal pause"
+  },
+  {
+    "t": 1792188161320,
+    "type": "progress",
+    "turn": 1,
+    "done": false,
+    "note": "Resumed run 146bc5643001; re-verified manager-one.txt exists at repo root and contains \"status: ok\" (cat). C1/C2 still hold on disk.",
+    "next": "Per constraint, do not claim during inspection: call goal_wait 300s and hold; re-check state after resume."
+  },
+  {
+    "t": 1792188162813,
+    "type": "wait",
+    "seconds": 300,
+    "reason": "Contract constraint: after writing manager-one.txt, always call goal_wait for 300 seconds and do not claim during this inspection."
+  },
+  {
+    "t": 1792188165001,
+    "type": "turn",
+    "turn": 1,
+    "tools": 6,
+    "activity": true,
+    "changed": false,
+    "progress": true,
+    "noProgress": 0
+  }
+]

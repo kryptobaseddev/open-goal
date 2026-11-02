@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "slug": "qa-interview",
+  "title": "QA proof.txt contains the single line status ok",
+  "sessionID": "ses_eb943e80bffePxupPhv6QuK8PL",
+  "runId": "146bc1828001",
+  "lock": "44d90b887926b99002cd0b6d6c01286a559cb3a26adee834822c68c2c0f9fad9",
+  "status": "waiting",
+  "createdAt": 1792188094533,
+  "updatedAt": 1792188109158,
+  "turn": 1,
+  "activeMs": 14625,
+  "activeSince": 1792188109158,
+  "usage": {
+    "tokens": 3268,
+    "cost": 0.0017705400000000001,
+    "baseTokens": 13687,
+    "baseCost": 0.002254896
+  },
+  "base": {
+    "commit": "d92a7ad01c88228c356a2b8e6c8f1b84d17e6afe"
+  },
+  "counters": {
+    "noProgress": 0,
+    "failures": 0
+  },
+  "wrapup": false,
+  "criteria": {
+    "C1": {
+      "status": "unknown",
+      "rejections": 0
+    },
+    "C2": {
+      "status": "unknown",
+      "rejections": 0
+    },
+    "I1": {
+      "status": "unknown",
+      "rejections": 0
+    }
+  },
+  "steps": {
+    "S1": "done",
+    "S2": "active",
+    "S3": "pending"
+  },
+  "turnFacts": {
+    "tools": 0,
+    "goalCalls": 0,
+    "stepsChanged": false,
+    "progressRecorded": false
+  },
+  "steers": 0,
+  "compacted": false,
+  "flags": [],
+  "amendments": [],
+  "handoff": {
+    "fromSessionID": "ses_eb944dfebffeFPklfEPbNMS9Bm",
+    "toSessionID": "ses_eb943e80bffePxupPhv6QuK8PL",
+    "agent": "build",
+    "model": {
+      "providerID": "deepseek",
+      "id": "deepseek-flash",
+      "variant": "high"
+    }
+  },
+  "fingerprint": "399cc4c94e07e7c9007d",
+  "activity": {
+    "kind": "waiting",
+    "since": 1792188109158,
+    "until": 1792188406219,
+    "detail": "Owner-instructed inspection pause: manager inspects the running goal before any claim. proof.txt is written and verified; do not claim until the test owner resumes."
+  },
+  "lastUsageEmit": 1792188109119,
+  "progress": {
+    "note": "Wrote proof.txt at project root containing exactly one line: \"status: ok\" (verified via xxd: 11 bytes, single LF).",
+    "next": "Call goal_wait for 300 seconds so the manager can inspect the running goal (S2), then stop without claiming (S3).",
+    "at": 1792188104020,
+    "turn": 1
+  },
+  "wait": {
+    "until": 1792188406219,
+    "reason": "Owner-instructed inspection pause: manager inspects the running goal before any claim. proof.txt is written and verified; do not claim until the test owner resumes."
+  },
+  "reason": "Owner-instructed inspection pause: manager inspects the running goal before any claim. proof.txt is written and verified; do not claim until the test owner resumes."
+}

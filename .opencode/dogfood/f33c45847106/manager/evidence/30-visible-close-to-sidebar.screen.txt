@@ -1,0 +1,41 @@
+   Deployed Real-Model Manager     First Real-Model Manager Goal +
+           ┃                                                       ┃
+           ┃  MCP server needs authentication  › Open MCP servers  ┃
+           ┃                                                       ┃
+           ┃  Connect "parallel-task" to use its tools.            ┃
+           ┃                                                       ┃
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+                                                                   █
+
+  ┃
+  ┃
+  ┃
+  ┃  Build auto · DeepSeek V4.1 Flash DeepSeek · high
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  /…/real-model-goal-K7rG3s:main   shift+tab agents  ctrl+p commands

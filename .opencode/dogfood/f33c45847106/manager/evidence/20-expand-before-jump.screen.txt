@@ -1,0 +1,42 @@
+   Deployed Real-Model Manager   +
+                                                                                       █   Goals manager · this project  ┃                                                       ┃
+                                                                                       █    ▶ Close manager · F9: return ┃  MCP server needs authentication  › Open MCP servers  ┃
+                                                                                       █   Tab: focus · ↑↓: select · Ente┃                                                       ┃
+                                                                                       █    ▶ qa-manager-two             ┃  Connect "parallel-task" to use its tools.            ┃
+                                                                                       █      waiting · 0/2 proven       ┃                                                       ┃
+                                                                                       █
+                                                                                       █   waiting · 0/2 host-proven · build
+                                                                                       █   Session: First Real-Model Manager Goal
+                                                                                       █   Details · Tab to focus · wheel/PgUp/PgDn scroll
+                                                                                       █   Outcome
+                                                                                       █   Goal: qa-manager-one
+                                                                                       █   manager-one.txt contains status ok
+                                                                                       █   Session ID: ses_eb943ab3effefdquBH0drbgaHk
+                                                                                       █   Evidence
+                                                                                       █   C1 [unknown] manager-one.txt exists
+                                                                                       █   C2 [unknown] manager-one.txt states status ok
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+                                                                                       █
+
+  ┃
+  ┃                                                                                        Actions · ↑↓ and Enter, or click
+  ┃                                                                                         ▶ Open goal session
+  ┃  Build auto · DeepSeek V4.1 Flash DeepSeek · high                                         Pause selected goal
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀      Verify selected goal
+  /…/83wg9xhx…/T/opencode/real-model-goal-K7rG3s:main  shift+tab agents  ctrl+p commands      Abort selected goal
+                                                                                              Back to all goals

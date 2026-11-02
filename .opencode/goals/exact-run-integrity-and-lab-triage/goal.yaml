@@ -1,0 +1,89 @@
+schema: goal/v1
+id: exact-run-integrity-and-lab-triage
+title: 'v0.4.9: reviewed exact-run workspace decision and lab triage findings'
+priority: high
+intent:
+  verbatim: "next-goal interview 2026-10-16 (after v0.4.8): chose Divergence + workspace integrity (T099-T101); red-first tests + patch release; Patch v0.4.9; T099/T101 proven by a reviewed decision doc + verifier + owner sign-off; boundaries also fold in the lab lifecycle (T103-T106). [T099 review exact-run workspace and protected-oracle migration design; T100 implement owner-reviewed exact-run execution-workspace binding (hard depends T099); T101 plan guarded disposition of manually divergent goal contracts; T103 reproduce lab typed lifecycle reporting and native-review cases; T104 report missing identity and settled lab review dispositions; T105 repair owner launch approval and recursive blocked-resume; T106 divergence hints name goal_recover_divergence.]"
+outcome: A new immutable v0.4.9 patch is published and loaded in this goal session, in which a written, owner-signed decision records the disposition for exact-run execution-workspace and protected-oracle migration and evolves into only the binding the decision approves (proven by focused host tests), a read-only, owner-signed plan records the guarded disposition of manually divergent goal contracts without editing any project's state, and a findings document records what the previously reported lab lifecycle/reporting cases (T103-T106) are covered by, with the existing oracles named.
+why: 'These are the last unreviewed integrity questions: a goal whose oracle/workspace binding is shared root while its code lives in a worktree (the VidaPeps case) and a goal contract whose disk bytes diverged from its lock (the lab case) have no owner-reviewed disposition, and the lab reports were never consolidated against the oracles that already cover them.'
+scope:
+  in: [src/server/app.ts, src/engine/store.ts, src/engine/state.ts, src/util/git.ts, src/contract/parse.ts, test/host, docs/research, CHANGELOG.md, package.json]
+  out: [other projects' production goal state, any other project's goal folder, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - Editing ANY project's production goal state, receipts, locks, criteria, protected oracles, provider/permission settings or an existing immutable tag
+  - Editing another project's goal folder (the VidaPeps and axiom-instrument-studio cases are read-only evidence for a decision, never a migration performed here)
+  - Performing a real workspace/oracle migration or blessing a noncanonical divergent contract
+  - The real-model dogfood automation (T102) and the guarded conversational entry (T081)
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay guards
+  - Any release other than the single v0.4.9 patch
+criteria:
+  - id: C1
+    statement: The exact-run workspace and protected-oracle migration decision SHALL be written from scoped evidence and SHALL name the options, the chosen disposition, the reversibility and the residual risk without editing any project's state
+    essential: true
+    check: {kind: verifier, ask: 'Read docs/research/exact-run-workspace-migration-decision.md and any evidence it cites. Does it state the exact-run binding problem (workspace/oracle/root while the code lives elsewhere), the scoped evidence it is based on, the candidate dispositions with trade-offs, the chosen one, its reversibility, and the residual risk - and does it explicitly record that no project state was edited? Quote the document, not this contract.'}
+  - id: C2
+    statement: The owner SHALL sign off on the exact-run workspace disposition recorded in the decision document before any binding is implemented from it
+    essential: true
+    check: {kind: human, ask: 'Approve the reviewed disposition in docs/research/exact-run-workspace-migration-decision.md as the binding direction for this project? Approving authorizes only the in-repo binding that decision names; it does not authorize migrating or editing any other project''s goal state.'}
+  - id: C3
+    statement: WHEN the signed workspace decision names a binding THE host SHALL implement exactly that binding, proven by focused host tests for the bound case and the preserved refusals, without editing any other project's goal folder
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/exact-run-workspace-binding.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C4
+    statement: The guarded disposition of manually divergent goal contracts SHALL be planned read-only, naming how a divergence is detected, the exact owner-review options, how existing bytes are preserved, and what is explicitly refused
+    essential: true
+    check: {kind: verifier, ask: 'Read docs/research/manual-divergence-disposition-plan.md. Does it describe divergence detection from the locked snapshot versus the disk bytes, the owner-review options with their consequences, the preservation of the existing divergent bytes as evidence, and what is explicitly refused (hand-editing a lock, blessing a noncanonical resolved state, editing another project) - all as a READ-ONLY plan? Quote the document, not this contract.'}
+  - id: C5
+    statement: The owner SHALL sign off on the read-only guarded disposition plan for manually divergent goal contracts
+    essential: true
+    check: {kind: human, ask: 'Approve docs/research/manual-divergence-disposition-plan.md as the guarded disposition for manually divergent goal contracts? Approving ratifies the plan only; it does not authorize editing any project''s goal state.'}
+  - id: C6
+    statement: The lab lifecycle and reporting findings SHALL consolidate what each of T103-T106 is actually covered by, naming the specific existing oracle per task and what remains open, without claiming a fix that no oracle proves
+    essential: true
+    check: {kind: verifier, ask: 'Read docs/research/lab-lifecycle-triage-findings.md. For each of T103-T106, does it name the specific existing test file that covers it and the exact observable it proves, distinguish what is covered from what remains open (missing-identity reporting, settled-review dispositions, blocked-resume, divergence hints), and avoid claiming an unreproduced or unproven fix? Quote the document, not this contract.'}
+  - id: C7
+    statement: A patch newer than v0.4.8 SHALL be immutably published and actually loaded by this exact goal session before its completing round, with matching installed revision and artifact hashes
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.4.9 --assert-release', expect: {exit: 0}, timeout: 120}
+  - id: C8
+    statement: The new exact-run binding tests SHALL pass from the immutable v0.4.9 tag installed by OpenCode
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/exact-run-workspace-binding.test.ts', expect: {exit: 0}, timeout: 1200}
+invariants:
+  - id: I1
+    statement: The existing divergence, recovery, lab and launch oracle suites SHALL CONTINUE TO pass without oracle edits
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/divergence-guidance.test.ts test/host/divergence-prerequisite-guidance.test.ts test/host/divergent-contract-recovery.test.ts test/host/recovery-target-key.test.ts test/host/lab-lifecycle-triage.test.ts test/host/lab-review-dispositions.test.ts test/host/owner-chat-launch.test.ts test/host/target-bound-decisions.test.ts', timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/divergence-guidance.test.ts
+  - test/host/divergence-prerequisite-guidance.test.ts
+  - test/host/divergent-contract-recovery.test.ts
+  - test/host/recovery-target-key.test.ts
+  - test/host/lab-lifecycle-triage.test.ts
+  - test/host/lab-review-dispositions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/target-bound-decisions.test.ts
+  - test/host/harness.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: 'Recon the exact-run binding and the divergent-contract case read-only; capture scoped evidence and baseline the oracles', proves: []}
+  - {id: S2, title: Write the workspace decision and the divergence disposition plan; obtain the owner sign-offs', proves: [C1, C2, C4, C5], depends_on: [S1]}
+  - {id: S3, title: 'Red-first author the exact-run binding tests, then implement only the signed binding', proves: [C3], depends_on: [S2]}
+  - {id: S4, title: 'Consolidate the T103-T106 lab findings against the existing oracles', proves: [C6], depends_on: [S1]}
+  - {id: S5, title: Publish v0.4.9 and prove it loaded in this session, proves: [C7, C8], depends_on: [S3, S4]}
+assumptions:
+  - {id: A1, text: 'The release is a single new immutable v0.4.9 patch; no old tag is moved and no contract schema changes.', rationale: Owner chose a patch; the change is a bounded binding inside the existing engine., reversible: true}
+  - {id: A2, text: 'Only EXISTING oracles are protected; the new exact-run-workspace-binding test is left unprotected so the worker can author it.', rationale: The v0.4.6 run was impossible as written because protect listed the tests the worker had to create., reversible: true}
+  - {id: A3, text: 'T103-T106 are already implemented and proven by existing oracles (baseline 14/14 across the lab/divergence suites measured 2026-10-16); this goal consolidates that honestly rather than re-fixing them.', rationale: Measured before drafting; the lab-lifecycle goal shipped in v0.3.x., reversible: true}
+  - {id: A4, text: 'No workspace or oracle migration is performed in this goal; only the in-repo binding the signed decision names is implemented, and it must not edit another project''s goal folder.', rationale: Owner chose the reviewed-decision path and the non-goals forbid migrating or editing any project state., reversible: true}
+  - {id: A5, text: 'The human sign-offs (C2, C5) are the owner ratifying the written disposition; they authorize no state change.', rationale: T099/T101 are review tasks; the owner chose doc + verifier + sign-off., reversible: true}
+stop:
+  escalate_when:
+    - A fix requires weakening owner, exact-target, expiry, cross-session or once-only replay guards
+    - Recovery requires editing production goal state, receipts, locks, protected oracles, providers, permissions, or another project's goal folder
+    - The signed decision cannot be implemented without such an edit
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

@@ -1,0 +1,32 @@
+{
+  "sessionID": "ses_eb93f2d62ffe3f2hkWtf71aSk2",
+  "targetSessionID": "ses_eb93f2d62ffe3f2hkWtf71aSk2",
+  "slug": "qa-chat-amend",
+  "runId": "146c0d743001",
+  "lock": "bae127ddbcf589794ec61e4b743b895c479664006325fa586d8b97a05edc158b",
+  "nextLock": "c996dc6d1d09726cb46a454c7f1094596f68a4e2d11c3b53aab0f1c9e139f3ba",
+  "nextText": "schema: goal/v1\nid: qa-chat-amend\ntitle: Deployed Composer acceptance QA\nintent: {verbatim: verify chat accepts an exact staged review}\noutcome: qa-marker.txt exists under the revised QA semantics\nnon_goals: [production changes, global settings, other files]\ncriteria:\n  - id: C1\n    statement: qa-marker.txt exists\n    check: {kind: file, path: qa-marker.txt}\n  - id: C2\n    statement: qa-marker.txt contains status ok\n    check: {kind: contains, path: qa-marker.txt, text: 'status: ok'}\nconstraints: [Write the marker then call goal_wait for 300 seconds; do not claim until the QA owner finishes inspection]\n",
+  "rationale": "Owner asked to change only the outcome wording: \"under the reviewed semantics\" -> \"under the revised QA semantics\". Criteria (C1 file, C2 contains status: ok), constraints (write marker then goal_wait 300s; do not claim until QA owner finishes inspection), non-goals (production changes, global settings, other files), id, title, intent are all unchanged. The marker file qa-marker.txt is not touched. Staged only for owner review in the Composer; not editing the live contract, not resuming, not claiming.",
+  "diff": {
+    "unchanged": [
+      "C1",
+      "C2"
+    ],
+    "changed": [],
+    "added": [],
+    "removed": [],
+    "sections": [
+      "outcome"
+    ],
+    "summary": "outcome: CHANGED · criteria unchanged [C1, C2] changed [-] added [-] removed [-] · sections changed [outcome]",
+    "details": "outcome:\nBEFORE \"qa-marker.txt exists under the reviewed semantics\"\nAFTER  \"qa-marker.txt exists under the revised QA semantics\""
+  },
+  "title": "Deployed Composer acceptance QA",
+  "createdAt": 1792188431211,
+  "expiresAt": 0,
+  "expiryPolicy": "target",
+  "issuerPID": 30270,
+  "question": "Amend qa-chat-amend (run 146c0d743001)?\n\nFrom SHA256 bae127ddbcf589794ec61e4b743b895c479664006325fa586d8b97a05edc158b to c996dc6d1d09726cb46a454c7f1094596f68a4e2d11c3b53aab0f1c9e139f3ba.\n\nRationale: Owner asked to change only the outcome wording: \"under the reviewed semantics\" -> \"under the revised QA semantics\". Criteria (C1 file, C2 contains status: ok), constraints (write marker then goal_wait 300s; do not claim until QA owner finishes inspection), non-goals (production changes, global settings, other files), id, title, intent are all unchanged. The marker file qa-marker.txt is not touched. Staged only for owner review in the Composer; not editing the live contract, not resuming, not claiming.\n\noutcome: CHANGED · criteria unchanged [C1, C2] changed [-] added [-] removed [-] · sections changed [outcome]\n\noutcome:\nBEFORE \"qa-marker.txt exists under the reviewed semantics\"\nAFTER  \"qa-marker.txt exists under the revised QA semantics\"\n\nOnly acceptance re-locks this exact diff. Reject/comment leaves the current contract unchanged; no choice resumes the run.\nDecision: e7373e80-128a-4849-a7c5-c6408614170c",
+  "id": "e7373e80-128a-4849-a7c5-c6408614170c",
+  "status": "pending"
+}

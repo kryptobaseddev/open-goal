@@ -1,0 +1,67 @@
+schema: goal/v1
+id: cleo-t001
+title: "opencode-goal: goal mode for OpenCode 2"
+intent:
+  verbatim: "Take the next ready CLEO item without asking."
+outcome: "opencode-goal: goal mode for OpenCode 2"
+why: "The owner's standing policy: after a goal completes, start the next ready CLEO item (T001) by itself; this goal was started from that policy and the task's own acceptance."
+scope:
+  in: []
+  out: []
+non_goals:
+  - "Changing anything outside the linked CLEO task's scope"
+  - "Editing this goal's contract or its evidence"
+criteria:
+  - id: C1
+    statement: "T001 acceptance 1: Plugin loads on OpenCode 2.0.22+ from a git install"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: Plugin loads on OpenCode 2.0.22+ from a git install Quote the evidence from the repository." }
+  - id: C2
+    statement: "T001 acceptance 2: Goals persist across restarts and compaction"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: Goals persist across restarts and compaction Quote the evidence from the repository." }
+  - id: C3
+    statement: "T001 acceptance 3: Completion is host-verified, never self-attested"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: Completion is host-verified, never self-attested Quote the evidence from the repository." }
+  - id: C4
+    statement: "T001 acceptance 4: Live TUI shows goal state without model turns"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: Live TUI shows goal state without model turns Quote the evidence from the repository." }
+  - id: C5
+    statement: "T001 acceptance 5: write-goal skill authors valid goal contracts"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: write-goal skill authors valid goal contracts Quote the evidence from the repository." }
+  - id: C6
+    statement: "T001 acceptance 6: Complete child T002: opencode-goal v0.1: OpenCode 2 goal plugin with bundled write-goal skill"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: Complete child T002: opencode-goal v0.1: OpenCode 2 goal plugin with bundled write-goal skill Quote the evidence from the repository." }
+  - id: C7
+    statement: "T001 acceptance 7: Complete child T024: v0.3: goal registry, agent-forward help, project identity and integrations"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: Complete child T024: v0.3: goal registry, agent-forward help, project identity and integrations Quote the evidence from the repository." }
+  - id: C8
+    statement: "T001 acceptance 8: Complete child T035: v0.2.0 integrity model (council 145323Z-a46b2ff9): rehearsal, write-guard, amendment"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: Complete child T035: v0.2.0 integrity model (council 145323Z-a46b2ff9): rehearsal, write-guard, amendment Quote the evidence from the repository." }
+  - id: C9
+    statement: "T001 acceptance 9: Complete child T039: v0.2.0 hardening, coverage and release"
+    essential: true
+    check: {kind: verifier, ask: "Assess whether the work done for CLEO T001 genuinely satisfies this acceptance criterion: Complete child T039: v0.2.0 hardening, coverage and release Quote the evidence from the repository." }
+cleo:
+  tasks:
+    - id: T001
+plan:
+  - {id: S1, title: "Complete T001 and prove its acceptance"}
+autonomy:
+  questions: defer
+  on_user_message: steer
+  on_interrupt: resume-on-message
+  amend: []
+  on_stall: pause
+verification: {mode: host+verifier, max_rejections: 3}
+meta:
+  created: "2026-10-17T05:28:50.133Z"
+  author: opencode-goal
+  source: continue-work@0.8.0
+  from: proactive-continuation

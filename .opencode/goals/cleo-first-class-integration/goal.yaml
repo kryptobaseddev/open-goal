@@ -1,0 +1,109 @@
+schema: goal/v1
+id: cleo-first-class-integration
+title: 'v0.5.0: CLEO as an optional first-class integration in opencode-goal'
+priority: high
+intent:
+  verbatim: "you MUST build into opencode-goal (OCG) the first class citizen functionality of CLEO to make sure IF cleo is installed, or even if not during install of OCG or health checks with OCG on install/update to check for cleo install and existence in the running project, and this issue you just experienced where this project and this system uses CLEO as the backbone for project management, if CLEO is installed or even OCG can offer to install CLEO if not or setup in the project. Making sure if cleo is active that engaged cleo tasking is directly integrated to OCG so trackign adn completign tasks in CLEO. this may need coordination with the cleocode dev via mbx to make sure that our OCG goal evidence and work we do in the criteria can be used for completed goals or even multiple tasks that may be in a single goal to allow for the AC signoff and a more integrated approach with CLEO . keep in mind some users may NEVER use CLEO with OCG but making cleo a first class aspect to OCG is very important so we are not duplicating work needs and can help really integrate and maybe even improve CLEO's systems taking the very overengineered cleo RCASD IVTR process cleo has and integrating goal better with it [Interview 2026-10-16: scope = full (detect+install, task link, evidence bridge); the health surface = a setup probe + a /goal command + status; the bridge = real per-gate evidence and complete via the CLI only, honest on refusal; coordination target = cleo-dev-mac@macbook, the CLEO maintainer, with any CLEO-side change kept a proposal; linkage = an explicit optional contract block plus commit auto-suggest; timing = automatic at completion plus an on-demand sync; release = red-first tests and a minor v0.5.0 with installed proof; boundaries as listed, and the 3 legacy tasks T080/T081/T082 closed through the new bridge as its own proof.]"
+outcome: "A new immutable v0.5.0 minor release is published and loaded in this goal session, in which opencode-goal treats CLEO as an optional first-class integration: it probes for the cleo CLI and the running project's CLEO workspace at setup and on demand (/goal cleo) and reports the three states (CLI absent, CLI present but the project uninitialized, CLI present and initialized) without ever blocking or silently changing the machine, offering a project init and an install command that run only on an explicit owner choice; a goal contract may name the CLEO tasks it serves (optional and validated, with the tasks its commits reference surfaced as suggestions); and at completion opencode-goal turns the goal's proven criteria into genuine per-gate CLEO evidence and completes every linked task through the CLI only, one or many per goal, reporting the exact blocker and never fabricating a closure when CLEO refuses; the three legacy tasks T080, T081 and T082 are closed through that bridge; a concrete protocol proposal for goal-to-CLEO AC signoff is sent to cleo-dev-mac and its reply or absence recorded; and a project with no CLEO behaves exactly as it does today."
+why: "CLEO is this project's task backbone, yet opencode-goal only detects and advertises it; closing a goal's tasks still means hand-running CLEO gate commands (and the 3 legacy tasks T080-T082 resisted a manual pass), so the same work is evidenced twice. Making CLEO first-class but optional lets a goal's proven criteria become the linked task's acceptance evidence, without ever forcing CLEO on a project that does not use it."
+scope:
+  in: [src/engine, src/contract, src/server, src/summary, src/rpc.ts, test/unit, test/host, scripts, docs/research, CHANGELOG.md, package.json]
+  out: [CLEO's own repository and code, .cleo/**, any other project, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - Changing CLEO itself (its code, database, CLI or behaviour) - any CLEO-side change is a proposal sent to cleo-dev-mac, never shipped by this goal
+  - Reading .cleo/*.db directly - linkage and evidence stay CLI-only
+  - Installing CLEO or initializing a project without an explicit owner choice, using sudo, or any other silent machine change
+  - Breaking or degrading a project that does not use CLEO - the CLEO contract block is optional and its absence preserves today's behaviour byte-for-byte
+  - Fabricating a CLEO closure - a task is completed only from genuine per-gate evidence, and every refusal is reported as the exact blocker
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay guards
+  - Any release other than the single v0.5.0 minor
+constraints:
+  - All CLEO interaction goes through the cleo CLI; the engine never opens .cleo or reads its database
+  - The optional CLEO contract block is cleo.tasks (a list of task ids) at the contract top level; absent means no CLEO behaviour change
+criteria:
+  - id: C1
+    statement: "WHEN the CLEO health and linkage suites run THE result SHALL exit 0, covering a present CLI with an initialized project, a present CLI with an uninitialized project, an absent CLI, and a project with no .cleo workspace whose behaviour is unchanged"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/cleo-link.test.ts test/host/cleo-health.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C2
+    statement: "The /goal cleo surface and its consented install/init guidance SHALL be documented in the help builder, pinned by a unit test, so the help cannot drift from the engine"
+    essential: true
+    check: {kind: contains, path: src/server/help.ts, text: "/goal cleo"}
+  - id: C3
+    statement: "WHEN a contract names the CLEO tasks it serves through the optional cleo.tasks block THE parser SHALL accept and validate it, and a contract without the block SHALL behave exactly as before"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/contract.test.ts test/host/cleo-linkage.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C4
+    statement: "WHEN a proven goal names CLEO tasks THE bridge SHALL produce genuine per-gate evidence and complete each linked task through the cleo CLI only, one or many per goal, and SHALL report the exact blocker instead of completing a task CLEO cannot bind"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/cleo-evidence-bridge.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C5
+    statement: "The legacy task T080 SHALL be completed through the new bridge on genuine evidence"
+    essential: true
+    check: {kind: command, run: 'cleo show T080 --quiet --field /data/task/status', expect: {stdout_contains: "done"}, timeout: 60}
+  - id: C6
+    statement: "The legacy task T081 SHALL be completed through the new bridge on genuine evidence"
+    essential: true
+    check: {kind: command, run: 'cleo show T081 --quiet --field /data/task/status', expect: {stdout_contains: "done"}, timeout: 60}
+  - id: C7
+    statement: "The legacy task T082 SHALL be completed through the new bridge on genuine evidence"
+    essential: true
+    check: {kind: command, run: 'cleo show T082 --quiet --field /data/task/status', expect: {stdout_contains: "done"}, timeout: 60}
+  - id: C8
+    statement: "A new minor release SHALL be immutably published and actually loaded by this exact goal session before its completing round, with matching installed revision and artifact hashes"
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.5.0 --assert-release', expect: {exit: 0}, timeout: 120}
+  - id: C9
+    statement: "The new CLEO health, linkage and bridge tests SHALL pass from the immutable v0.5.x tag installed by OpenCode"
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C10
+    statement: "The integration proposal SHALL record the concrete goal-to-CLEO evidence and AC-signoff protocol, the multi-task-goal case, the exact mbx message sent to cleo-dev-mac, and the reply received or its absence"
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/cleo-goal-integration-proposal.md. Does it state the concrete protocol that maps a goal's proven criteria to a CLEO task's acceptance evidence (the per-gate commands, the AC binding, and the multi-task-goal case), quote the exact mbx message sent to cleo-dev-mac, and record the reply received or state plainly that none arrived? Quote the document, not this contract."}
+  - id: C11
+    statement: "The owner SHALL approve the CLEO install/init consent behaviour and the integration proposal before the release is claimed"
+    essential: true
+    check: {kind: human, ask: "Approve the reviewed CLEO install/init consent behaviour (a project init and an install command that run only on an explicit owner choice - never silent, never sudo) and docs/research/cleo-goal-integration-proposal.md as the direction for opencode-goal's CLEO integration? Approving ratifies the in-repo opencode-goal behaviour and the proposal only; it authorizes no change to CLEO itself."}
+invariants:
+  - id: I1
+    statement: "The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits"
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/artifact.test.ts', timeout: 1800}
+  - id: I2
+    statement: "Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass"
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/artifact.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: 'Recon the CLEO states and the failing legacy case read-only, and author the red health, linkage and bridge tests', proves: []}
+  - {id: S2, title: 'Implement detection and health at setup and /goal cleo, with a consented project init and install guidance', proves: [C1, C2], depends_on: [S1]}
+  - {id: S3, title: 'Add the optional cleo.tasks contract block (parser, validator, render) and commit-based task suggestions', proves: [C3], depends_on: [S1]}
+  - {id: S4, title: 'Implement the goal-to-CLEO evidence bridge (per-gate evidence, CLI-only, honest refusal, multi-task)', proves: [C4], depends_on: [S1]}
+  - {id: S5, title: 'Send the protocol proposal to cleo-dev-mac and write the integration proposal document', proves: [C10, C11], depends_on: [S1]}
+  - {id: S6, title: 'Close T080, T081 and T082 through the bridge with the correct change-sets', proves: [C5, C6, C7], depends_on: [S4, S5]}
+  - {id: S7, title: 'Publish v0.5.0, reinstall it and prove it loaded in this session and from its tag', proves: [C8, C9], depends_on: [S2, S3, S4, S6]}
+assumptions:
+  - {id: A1, text: 'The release is a single new immutable v0.5.0 minor; no old tag is moved.', rationale: The owner chose a minor release for a new capability., reversible: true}
+  - {id: A2, text: 'Only EXISTING oracles are protected; the new health, linkage and bridge tests are left unprotected so the worker can author them.', rationale: The v0.4.6 run was impossible as written because protect listed the tests the worker had to create; the owner restated this rule., reversible: true}
+  - {id: A3, text: 'cleo-dev-mac@macbook is the CLEO maintainer for this coordination, and any CLEO-side change stays a proposal that this goal does not ship.', rationale: The owner named cleo-dev-mac as the maintainer to message and work with, and forbade shipping CLEO-side changes unilaterally., reversible: true}
+  - {id: A4, text: 'The bridge derives a linked task change-set from the commits whose message references the task id (for example feat(T081): ...) and the exact file list from git show, and records a scoped test report covering every test file that change adds or edits.', rationale: This is precisely the automation the manual pass lacked - the legacy tasks failed because their giant commit (c0f6c13) adds about fifteen test files., reversible: true}
+  - {id: A5, text: 'test/host/harness.ts is intentionally left unprotected because the CLEO fixtures may extend it; the protected list is the goal-loop oracles only.', rationale: The CLEO present/absent fixtures need harness control; the owner rule protects existing oracles, not shared harness helpers., reversible: true}
+  - {id: A6, text: 'The CLEO contract block is optional; a contract without it must behave byte-for-byte as today, and this goal does not carry the block itself (it links T080-T082 explicitly through the on-demand sync instead).', rationale: Self-referential locking before the parser change is impossible, and non-CLEO users must be unaffected., reversible: true}
+stop:
+  escalate_when:
+    - A fix requires weakening owner, exact-target, expiry, cross-session or once-only replay guards
+    - Completing a linked task would require fabricating evidence or editing CLEO's own code or database
+    - The install or project init would need sudo or a silent global change
+    - A CLEO-side change is required to proceed (it goes to cleo-dev-mac as a proposal, not shipped here)
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

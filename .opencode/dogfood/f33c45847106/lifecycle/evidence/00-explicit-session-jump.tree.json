@@ -1,0 +1,1572 @@
+{
+  "pid": 52050,
+  "time": 1792188146068,
+  "directory": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s",
+  "width": 180,
+  "height": 42,
+  "route": {
+    "type": "session",
+    "sessionID": "ses_eb943ab3effefdquBH0drbgaHk"
+  },
+  "tabsEnabled": true,
+  "tabs": [
+    {
+      "sessionID": "ses_eb943ae5dffekm8WSbbjxlhHlR",
+      "title": "Deployed Real-Model Manager",
+      "active": false,
+      "promptPulse": 0,
+      "attention": false,
+      "busy": false,
+      "renaming": false
+    },
+    {
+      "sessionID": "ses_eb943ab3effefdquBH0drbgaHk",
+      "title": "First Real-Model Manager Goal",
+      "active": true,
+      "promptPulse": 0,
+      "attention": false,
+      "busy": false,
+      "renaming": false
+    }
+  ],
+  "nodes": [
+    {
+      "id": "goal-sidebar",
+      "select": false,
+      "visible": true,
+      "focused": false,
+      "x": 140,
+      "y": 32,
+      "width": 37,
+      "height": 10
+    },
+    {
+      "id": "goal-card:live:qa-manager-one:146bc5643001",
+      "select": true,
+      "visible": true,
+      "focused": false,
+      "x": 140,
+      "y": 34,
+      "width": 37,
+      "height": 2,
+      "selectedIndex": 0,
+      "options": [
+        {
+          "name": "qa-manager-one",
+          "description": "waiting \u00b7 here",
+          "value": "live:qa-manager-one:146bc5643001"
+        }
+      ]
+    },
+    {
+      "id": "goal-card:live:qa-manager-two:146bc9921001",
+      "select": true,
+      "visible": true,
+      "focused": false,
+      "x": 140,
+      "y": 38,
+      "width": 37,
+      "height": 2,
+      "selectedIndex": 0,
+      "options": [
+        {
+          "name": "qa-manager-two",
+          "description": "waiting \u00b7 elsewhere",
+          "value": "live:qa-manager-two:146bc9921001"
+        }
+      ]
+    },
+    {
+      "id": "goal-sidebar-manager",
+      "select": true,
+      "visible": true,
+      "focused": false,
+      "x": 140,
+      "y": 41,
+      "width": 37,
+      "height": 1,
+      "selectedIndex": 0,
+      "options": [
+        {
+          "name": "+1 goal \u2014 F9 manager",
+          "description": "Open the project Goals manager",
+          "value": "manager"
+        }
+      ]
+    }
+  ],
+  "pointerControls": [
+    {
+      "id": "box-1",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 180,
+      "height": 42,
+      "mouseHandlers": [
+        "down",
+        "up"
+      ],
+      "text": "Deployed Real-Model Manager First Real-Model Manager Goal  +  \u25c8 goal kickoff \u00b7 qa-manager-one \u00b7 turn 1 + Thought \u00b7 411ms $ pwd && ls -la (3 earlier lines)\ndrwxr-xr-x  147 keatonhoskins  staff  4704 Oct 16 15:00 ..\ndrwxr-xr-x   14 keatonhoskins  staff   448 Oct 16 15:00 .git\n-rw-r--r--    1 keatonhoskins  staff   130 Oct 16 15:00 .gitignore\ndrwxr-xr-x    4 keatonhoskins  staff   128 Oct 16 15:01 .opencode\n-rw-r--r--    1 keatonhoskins  staff    11 Oct 16 15:01 proof.txt\ndrwxr-xr-x   12 keatonhoskins  staff   384 Oct 16 15:01 qa-evidence\n-rw-r--r--    1 keatonhoskins  staff    83 Oct 16 15:00 README.md \u2192 Explored: 1 search \u25c8 Instructions updated: core/codemode, core/mcp-guidance + Thought \u00b7 777ms \u2192 Explored: 3 reads + Thought \u00b7 342ms # Wrote manager-one.txt status: ok\n $ ls -la manager-one.txt && cat manager-one.txt -rw-r--r--  1 keatonhoskins  staff  11 Oct 16 15:01 manager-one.txt\nstatus: ok + Thought \u00b7 1.3s \u2717 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold., step=S1, step_done=true] \u2713 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold.] + Thought \u00b7 338ms \u2713 goal_wait [seconds=300, reason=Contract constraint: after writing manager-one.txt, always wait 300s and do not claim during this manager inspection.] + Thought \u00b7 354ms Wrote manager-one.txt with status: ok and verified it on disk: -rw-r--r--  manager-one.txt\nstatus: ok Per the contract constraint I did not claim, and I've called goal_wait for 300 seconds. Ending my turn now. Build \u00b7 DeepSeek V4.1 Flash \u00b7 16.7s \u00b7 72.4 tok/s \u25f7 waiting \u2014 4m 40s left \u00b7 Contract constraint: after writing manager-one.txt, a\u2026 Subagents Shell Terminals esc show inactive ctrl+a tabs \u2190/\u2192 Build auto \u00b7 "
+    },
+    {
+      "id": "box-2",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 180,
+      "height": 42,
+      "mouseHandlers": [
+        "drag",
+        "drag-end",
+        "up"
+      ],
+      "text": "Deployed Real-Model Manager First Real-Model Manager Goal  +  \u25c8 goal kickoff \u00b7 qa-manager-one \u00b7 turn 1 + Thought \u00b7 411ms $ pwd && ls -la (3 earlier lines)\ndrwxr-xr-x  147 keatonhoskins  staff  4704 Oct 16 15:00 ..\ndrwxr-xr-x   14 keatonhoskins  staff   448 Oct 16 15:00 .git\n-rw-r--r--    1 keatonhoskins  staff   130 Oct 16 15:00 .gitignore\ndrwxr-xr-x    4 keatonhoskins  staff   128 Oct 16 15:01 .opencode\n-rw-r--r--    1 keatonhoskins  staff    11 Oct 16 15:01 proof.txt\ndrwxr-xr-x   12 keatonhoskins  staff   384 Oct 16 15:01 qa-evidence\n-rw-r--r--    1 keatonhoskins  staff    83 Oct 16 15:00 README.md \u2192 Explored: 1 search \u25c8 Instructions updated: core/codemode, core/mcp-guidance + Thought \u00b7 777ms \u2192 Explored: 3 reads + Thought \u00b7 342ms # Wrote manager-one.txt status: ok\n $ ls -la manager-one.txt && cat manager-one.txt -rw-r--r--  1 keatonhoskins  staff  11 Oct 16 15:01 manager-one.txt\nstatus: ok + Thought \u00b7 1.3s \u2717 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold., step=S1, step_done=true] \u2713 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold.] + Thought \u00b7 338ms \u2713 goal_wait [seconds=300, reason=Contract constraint: after writing manager-one.txt, always wait 300s and do not claim during this manager inspection.] + Thought \u00b7 354ms Wrote manager-one.txt with status: ok and verified it on disk: -rw-r--r--  manager-one.txt\nstatus: ok Per the contract constraint I did not claim, and I've called goal_wait for 300 seconds. Ending my turn now. Build \u00b7 DeepSeek V4.1 Flash \u00b7 16.7s \u00b7 72.4 tok/s \u25f7 waiting \u2014 4m 40s left \u00b7 Contract constraint: after writing manager-one.txt, a\u2026 Subagents Shell Terminals esc show inactive ctrl+a tabs \u2190/\u2192 Build auto \u00b7 "
+    },
+    {
+      "id": "box-6",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 180,
+      "height": 1,
+      "mouseHandlers": [
+        "out",
+        "up",
+        "drag",
+        "drag-end"
+      ],
+      "text": "Deployed Real-Model Manager First Real-Model Manager Goal  + "
+    },
+    {
+      "id": "box-7",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down"
+      ],
+      "text": "Deployed Real-Model Manager"
+    },
+    {
+      "id": "text-1",
+      "class": "ts",
+      "visible": true,
+      "x": 30,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down",
+        "up"
+      ],
+      "text": ""
+    },
+    {
+      "id": "box-294",
+      "class": "Ya",
+      "visible": true,
+      "x": 32,
+      "y": 0,
+      "width": 32,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down"
+      ],
+      "text": "First Real-Model Manager Goal"
+    },
+    {
+      "id": "text-423",
+      "class": "ts",
+      "visible": true,
+      "x": 62,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down",
+        "up"
+      ],
+      "text": ""
+    },
+    {
+      "id": "text-3",
+      "class": "ts",
+      "visible": true,
+      "x": 64,
+      "y": 0,
+      "width": 3,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "down",
+        "up",
+        "drag-end"
+      ],
+      "text": " + "
+    },
+    {
+      "id": "box-127",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 1,
+      "width": 180,
+      "height": 41,
+      "mouseHandlers": [
+        "drag-end",
+        "up",
+        "drag"
+      ],
+      "text": "\u25c8 goal kickoff \u00b7 qa-manager-one \u00b7 turn 1 + Thought \u00b7 411ms $ pwd && ls -la (3 earlier lines)\ndrwxr-xr-x  147 keatonhoskins  staff  4704 Oct 16 15:00 ..\ndrwxr-xr-x   14 keatonhoskins  staff   448 Oct 16 15:00 .git\n-rw-r--r--    1 keatonhoskins  staff   130 Oct 16 15:00 .gitignore\ndrwxr-xr-x    4 keatonhoskins  staff   128 Oct 16 15:01 .opencode\n-rw-r--r--    1 keatonhoskins  staff    11 Oct 16 15:01 proof.txt\ndrwxr-xr-x   12 keatonhoskins  staff   384 Oct 16 15:01 qa-evidence\n-rw-r--r--    1 keatonhoskins  staff    83 Oct 16 15:00 README.md \u2192 Explored: 1 search \u25c8 Instructions updated: core/codemode, core/mcp-guidance + Thought \u00b7 777ms \u2192 Explored: 3 reads + Thought \u00b7 342ms # Wrote manager-one.txt status: ok\n $ ls -la manager-one.txt && cat manager-one.txt -rw-r--r--  1 keatonhoskins  staff  11 Oct 16 15:01 manager-one.txt\nstatus: ok + Thought \u00b7 1.3s \u2717 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold., step=S1, step_done=true] \u2713 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold.] + Thought \u00b7 338ms \u2713 goal_wait [seconds=300, reason=Contract constraint: after writing manager-one.txt, always wait 300s and do not claim during this manager inspection.] + Thought \u00b7 354ms Wrote manager-one.txt with status: ok and verified it on disk: -rw-r--r--  manager-one.txt\nstatus: ok Per the contract constraint I did not claim, and I've called goal_wait for 300 seconds. Ending my turn now. Build \u00b7 DeepSeek V4.1 Flash \u00b7 16.7s \u00b7 72.4 tok/s \u25f7 waiting \u2014 4m 40s left \u00b7 Contract constraint: after writing manager-one.txt, a\u2026 Subagents Shell Terminals esc show inactive ctrl+a tabs \u2190/\u2192 Build auto \u00b7 DeepSeek V4.1 Flash DeepSeek \u00b7 high /\u2026/83wg9xhx7hg_6vfc0dks52f"
+    },
+    {
+      "id": "scrollbox-5",
+      "class": "Ok",
+      "visible": true,
+      "x": 2,
+      "y": 1,
+      "width": 134,
+      "height": 32,
+      "mouseHandlers": [
+        "scroll"
+      ],
+      "text": "\u25c8 goal kickoff \u00b7 qa-manager-one \u00b7 turn 1 + Thought \u00b7 411ms $ pwd && ls -la (3 earlier lines)\ndrwxr-xr-x  147 keatonhoskins  staff  4704 Oct 16 15:00 ..\ndrwxr-xr-x   14 keatonhoskins  staff   448 Oct 16 15:00 .git\n-rw-r--r--    1 keatonhoskins  staff   130 Oct 16 15:00 .gitignore\ndrwxr-xr-x    4 keatonhoskins  staff   128 Oct 16 15:01 .opencode\n-rw-r--r--    1 keatonhoskins  staff    11 Oct 16 15:01 proof.txt\ndrwxr-xr-x   12 keatonhoskins  staff   384 Oct 16 15:01 qa-evidence\n-rw-r--r--    1 keatonhoskins  staff    83 Oct 16 15:00 README.md \u2192 Explored: 1 search \u25c8 Instructions updated: core/codemode, core/mcp-guidance + Thought \u00b7 777ms \u2192 Explored: 3 reads + Thought \u00b7 342ms # Wrote manager-one.txt status: ok\n $ ls -la manager-one.txt && cat manager-one.txt -rw-r--r--  1 keatonhoskins  staff  11 Oct 16 15:01 manager-one.txt\nstatus: ok + Thought \u00b7 1.3s \u2717 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold., step=S1, step_done=true] \u2713 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold.] + Thought \u00b7 338ms \u2713 goal_wait [seconds=300, reason=Contract constraint: after writing manager-one.txt, always wait 300s and do not claim during this manager inspection.] + Thought \u00b7 354ms Wrote manager-one.txt with status: ok and verified it on disk: -rw-r--r--  manager-one.txt\nstatus: ok Per the contract constraint I did not claim, and I've called goal_wait for 300 seconds. Ending my turn now. Build \u00b7 DeepSeek V4.1 Flash \u00b7 16.7s \u00b7 72.4 tok/s"
+    },
+    {
+      "id": "box-239",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": -29,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "+ Thought \u00b7 411ms"
+    },
+    {
+      "id": "box-242",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": -27,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "$ pwd && ls -la (3 earlier lines)\ndrwxr-xr-x  147 keatonhoskins  staff  4704 Oct 16 15:00 ..\ndrwxr-xr-x   14 keatonhoskins  staff   448 Oct 16 15:00 .git\n-rw-r--r--    1 keatonhoskins  staff   130 Oct 16 15:00 .gitignore\ndrwxr-xr-x    4 keatonhoskins  staff   128 Oct 16 15:01 .opencode\n-rw-r--r--    1 keatonhoskins  staff    11 Oct 16 15:01 proof.txt\ndrwxr-xr-x   12 keatonhoskins  staff   384 Oct 16 15:01 qa-evidence\n-rw-r--r--    1 keatonhoskins  staff    83 Oct 16 15:00 README.md"
+    },
+    {
+      "id": "box-246",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": -14,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "\u2192 Explored: 1 search"
+    },
+    {
+      "id": "box-253",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": -10,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "+ Thought \u00b7 777ms"
+    },
+    {
+      "id": "box-257",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": -8,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "\u2192 Explored: 3 reads"
+    },
+    {
+      "id": "box-261",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": -6,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "+ Thought \u00b7 342ms"
+    },
+    {
+      "id": "box-264",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": -4,
+      "width": 131,
+      "height": 6,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "# Wrote manager-one.txt status: ok\n"
+    },
+    {
+      "id": "box-267",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 3,
+      "width": 131,
+      "height": 6,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "$ ls -la manager-one.txt && cat manager-one.txt -rw-r--r--  1 keatonhoskins  staff  11 Oct 16 15:01 manager-one.txt\nstatus: ok"
+    },
+    {
+      "id": "box-271",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 10,
+      "width": 131,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "+ Thought \u00b7 1.3s"
+    },
+    {
+      "id": "box-274",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 12,
+      "width": 131,
+      "height": 2,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "\u2717 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold., step=S1, step_done=true]"
+    },
+    {
+      "id": "box-277",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 15,
+      "width": 131,
+      "height": 2,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "\u2713 goal_progress [note=Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk., next=Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold.]"
+    },
+    {
+      "id": "box-281",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 18,
+      "width": 131,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "+ Thought \u00b7 338ms"
+    },
+    {
+      "id": "box-284",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 20,
+      "width": 131,
+      "height": 2,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "\u2713 goal_wait [seconds=300, reason=Contract constraint: after writing manager-one.txt, always wait 300s and do not claim during this manager inspection.]"
+    },
+    {
+      "id": "box-288",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 23,
+      "width": 131,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "+ Thought \u00b7 354ms"
+    },
+    {
+      "id": "text-211",
+      "class": "ts",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "esc"
+    },
+    {
+      "id": "textarea-2",
+      "class": "kh",
+      "visible": true,
+      "x": 5,
+      "y": 36,
+      "width": 129,
+      "height": 1,
+      "mouseHandlers": [
+        "down"
+      ],
+      "text": ""
+    },
+    {
+      "id": "prompt.footer.location",
+      "class": "ts",
+      "visible": true,
+      "x": 2,
+      "y": 40,
+      "width": 70,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "/\u2026/83wg9xhx7hg_6vfc0dks52f0000\u2026/T/opencode/real-model-goal-K7rG3s:main"
+    },
+    {
+      "id": "box-153",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/agents                                          Switch agent"
+    },
+    {
+      "id": "box-154",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/btw                                             One-shot answer from the session's context without adding to the conversation"
+    },
+    {
+      "id": "box-155",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/cd                                              Change working directory"
+    },
+    {
+      "id": "box-156",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/clear                                           Clear session"
+    },
+    {
+      "id": "box-157",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/cloudflare-bindings:workers-prompt-full         Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt"
+    },
+    {
+      "id": "box-158",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/cloudflare-docs:workers-prompt-full             Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt"
+    },
+    {
+      "id": "box-159",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/cloudflare-observability:workers-prompt-full    Detailed prompt for generating Cloudflare Workers code (and other developer platform products) from https://developers.cloudflare.com/workers/prompt.txt"
+    },
+    {
+      "id": "box-160",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/compact                                         Compact session"
+    },
+    {
+      "id": "box-161",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/connect                                         Connect an integration"
+    },
+    {
+      "id": "box-162",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/continue                                        Switch session"
+    },
+    {
+      "id": "box-163",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/copy                                            Copy session transcript"
+    },
+    {
+      "id": "box-164",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/debug                                           View debug info"
+    },
+    {
+      "id": "box-165",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/diff                                            Open diff viewer"
+    },
+    {
+      "id": "box-166",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/editor                                          Open editor"
+    },
+    {
+      "id": "box-167",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/effort                                          Switch model variant"
+    },
+    {
+      "id": "box-168",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/exit                                            Exit the app"
+    },
+    {
+      "id": "box-169",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/export                                          Export session transcript"
+    },
+    {
+      "id": "box-170",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/fork                                            Fork session"
+    },
+    {
+      "id": "box-171",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/goal                                            Goal mode: /goal new <what you want> \u00b7 start <slug> \u00b7 status \u00b7 pause \u00b7 resume \u00b7 verify \u00b7 abort \u00b7 approve <C#> \u00b7 list"
+    },
+    {
+      "id": "box-172",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/help                                            Help"
+    },
+    {
+      "id": "box-173",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/init                                            guided AGENTS.md setup"
+    },
+    {
+      "id": "box-174",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/mbx                                             AgentMBX: open status dashboard"
+    },
+    {
+      "id": "box-175",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/mbx:mbx_guide                                   Load the AgentMBX guide for this version: how to read, answer, address and coordinate with other agents."
+    },
+    {
+      "id": "box-176",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/mcps                                            MCP servers"
+    },
+    {
+      "id": "box-177",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/models                                          Switch model"
+    },
+    {
+      "id": "box-178",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/new                                             New session"
+    },
+    {
+      "id": "box-179",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/open                                            Open session or project"
+    },
+    {
+      "id": "box-180",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/pair                                            Pair device"
+    },
+    {
+      "id": "box-181",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/plugins                                         Plugins"
+    },
+    {
+      "id": "box-182",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/project                                         Open session or project"
+    },
+    {
+      "id": "box-183",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/projects                                        Open session or project"
+    },
+    {
+      "id": "box-184",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/q                                               Exit the app"
+    },
+    {
+      "id": "box-185",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/quit                                            Exit the app"
+    },
+    {
+      "id": "box-186",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/reload                                          Reload configuration"
+    },
+    {
+      "id": "box-187",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/rename                                          Rename session"
+    },
+    {
+      "id": "box-188",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/resume                                          Switch session"
+    },
+    {
+      "id": "box-189",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/review                                          review changes [commit|branch|pr], defaults to uncommitted"
+    },
+    {
+      "id": "box-190",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/sessions                                        Switch session"
+    },
+    {
+      "id": "box-191",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/settings                                        Open settings"
+    },
+    {
+      "id": "box-192",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/skills                                          Skills"
+    },
+    {
+      "id": "box-193",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/stats                                           Usage statistics"
+    },
+    {
+      "id": "box-194",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/status                                          View status"
+    },
+    {
+      "id": "box-195",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/terminal                                        New terminal"
+    },
+    {
+      "id": "box-196",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/themes                                          Switch theme"
+    },
+    {
+      "id": "box-197",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/thinking                                        Switch model variant"
+    },
+    {
+      "id": "box-198",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/timeline                                        Jump to message"
+    },
+    {
+      "id": "box-199",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/undo                                            Undo previous message"
+    },
+    {
+      "id": "box-229",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/update                                          Update OpenCode"
+    },
+    {
+      "id": "box-230",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/variants                                        Switch model variant"
+    },
+    {
+      "id": "box-231",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/web                                             Pair device"
+    },
+    {
+      "id": "box-232",
+      "class": "Ya",
+      "visible": true,
+      "x": 2,
+      "y": 34,
+      "width": 0,
+      "height": 0,
+      "mouseHandlers": [
+        "move",
+        "down",
+        "up"
+      ],
+      "text": "\u2026/worktrees                                       Manage workspaces"
+    },
+    {
+      "id": "box-206",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 9,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "down"
+      ],
+      "text": "\u25bc MCP"
+    },
+    {
+      "id": "box-207",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 10,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 cloudflare Connected"
+    },
+    {
+      "id": "box-208",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 11,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 cloudflare-bindings Connected"
+    },
+    {
+      "id": "box-209",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 12,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 cloudflare-builds Connected"
+    },
+    {
+      "id": "box-210",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 13,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 cloudflare-docs Connected"
+    },
+    {
+      "id": "box-211",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 14,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 cloudflare-observability Connected"
+    },
+    {
+      "id": "box-212",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 15,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 context7 Connected"
+    },
+    {
+      "id": "box-213",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 16,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 firecrawl Sign in"
+    },
+    {
+      "id": "box-214",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 17,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 mbx Connected"
+    },
+    {
+      "id": "box-215",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 18,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 obsidian Connected"
+    },
+    {
+      "id": "box-216",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 19,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 parallel-search Connected"
+    },
+    {
+      "id": "box-217",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 20,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 parallel-task Sign in"
+    },
+    {
+      "id": "box-218",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 21,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 playwright Connected"
+    },
+    {
+      "id": "box-219",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 22,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": "\u2022 railway Connected"
+    },
+    {
+      "id": "text-364",
+      "class": "ts",
+      "visible": true,
+      "x": 140,
+      "y": 24,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "down"
+      ],
+      "text": "\u25b8 AgentMBX"
+    },
+    {
+      "id": "text-365",
+      "class": "ts",
+      "visible": true,
+      "x": 140,
+      "y": 25,
+      "width": 37,
+      "height": 2,
+      "mouseHandlers": [
+        "down"
+      ],
+      "text": "mbx unbound \u2014 claim or register a persona"
+    },
+    {
+      "id": "text-366",
+      "class": "ts",
+      "visible": true,
+      "x": 140,
+      "y": 27,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "down"
+      ],
+      "text": ""
+    },
+    {
+      "id": "goal-card:live:qa-manager-one:146bc5643001",
+      "class": "c9",
+      "visible": true,
+      "x": 140,
+      "y": 34,
+      "width": 37,
+      "height": 2,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": ""
+    },
+    {
+      "id": "goal-card:live:qa-manager-two:146bc9921001",
+      "class": "c9",
+      "visible": true,
+      "x": 140,
+      "y": 38,
+      "width": 37,
+      "height": 2,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": ""
+    },
+    {
+      "id": "goal-sidebar-manager",
+      "class": "c9",
+      "visible": true,
+      "x": 140,
+      "y": 41,
+      "width": 37,
+      "height": 1,
+      "mouseHandlers": [
+        "up"
+      ],
+      "text": ""
+    },
+    {
+      "id": "sidebar.footer.location",
+      "class": "Ya",
+      "visible": true,
+      "x": 140,
+      "y": 40,
+      "width": 38,
+      "height": 1,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "/\u2026/openco\u2026/real-model-goal-K7rG3s:main"
+    },
+    {
+      "id": "box-115",
+      "class": "Ya",
+      "visible": true,
+      "x": 121,
+      "y": 1,
+      "width": 57,
+      "height": 5,
+      "mouseHandlers": [
+        "over",
+        "out",
+        "up"
+      ],
+      "text": "MCP server needs authentication \u203a Open MCP servers Connect \"parallel-task\" to use its tools."
+    },
+    {
+      "id": "box-4",
+      "class": "Ya",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "mouseHandlers": [
+        "down",
+        "up"
+      ],
+      "text": ""
+    }
+  ]
+}

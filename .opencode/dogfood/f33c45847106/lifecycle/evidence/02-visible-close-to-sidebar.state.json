@@ -1,0 +1,128 @@
+{
+  "first": {
+    "version": 1,
+    "slug": "qa-manager-one",
+    "title": "qa-manager-one",
+    "sessionID": "ses_eb943ab3effefdquBH0drbgaHk",
+    "runId": "146bc5643001",
+    "lock": "bf82f2a7e138c31f833d7dd4db58caf95acecd4c9dbb7b9d766821b841982f5d",
+    "status": "paused",
+    "createdAt": 1792188110414,
+    "updatedAt": 1792188147379,
+    "turn": 1,
+    "activeMs": 36965,
+    "activeSince": null,
+    "usage": {
+      "tokens": 16298,
+      "cost": 0.004067364,
+      "baseTokens": 6857,
+      "baseCost": 0.0012039479999999998
+    },
+    "base": {
+      "commit": "d92a7ad01c88228c356a2b8e6c8f1b84d17e6afe"
+    },
+    "counters": {
+      "noProgress": 0,
+      "failures": 0
+    },
+    "wrapup": false,
+    "criteria": {
+      "C1": {
+        "status": "unknown",
+        "rejections": 0
+      },
+      "C2": {
+        "status": "unknown",
+        "rejections": 0
+      }
+    },
+    "steps": {},
+    "turnFacts": {
+      "tools": 0,
+      "goalCalls": 0,
+      "stepsChanged": false,
+      "progressRecorded": false
+    },
+    "steers": 0,
+    "compacted": false,
+    "flags": [],
+    "amendments": [],
+    "fingerprint": "89a1bbbc593b5d2861d4",
+    "lastUsageEmit": 1792188127339,
+    "progress": {
+      "note": "Created manager-one.txt containing \"status: ok\" (verified via cat); C1 and C2 conditions hold on disk.",
+      "next": "Per constraint, do not claim during this inspection; call goal_wait for 300 seconds and hold.",
+      "at": 1792188123298,
+      "turn": 1
+    },
+    "reason": "paused by you"
+  },
+  "second": {
+    "version": 1,
+    "slug": "qa-manager-two",
+    "title": "qa-manager-two",
+    "sessionID": "ses_eb943aaeaffeNH0zpK7M8UA89a",
+    "runId": "146bc9921001",
+    "lock": "c83a6f0fbcde5810e4e37832f35556bd6751774b6b191ba403d6adda1610adcd",
+    "status": "waiting",
+    "createdAt": 1792188127528,
+    "updatedAt": 1792188143148,
+    "turn": 1,
+    "activeMs": 15620,
+    "activeSince": 1792188143148,
+    "usage": {
+      "tokens": 3064,
+      "cost": 0.0018470100000000005,
+      "baseTokens": 13004,
+      "baseCost": 0.00216723
+    },
+    "base": {
+      "commit": "d92a7ad01c88228c356a2b8e6c8f1b84d17e6afe"
+    },
+    "counters": {
+      "noProgress": 0,
+      "failures": 0
+    },
+    "wrapup": false,
+    "criteria": {
+      "C1": {
+        "status": "unknown",
+        "rejections": 0
+      },
+      "C2": {
+        "status": "unknown",
+        "rejections": 0
+      }
+    },
+    "steps": {},
+    "turnFacts": {
+      "tools": 0,
+      "goalCalls": 0,
+      "stepsChanged": false,
+      "progressRecorded": false
+    },
+    "steers": 0,
+    "compacted": false,
+    "flags": [],
+    "amendments": [],
+    "fingerprint": "1bb30b5663c8aa2dec6e",
+    "activity": {
+      "kind": "waiting",
+      "since": 1792188143148,
+      "until": 1792188441068,
+      "detail": "Constraint requires waiting 300s between inspection steps; test owner operates the manager. Re-check manager-two.txt state on resume."
+    },
+    "lastUsageEmit": 1792188143112,
+    "progress": {
+      "note": "Inspected repo. Created manager-two.txt containing \"status: ok\" at repo root; verified contents with cat/grep. Both C1 and C2 hold on disk.",
+      "next": "Per constraint, call goal_wait 300s and do not claim; re-check state after the wait.",
+      "at": 1792188139147,
+      "turn": 1
+    },
+    "wait": {
+      "until": 1792188441068,
+      "reason": "Constraint requires waiting 300s between inspection steps; test owner operates the manager. Re-check manager-two.txt state on resume."
+    },
+    "reason": "Constraint requires waiting 300s between inspection steps; test owner operates the manager. Re-check manager-two.txt state on resume."
+  }
+}

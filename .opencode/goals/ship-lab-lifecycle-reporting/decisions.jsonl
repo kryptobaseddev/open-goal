@@ -1,0 +1,1 @@
+{"q":"Scope after T103 triage","a":"Bounded diagnostic repair and immutable release; no normalization, oracle or state recovery; unreproduced aliasing disclosed","by":"assumed","rationale":"Owner requested triage preserving guards and autonomous release; exact native contract review remains required before launch."}

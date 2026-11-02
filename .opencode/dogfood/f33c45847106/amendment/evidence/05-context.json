@@ -1,0 +1,18 @@
+{
+  "root": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-qEsDRA",
+  "location": {
+    "directory": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-amendment-qEsDRA"
+  },
+  "sessionID": "ses_eb93f2d62ffe3f2hkWtf71aSk2",
+  "endpoint": "http://127.0.0.1:49374",
+  "serverPID": 30270,
+  "revision": "f33c458471061bda4441ccb5326ba12919ed8fe5",
+  "model": {
+    "id": "deepseek-flash",
+    "providerID": "deepseek",
+    "variant": "high"
+  },
+  "agent": "build",
+  "automatedQATestOwner": true,
+  "providerIsFixture": false
+}

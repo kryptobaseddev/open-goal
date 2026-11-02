@@ -1,0 +1,18 @@
+{
+  "automatedQATestOwner": true,
+  "providerIsFixture": false,
+  "endpoint": "http://127.0.0.1:49374",
+  "serverPID": 30270,
+  "location": {
+    "directory": "/private/var/folders/9f/83wg9xhx7hg_6vfc0dks52f00000gn/T/opencode/real-model-goal-K7rG3s"
+  },
+  "authorID": "ses_eb944dfebffeFPklfEPbNMS9Bm",
+  "originalModel": {
+    "id": "deepseek-flash",
+    "providerID": "deepseek",
+    "variant": "high"
+  },
+  "originalAgent": "build",
+  "revision": "f33c458471061bda4441ccb5326ba12919ed8fe5",
+  "ref": "v0.5.2"
+}

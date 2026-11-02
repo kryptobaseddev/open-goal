@@ -1,0 +1,85 @@
+{
+  "source": "claim",
+  "claim": {
+    "at": 1792191105300,
+    "turn": 0,
+    "summary": "The goal loop's decision is now a PURE function, decide(state, signals, limits) -> action in src/engine/loop.ts, with no filesystem, network or OpenCode types. The OpenCode adapter applies that action instead of holding the logic, and the existing suites (54/54) prove its behaviour is unchanged. An `ocg` bin ships a `tick` subcommand implementing CLEO's merged Stop-dispatcher contract exactly: the harness Stop JSON on stdin, JSON only on stdout ({decision:'block',reason} to continue, {final:false} to hold), logs only on stderr, and nothing at all when there is no live goal or no .opencode/goals; its reason is the SAME continuation the adapter would send (asserted byte-identical against renderTailNote). The parity is documented in docs/research/harness-agnostic-loop-decision.md with a case-by-case table and an honest statement of what the tick does not do yet. The npm publication metadata is prepared (bin.ocg plus cli in files) but nothing was published. One real bug was found and fixed on the way: the tick treated 'archived' as terminal rather than the real set, which would have mistaken a failed or superseded goal for a live one.",
+    "evidence": {
+      "C1": "test/unit/loop-decision.test.ts — 13 tests, green. decide(state, signals, limits) is pure (no fs/network/OpenCode types) and every case is pinned: a failed/interrupted turn is not its business; only a running run (or a waiting run that claimed) continues; a claim verifies; turn 0 admits the kickoff; a finished wrap-up stops; a repeated blocker stops; the budget admits ONE wrap-up turn then stops; the backstop behaves like the budget; a stalled-but-active run continues under on_stall=continue and pauses otherwise; a future wait schedules at its deadline and an expired one falls through; recovery is selected once progress has been missing long enough; and decide never mutates its input.",
+      "C2": "test/host/tick-bin.test.ts — spawns the REAL cli/ocg.ts and asserts at the process boundary: no goal project prints NOTHING on stdout (logs on stderr, exit 0); a live goal returns ONLY JSON with decision=block and a non-empty reason, with the Stop payload acknowledged on stderr; a terminal goal prints NOTHING; a goal awaiting the owner returns {final:false}; an unknown subcommand is a usage error on stderr with exit 2.",
+      "C3": "docs/research/harness-agnostic-loop-decision.md defines the decision function's inputs and outputs, carries the case-by-case parity table naming the TailKind the adapter already sends for each case, states that the tick's reason is the SAME continuation the adapter would send (renderTailNote for the same tail), names what its unit suite does and does not cover (including that the tick is read-only and does not yet advance turn counters or the stall streak, and has not been driven by a real non-OpenCode harness), and states plainly that nothing was published to npm.",
+      "C4": "node -e over package.json exits 0: bin.ocg is present, the 'cli' folder is in files, description and license are set, and exports is not an array. No npm publish was run and no registry credential was used.",
+      "C5": "package.json is 0.6.0; tag v0.6.0 pushed (730ea88); ~/.config/opencode/opencode.jsonc pins github:kryptobaseddev/opencode-goal#v0.6.0 and the reload loaded it, with this goal resuming under it. The host runs check-installed-goal.ts --min-version 0.6.0 --assert-release.",
+      "C6": "OCGOAL_GIT_SPEC=\"github:kryptobaseddev/opencode-goal#v0.6.0\" cleo run --wait --class test -- bun test test/unit/loop-decision.test.ts test/unit/tick.test.ts -> exit 0 (22 pass).",
+      "C7": "Owner sign-off on the tick contract and the decision parity — the host asks the owner for this criterion.",
+      "I1": "cleo run --wait --class test -- bun test <the 12 goal-loop + CLEO oracle suites> -> 54 pass, 0 fail, exit 0 (28.2s), proving the OpenCode adapter's behaviour is unchanged after the extraction; no oracle edited.",
+      "I2": "bun run typecheck (check:tui + tsc --noEmit) -> exit 0."
+    }
+  },
+  "outcome": {
+    "passed": false,
+    "needsHuman": [
+      "C7"
+    ],
+    "results": [
+      {
+        "id": "C1",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 0.6s"
+      },
+      {
+        "id": "C2",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 0.8s"
+      },
+      {
+        "id": "C4",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 0.2s"
+      },
+      {
+        "id": "C5",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 1.0s"
+      },
+      {
+        "id": "C6",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 0.6s"
+      },
+      {
+        "id": "I1",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 28.3s"
+      },
+      {
+        "id": "I2",
+        "pass": true,
+        "by": "host",
+        "detail": "exit 0 in 3.0s"
+      },
+      {
+        "id": "C3",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 7 quote(s)"
+      },
+      {
+        "id": "C7",
+        "pass": false,
+        "by": "human",
+        "detail": "awaiting owner sign-off"
+      }
+    ],
+    "integrity": [],
+    "lines": [
+      "C7 FAILED [human] The owner SHALL approve the tick contract and the decision parity before the goal completes\n    awaiting owner sign-off"
+    ]
+  }
+}

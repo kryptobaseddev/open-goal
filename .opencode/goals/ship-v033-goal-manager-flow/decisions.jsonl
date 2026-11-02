@@ -1,0 +1,7 @@
+{"t":"2026-10-06","q":"Next slice","options":["Goal manager board","Sidebar-only first","Something else"],"a":"Goal manager board (Recommended)","by":"owner"}
+{"t":"2026-10-06","q":"Multi-goal proof","options":["Two-goal gate","Host-only"],"a":"Two-goal gate (Recommended)","by":"owner"}
+{"t":"2026-10-06","q":"Sign-off gate","options":["Owner sign-off again","No live sign-off"],"a":"No live sign-off","by":"owner"}
+{"t":"2026-10-10","q":"Manager placement / sidebar shape / jump behavior","options":["Goals tab / stacked cards / expand then jump","Alternative dedicated panel / rows / immediate jump"],"a":"I thnk I like the idea of the 'a,a,a'","by":"owner"}
+{"t":"2026-10-10","q":"Interpretation of approved a/a/a","options":[],"a":"Goals tab becomes manager; stacked compact cards; selecting expands before an explicit session jump.","by":"assumed"}
+{"t":"2026-10-10","q":"Safe natural-language lifecycle operations","options":[],"a":"Agents interpret intent and propose typed operations; the host validates session, target, locked contract and owner approval. No raw shell command execution from natural-language strings and no worker self-approval.","by":"assumed"}
+{"t":"2026-10-10","q":"Approve the validated contract at .opencode/goals/ship-v033-goal-manager-flow/goal.yaml?","options":["Approve (Recommended)","Revise scope or criteria","Save as draft"],"a":"Approve (Recommended)","by":"owner"}

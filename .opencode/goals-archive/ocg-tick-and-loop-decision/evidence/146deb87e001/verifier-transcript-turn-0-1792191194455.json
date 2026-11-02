@@ -1,0 +1,276 @@
+{
+  "childID": "ses_eb9155f41ffd4zFj8S7h6JNzpS",
+  "done": "done",
+  "by": "verifier",
+  "rounds": 1,
+  "retried": false,
+  "model": "deepseek/deepseek-flash#high",
+  "messages": [
+    {
+      "type": "user",
+      "parts": []
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "text",
+          "text": "I'll start by inspecting the documents and code cited for C3."
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"docs/research/harness-agnostic-loop-decision.md\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file docs/research/harness-agnostic-loop-decision.md, lines 1-106\\n1: # The harness-agnostic loop decision, and the `ocg tick` entry point\\n2: \\n3: Written 2026-10-16 for the v0.6.0 goal. It records the decision contract, the parity between the extracted\\n4: function and the OpenCode adapter it came from, and exactly what the `ocg tick` entry point does.\\n5: \\n6: > **Nothing was published to npm by this work.** The publication metadata is prepared (a `bin` entry, the\\n7: > `cli` folder in `files`) but no `npm publish` was run, no registry credential was used, and the package is\\n8: > still installed from a git tag. Publishing is a separate owner decision.\\n9: \\n10: ## Why\\n11: \\n12: The loop's decision lived only inside `src/server/app.ts`, so no other harness could reuse it and it could\\n13: only be tested by booting OpenCode. CLEO has merged the Stop dispatcher (`#2306`) that expects an `ocg tick`,\\n14: which settles the entry point: OCG can implement it today even though the rest of the CLEO verbs are still\\n15: unreleased.\\n16: \\n17: `choose one decision, many harnesses` is what removes the boundary. OpenCode keeps calling the function\\n18: in-process; a hook-based harness calls `ocg tick`.\\n19: \\n20: ## The decision contract\\n21: \\n22: `decide(state, signals, limits) -> action`, in `src/engine/loop.ts`. It is **pure**: no filesystem, no\\n23: network, no OpenCode types, so it is testable and reusable without a host.\\n24: \\n25: **Inputs.** `state` is the run state the host owns (`src/engine/state.ts`): `status`, `turn`, `claim`,\\n26: `wrapup`, `blocker`, `counters.noProgress`, `wait`, `pending.kind`. `signals` is everything the host\\n27: observed for the turn (`turn`, `pending`, `changed`, `progressRecorded`, `stepsChanged`, `activeStalled`,\\n28: `stallReason`, `onStall`, `budgetRatio`, `backstop`, `cooldownMs`, `now`). `limits` are the host's bounds\\n29: (`blockerRepeats`, `stallTurns`, `recoveryAt`, `backstopTurns`) — never hard-cod"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "state": "completed",
+          "input": "{\"pattern\":\"src/engine/loop.ts\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"/Users/keatonhoskins/projects/opencode-goal/src/engine/loop.ts\"}]"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "reasoning",
+          "text": "Now let me check src/engine/loop.ts and src/server/app.ts to verify claims in the doc (e.g. renderTailNote, TailKind, decide purity). Also check test files, package.json, git history quote. Let me do parallel reads.",
+          "state": "unknown",
+          "input": "null",
+          "output": "null"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"src/engine/loop.ts\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file src/engine/loop.ts, lines 1-109\\n1: // v0.6.0 - the loop's DECISION, extracted from the OpenCode adapter.\\n2: //\\n3: // `decide(state, signals, limits)` is PURE: no filesystem, no network, no\\n4: // OpenCode types. The adapter calls it from `onTurnEnd` and maps the action onto\\n5: // its existing calls (setStatus, ledger, decide dialog, admit/schedule); the `ocg\\n6: // tick` entry point calls it and maps the action onto CLEO's tick contract. One\\n7: // loop, many harnesses.\\n8: //\\n9: // Parity is the point: each action here corresponds to a branch the adapter\\n10: // already took, and the TailKind of a continuation is the same one the adapter\\n11: // already sent. `test/unit/loop-decision.test.ts` pins every case and\\n12: // docs/research/harness-agnostic-loop-decision.md carries the parity table.\\n13: \\n14: import type { TailKind } from \\\"../contract/render\\\"\\n15: import type { RunState, Status } from \\\"./state\\\"\\n16: \\n17: /** How the harness reported the turn ending. */\\n18: export type LoopTurn = \\\"succeeded\\\" | \\\"failed\\\" | \\\"interrupted\\\"\\n19: \\n20: /** The owner-set and host-set bounds the decision reads (never hard-coded here). */\\n21: export type LoopLimits = {\\n22:   blockerRepeats: number\\n23:   stallTurns: number\\n24:   recoveryAt: number\\n25:   backstopTurns: number\\n26: }\\n27: \\n28: /** Everything the decision needs, gathered by the caller (all pure data). */\\n29: export type LoopSignals = {\\n30:   turn: LoopTurn\\n31:   /** The kind of continuation the host had pending for this turn, if any. */\\n32:   pending?: TailKind\\n33:   /** Host-visible repository change since the last turn. */\\n34:   changed: boolean\\n35:   /** The agent recorded progress with the progress tool this turn. */\\n36:   progressRecorded: boolean\\n37:   /** A plan step changed state this turn. */\\n38:   stepsChanged: boolean\\n39:   /** A stalled run whose recent turns showed host-visible activity. */\\n40:   activeStalled: boolean\\n41:   /** The reas"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"package.json\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file package.json, lines 1-64\\n1: {\\n2:   \\\"name\\\": \\\"opencode-goal\\\",\\n3:   \\\"version\\\": \\\"0.6.0\\\",\\n4:   \\\"description\\\": \\\"Persistent, host-verified goal mode for OpenCode 2 with a structured goal contract and a live TUI.\\\",\\n5:   \\\"type\\\": \\\"module\\\",\\n6:   \\\"license\\\": \\\"MIT\\\",\\n7:   \\\"private\\\": true,\\n8:   \\\"engines\\\": {\\n9:     \\\"opencode\\\": \\\">=2.0.22\\\"\\n10:   },\\n11:   \\\"scripts\\\": {\\n12:     \\\"build:tui\\\": \\\"bun scripts/build-tui.mjs\\\",\\n13:     \\\"check:tui\\\": \\\"bun scripts/build-tui.mjs --check\\\",\\n14:     \\\"test\\\": \\\"bun test --timeout 120000\\\",\\n15:     \\\"test:host\\\": \\\"bun test test/host --timeout 120000\\\",\\n16:     \\\"typecheck\\\": \\\"bun run check:tui && tsc --noEmit\\\"\\n17:   },\\n18:   \\\"devDependencies\\\": {\\n19:     \\\"@opencode/client\\\": \\\"2.0.22\\\",\\n20:     \\\"@opencode/plugin\\\": \\\"2.0.22\\\",\\n21:     \\\"@opencode/theme\\\": \\\"2.0.22\\\",\\n22:     \\\"@opentui/core\\\": \\\"0.5.14\\\",\\n23:     \\\"@types/bun\\\": \\\"^1.3.0\\\",\\n24:     \\\"typescript\\\": \\\"^5.9.3\\\"\\n25:   },\\n26:   \\\"bin\\\": {\\n27:     \\\"ocg\\\": \\\"./cli/ocg.ts\\\"\\n28:   },\\n29:   \\\"exports\\\": {\\n30:     \\\".\\\": \\\"./server.ts\\\",\\n31:     \\\"./server\\\": \\\"./server.ts\\\",\\n32:     \\\"./tui\\\": \\\"./dist/tui.js\\\",\\n33:     \\\"./rpc\\\": \\\"./rpc.ts\\\"\\n34:   },\\n35:   \\\"files\\\": [\\n36:     \\\"server.ts\\\",\\n37:     \\\"tui.tsx\\\",\\n38:     \\\"rpc.ts\\\",\\n39:     \\\"cli\\\",\\n40:     \\\"dist\\\",\\n41:     \\\"src\\\",\\n42:     \\\"skills\\\",\\n43:     \\\"README.md\\\",\\n44:     \\\"LICENSE\\\",\\n45:     \\\"CHANGELOG.md\\\"\\n46:   ],\\n47:   \\\"repository\\\": {\\n48:     \\\"type\\\": \\\"git\\\",\\n49:     \\\"url\\\": \\\"git+https://github.com/kryptobaseddev/opencode-goal.git\\\"\\n50:   },\\n51:   \\\"homepage\\\": \\\"https://github.com/kryptobaseddev/opencode-goal#readme\\\",\\n52:   \\\"keywords\\\": [\\n53:     \\\"opencode\\\",\\n54:     \\\"opencode-plugin\\\",\\n55:     \\\"goal\\\",\\n56:     \\\"goal-mode\\\",\\n57:     \\\"autonomous\\\",\\n58:     \\\"agent\\\"\\n59:   ],\\n60:   \\\"dependencies\\\": {\\n61:     \\\"@opentui/solid\\\": \\\"0.5.14\\\",\\n62:     \\\"solid-js\\\": \\\"1.9.15\\\"\\n63:  "
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\".opencode/goals/ocg-tick-and-loop-decision/evidence/146deb87e001/git-history-turn-0-1792191144197.json\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file .opencode/goals/ocg-tick-and-loop-decision/evidence/146deb87e001/git-history-turn-0-1792191144197.json, lines 1-4\\n1: {\\n2:   \\\"schema\\\": \\\"opencode-goal/git-history/v1\\\",\\n3:   \\\"digest\\\": \\\"HEAD 730ea8886c45cb79d5506b0e807678897c9c0188\\\\nbranch main\\\\n730ea88 2026-10-16 feat(T102): extract the pure loop decision and ship an ocg tick entry point\\\\nee290d7 2026-10-16 docs(T102): final v0.5.2 coherent-chain export\\\\nc524f27 2026-10-16 docs(T102): make the export explain its own engine attribution and label rules\\\\n1c7fa70 2026-10-16 fix(T102): cite PROJECT-LOCAL evidence, so an independent verifier can actually read it\\\\n8fa19b3 2026-10-16 docs(T102): the v0.5.2 coherent five-flow export, and T102 closed on a real manager pass\\\\n9e3a4c4 2026-10-16 docs(T102): refresh the v0.5.1 export as written by the final run\\\\nf33c458 2026-10-16 feat(T102): bind the dogfood cache to the serving engine, and settle T102 coherently\\\\nf0d5a5f 2026-10-16 docs(T117): record the close-wiring rule that a run commit must cite every linked task id\\\\n045c443 2026-10-16 docs(T102): final v0.5.1 real-model dogfood export\\\\n628bcd3 2026-10-16 fix(T102): resolve a source session so the workflow runs without OPENCODE_SESSION_ID\\\\n44b16a7 2026-10-16 fix(T102): read the drivers' real evidence, and never label a partial as a pass\\\\n6193275 2026-10-16 feat(T102): exact-release real-model dogfood and a readable evidence export\\\\n3f0db02 2026-10-16 docs(T117): record the CLEO doc fetch and the mapping bug fixed from review\\\\ne91167d 2026-10-16 fix(T117): a verifier, human or diff criterion never proves implemented or testsPassed\\\\n1ffbe7d 2026-10-16 docs(T117): record the CLEO interface agreement and the deferred Phase-2 items\\\\n4328612 2026-10-16 docs(T117): record the CLEO-side design document and reconcile it with what shipped\\\\n93b0438 2026-10-16 feat(T117): CLEO as an optional first-class integration\\\\n3796c18 2026-10-15 chore(T100): release v0.4.9\\\\n9471b0b 2026"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "reasoning",
+          "text": "Now C3 asks about the doc. Let me verify the doc's claims: it mentions `renderTailNote(state, contract, tail)`. Check that app.ts uses renderTailNote and that TailKind is the adapter's type. Also the doc says \"the identical function the adapter uses\". Let me grep.\n\nAlso check tests: test/unit/loop-decision.test.ts, test/unit/tick.test.ts, test/host/tick-bin.test.ts, cli/ocg.ts.\n\nFor C3, the criterion judged: does the doc define inputs/outputs, list cases with TailKind, state tick reason is SAME continuation, name what unit suite covers/does not, and state whether anything was published to npm. The doc does all that. I can quote.\n\nBut I should verify the doc isn't lying about citations, e.g., renderTailNote exists. The question says \"if it cites them, src/engine/loop.ts and src/server/app.ts\". Let me grep renderTailNote.",
+          "state": "unknown",
+          "input": "null",
+          "output": "null"
+        },
+        {
+          "type": "tool",
+          "tool": "grep",
+          "state": "completed",
+          "input": "{\"pattern\":\"renderTailNote\",\"path\":\"src\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Found 5 matches\\n/Users/keatonhoskins/projects/opencode-goal/src/engine/tick.ts:\\n  Line 19: import { renderTailNote } from \\\"../contract/render\\\"\\n\\n  Line 100:   const reason = renderTailNote(live, contract, tail, now).slice(0, REASON_CAP)\\n\\n\\n/Users/keatonhoskins/projects/opencode-goal/src/contract/render.ts:\\n  Line 102: export function renderTailNote(state: RunState, contract: Contract, kind: TailKind, now = Date.now()): string {\\n\\n\\n/Users/keatonhoskins/projects/opencode-goal/src/server/app.ts:\\n  Line 10: import { renderSystemBlock, renderTailNote, triggerText, type TailKind } from \\\"../contract/render\\\"\\n\\n  Line 1752:     const note = renderTailNote(state, contract, kind as TailKind)\\n\"}]"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"cli/ocg.ts\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file cli/ocg.ts, lines 1-26\\n1: #!/usr/bin/env bun\\n2: // v0.6.0 - the `ocg` bin. Only `tick` is defined today; CLEO's Stop dispatcher\\n3: // spawns it with the harness's Stop JSON on stdin and reads JSON from stdout.\\n4: //\\n5: // Contract (CLEO #2306): JSON ONLY on stdout, logs on stderr, and nothing at all\\n6: // when there is no live goal or no `.opencode/goals` in the project.\\n7: //\\n8: // We deliberately do NOT install our own Stop hook in any harness: CLEO's\\n9: // dispatcher owns Stop, and a second entry would tick twice.\\n10: import { tick } from \\\"../src/engine/tick\\\"\\n11: \\n12: const sub = process.argv[2]\\n13: if (sub !== \\\"tick\\\") {\\n14:   console.error(\\\"usage: ocg tick   (reads the harness Stop JSON on stdin; writes JSON on stdout)\\\")\\n15:   process.exit(2)\\n16: }\\n17: \\n18: // Read stdin to EOF (the harness Stop JSON). Its content is not required: the\\n19: // decision comes from the project's goal state, not from the payload.\\n20: const payload = await new Response(Bun.stdin.stream()).text().catch(() => \\\"\\\")\\n21: if (payload.trim()) console.error(`ocg tick: received ${payload.length} bytes of Stop payload`)\\n22: \\n23: const result = tick({ root: process.cwd() })\\n24: for (const line of result.log) console.error(line) // logs ONLY on stderr\\n25: if (result.stdout) process.stdout.write(`${result.stdout}\\\\n`) // JSON ONLY on stdout\\n26: process.exit(0)\"}]"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "reasoning",
+          "text": "Now read tick.ts and the tests to verify claims for C1, C2, C3, C6.",
+          "state": "unknown",
+          "input": "null",
+          "output": "null"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"src/engine/tick.ts\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file src/engine/tick.ts, lines 1-103\\n1: // v0.6.0 - the `ocg tick` entry point.\\n2: //\\n3: // CLEO's Stop dispatcher (merged #2306) spawns `ocg tick` with the harness's Stop\\n4: // JSON on stdin and reads JSON ONLY from stdout:\\n5: //   {\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"<continuation>\\\"}  keep the agent working\\n6: //   {\\\"final\\\":false}                                 hold the session open\\n7: //   anything else (including non-JSON, or nothing)  no live goal\\n8: // Logs go to stderr. It runs only where `.opencode/goals/` exists, and it is\\n9: // READ-ONLY: the run state is advanced by the host that owns it, so the tick\\n10: // never writes inside a goal folder (the plugin's own write guard forbids it).\\n11: //\\n12: // The decision is the SAME pure function the OpenCode adapter uses, and the\\n13: // continuation text is the same one the adapter would send, so a harness driven\\n14: // through tick behaves identically to OpenCode for the decision it makes.\\n15: \\n16: import { existsSync, readdirSync, readFileSync } from \\\"node:fs\\\"\\n17: import { join } from \\\"node:path\\\"\\n18: import { parseContract } from \\\"../contract/parse\\\"\\n19: import { renderTailNote } from \\\"../contract/render\\\"\\n20: import { budgetUse, TERMINAL as TERMINAL_STATUSES, type RunState } from \\\"./state\\\"\\n21: import { continuationTail, decide, type LoopLimits, type LoopSignals } from \\\"./loop\\\"\\n22: \\n23: /** The plugin's own defaults, so a tick agrees with the adapter unless overridden. */\\n24: export const TICK_LIMITS: LoopLimits = { blockerRepeats: 3, stallTurns: 3, recoveryAt: 2, backstopTurns: 200 }\\n25: export const TICK_COOLDOWN_MS = 1_500\\n26: \\n27: /** CLEO caps a forwarded reason at 4000 characters. */\\n28: export const REASON_CAP = 4_000\\n29: \\n30: export type TickResult = {\\n31:   /** Exactly what goes to stdout (empty when no goal is live). */\\n32:   stdout: string\\n33:   /** Lines for stderr. */\\n34:   log: string[]\\n35: }\\n36: \\n37: /**\\n38:  * Decide w"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"test/unit/loop-decision.test.ts\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file test/unit/loop-decision.test.ts, lines 1-130\\n1: import { describe, expect, test } from \\\"bun:test\\\"\\n2: import { continuationTail, decide, type LoopLimits, type LoopSignals } from \\\"../../src/engine/loop\\\"\\n3: import { initialRun, type RunState } from \\\"../../src/engine/state\\\"\\n4: import { parseContract } from \\\"../../src/contract/parse\\\"\\n5: \\n6: // v0.6.0 - the pure loop decision. Every case the OpenCode adapter can take is\\n7: // pinned here, so the extraction can be shown to be behaviour-preserving and the\\n8: // `ocg tick` entry point can reuse the same decisions under another harness.\\n9: \\n10: const contract = parseContract(\\n11:   `schema: goal/v1\\\\nid: demo\\\\ntitle: demo\\\\nintent:\\\\n  verbatim: \\\"x\\\"\\\\noutcome: y\\\\nnon_goals: [z]\\\\ncriteria:\\\\n  - id: C1\\\\n    statement: s\\\\n    check: {kind: file, path: f}\\\\n`,\\n12: ).contract!\\n13: \\n14: const limits: LoopLimits = { blockerRepeats: 3, stallTurns: 4, recoveryAt: 2, backstopTurns: 40 }\\n15: \\n16: function state(over: Partial<RunState> = {}): RunState {\\n17:   const base = initialRun(contract, { sessionID: \\\"ses_demo\\\", runId: \\\"r1\\\", lock: \\\"a\\\".repeat(64), now: 1_000 })\\n18:   return { ...base, ...over, counters: { noProgress: 0, failures: 0, ...(over.counters ?? {}) } }\\n19: }\\n20: \\n21: const signals = (over: Partial<LoopSignals> = {}): LoopSignals => ({\\n22:   turn: \\\"succeeded\\\",\\n23:   changed: false,\\n24:   progressRecorded: false,\\n25:   stepsChanged: false,\\n26:   activeStalled: false,\\n27:   stallReason: \\\"stalled: no change the host could see for 4 turns\\\",\\n28:   onStall: \\\"pause\\\",\\n29:   budgetRatio: 0,\\n30:   backstop: false,\\n31:   cooldownMs: 3_000,\\n32:   ...over,\\n33: })\\n34: \\n35: describe(\\\"the pure loop decision (v0.6.0)\\\", () => {\\n36:   test(\\\"a failed or interrupted turn is not this decision's business\\\", () => {\\n37:     expect(decide(state({ turn: 3 }), signals({ turn: \\\"failed\\\" }), limits)).toEqual({ kind: \\\"none\\\" })\\n38:     expect(decide(st"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "reasoning",
+          "text": "Now verify the tick tests (C1 mentions 13 tests; tick.test.ts is C6 part), and C2's test/host/tick-bin.test.ts. Also check state.ts TERMINAL includes 'archived'? The worker claims the fixed bug: tick treated 'archived' as terminal rather than the real set. Wait — re-read: \"the tick treated 'archived' as terminal rather than the real set, which would have mistaken a failed or superseded goal for a live one.\" Hmm, that's odd. Actually TERMINAL_STATUSES should include 'archived'? Let's check state.ts.\n\nActually that's not a criterion, but relevant to C3? No. Let me focus on criteria: C1 (unit tests), C2 (host tick-bin), C3 (doc), C4 (package.json), C5 (version/tag loaded), C6 (tests pass), C7 (owner sign-off — not mine to judge? It's an owner criterion; the host asks the owner. As verifier, I should judge whether it's proven. Hmm. C7 requires owner sign-off, which I can't verify from files. I should mark not_proven unless there's evidence. Let me check if there's an owner sign-off record in the goal folder. Let me look at the goal folder contents.\n\nLet me read the tick tests and check for evidence.",
+          "state": "unknown",
+          "input": "null",
+          "output": "null"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"test/unit/tick.test.ts\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file test/unit/tick.test.ts, lines 1-103\\n1: import { afterAll, describe, expect, test } from \\\"bun:test\\\"\\n2: import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from \\\"node:fs\\\"\\n3: import { tmpdir } from \\\"node:os\\\"\\n4: import { join } from \\\"node:path\\\"\\n5: import { REASON_CAP, tick } from \\\"../../src/engine/tick\\\"\\n6: import { initialRun, type RunState } from \\\"../../src/engine/state\\\"\\n7: import { parseContract } from \\\"../../src/contract/parse\\\"\\n8: import { renderTailNote } from \\\"../../src/contract/render\\\"\\n9: \\n10: // v0.6.0 - the tick decision. CLEO's Stop dispatcher reads JSON ONLY from stdout,\\n11: // so every case here asserts on the exact stdout: the block+reason continuation,\\n12: // the final:false hold, or nothing at all.\\n13: \\n14: const SLUG = \\\"demo\\\"\\n15: const GOAL = `schema: goal/v1\\\\nid: ${SLUG}\\\\ntitle: demo goal\\\\nintent:\\\\n  verbatim: \\\"x\\\"\\\\noutcome: y\\\\nnon_goals: [z]\\\\ncriteria:\\\\n  - id: C1\\\\n    statement: s\\\\n    check: {kind: file, path: f}\\\\nplan:\\\\n  - {id: S1, title: first, proves: [C1]}\\\\n`\\n16: \\n17: const dirs: string[] = []\\n18: afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })))\\n19: \\n20: const contract = parseContract(GOAL, { slug: SLUG }).contract!\\n21: \\n22: /** A temp project with (or without) a goal folder. */\\n23: function project(run?: Partial<RunState> | \\\"no-run\\\"): string {\\n24:   const root = mkdtempSync(join(tmpdir(), \\\"ocg-tick-\\\"))\\n25:   dirs.push(root)\\n26:   if (run === undefined) return root // no .opencode/goals at all\\n27:   mkdirSync(join(root, \\\".opencode\\\", \\\"goals\\\", SLUG), { recursive: true })\\n28:   writeFileSync(join(root, \\\".opencode\\\", \\\"goals\\\", SLUG, \\\"goal.yaml\\\"), GOAL)\\n29:   if (run === \\\"no-run\\\") return root\\n30:   const base = initialRun(contract, { sessionID: \\\"ses_x\\\", runId: \\\"r1\\\", lock: \\\"a\\\".repeat(64), now: 1 })\\n31:   writeFileSync(join(root, \\\".opencode\\\", \\\"goals\\\", SLUG, \\\"run.json\\\"), JSON.stringify({ ...base, "
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"test/host/tick-bin.test.ts\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file test/host/tick-bin.test.ts, lines 1-78\\n1: import { afterAll, describe, expect, test } from \\\"bun:test\\\"\\n2: import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from \\\"node:fs\\\"\\n3: import { tmpdir } from \\\"node:os\\\"\\n4: import { join } from \\\"node:path\\\"\\n5: import { initialRun, type RunState } from \\\"../../src/engine/state\\\"\\n6: import { parseContract } from \\\"../../src/contract/parse\\\"\\n7: \\n8: // v0.6.0 - the REAL bin, end to end. CLEO's Stop dispatcher executes `ocg tick`\\n9: // with the harness Stop JSON on stdin and treats stdout as JSON ONLY. These tests\\n10: // spawn the actual CLI, so they prove the contract at the process boundary:\\n11: // stdout parses, logs went to stderr, and nothing is printed when no goal is live.\\n12: \\n13: const BIN = join(import.meta.dir, \\\"..\\\", \\\"..\\\", \\\"cli\\\", \\\"ocg.ts\\\")\\n14: const SLUG = \\\"demo\\\"\\n15: const GOAL = `schema: goal/v1\\\\nid: ${SLUG}\\\\ntitle: demo goal\\\\nintent:\\\\n  verbatim: \\\"x\\\"\\\\noutcome: y\\\\nnon_goals: [z]\\\\ncriteria:\\\\n  - id: C1\\\\n    statement: s\\\\n    check: {kind: file, path: f}\\\\n`\\n16: \\n17: const dirs: string[] = []\\n18: afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })))\\n19: const contract = parseContract(GOAL, { slug: SLUG }).contract!\\n20: \\n21: function project(run?: Partial<RunState> | \\\"no-run\\\"): string {\\n22:   const root = mkdtempSync(join(tmpdir(), \\\"ocg-tickbin-\\\"))\\n23:   dirs.push(root)\\n24:   if (run === undefined) return root\\n25:   mkdirSync(join(root, \\\".opencode\\\", \\\"goals\\\", SLUG), { recursive: true })\\n26:   writeFileSync(join(root, \\\".opencode\\\", \\\"goals\\\", SLUG, \\\"goal.yaml\\\"), GOAL)\\n27:   if (run === \\\"no-run\\\") return root\\n28:   const base = initialRun(contract, { sessionID: \\\"ses_x\\\", runId: \\\"r1\\\", lock: \\\"a\\\".repeat(64), now: 1 })\\n29:   writeFileSync(join(root, \\\".opencode\\\", \\\"goals\\\", SLUG, \\\"run.json\\\"), JSON.stringify({ ...base, ...run, counters: { noProgress: 0, failures: 0, ...(run.counters ?? {}) }"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "reasoning",
+          "text": "Now check C5: version 0.6.0 (package.json says 0.6.0 ✓), tag v0.6.0 pushed (730ea88 — git digest HEAD is 730ea88, but tag? Let me check if there's evidence of the tag. The goal folder evidence or CHANGELOG. Let me check opencode.jsonc pin and check-installed-goal.ts. But C5 is a host check? No — C5 is a criterion to judge; the host check results list C1,C2,C4,C5,C6,I1,I2. Wait, C5 PASS: exit 0 in 0.6s. Hmm, the host checks include C5, meaning the host ran a check for C5. But I still must judge C5 by quoting file text.\n\nActually re-read: \"Host check results (trusted): C1 PASS, C2 PASS, C4 PASS, C5 PASS, C6 PASS, I1 PASS, I2 PASS\". So C1,C2,C4,C5,C6,I1,I2 were host-checked. But I'm the verifier for criteria C3 (and presumably all listed criteria). The prompt says \"call goal_verdict exactly once with one entry per criterion above\". Criteria listed: C3, C1 (in claim), actually the criteria section lists only C3 in the \"Criteria to judge\" then the worker's claim enumerates C1-C7, I1, I2. Hmm.\n\nLet me re-read carefully. The prompt: \"Criteria to judge: - C3: The design note SHALL document...\" then host check results, then \"The worker's claim (untrusted)\". So the only criterion I'm asked to judge is C3? But then \"one entry per criterion above\" — the criteria above includes... Hmm ambiguous. The section \"Criteria to judge\" has only C3. But it says \"one entry per criterion above\". The worker's claim enumerates C1-C7, I1, I2 as claims, not criteria. The host check results cover C1,C2,C4,C5,C6,I1,I2.\n\nI think the safest: judge the criteria that were presented for verification. The \"Criteria to judge\" section lists C3 only. But it's possible the harness expects verdicts for all criteria (C1-C7, I1, I2). Given the instruction \"one entry per criterion above\", and the only explicit criteria list is C3... but the host check results reference C1..C6,I1,I2, and the worker's claim references C1-C7. To be safe, I'll provide verdicts for all: C1-C7, I1, I2. Actually, providing extra entries might be fine; goal_verdict records verdicts for \"every criterion you were asked to judge\". Hmm.\n\nLet me think about what's safest. If the verifier is expected to judge only C3 (the one criterion), adding others might cause errors? The tool accepts a list; unknown ids might be rejected or ignored. The system says \"record your verdict for every criterion you were asked to judge\". The prompt explicitly says \"one entry per criterion above\". The criteria above the tool call... The \"Criteria to judge\" block is the authoritative list, containing only C3.\n\nHmm, but then why give host check results for C1,C2,C4,C5,C6,I1,I2 and the worker's claims? Possibly because this is the full goal and I'm the verifier for all criteria, with host checks already passing for some. The phrase \"Host check results (trusted)\" suggests those criteria were checked by the host and I should trust them — but I still need to record verdicts? Actually if host checks already passed, maybe the verifier isn't asked about them.\n\nGiven ambiguity, I'll include all C1–C7, I1, I2 with evidence. That covers everything. Risk: the harness only expects C3. But extra verdicts typically harmless. Actually, the goal_verdict tool may reject unknown criterion ids. All C1-C7,I1,I2 are legitimate criterion ids of this goal presumably. I'll include them.\n\nActually, wait. Let me reconsider: The task statement says \"Criteria to judge:\" and then only C3. Then \"Host check results (trusted)\" — these are criteria the host already validated. Then the worker's claim. I think the intended judgment set is C3 plus possibly C7 (owner sign-off, which cannot be host-checked) — but C7 is owner sign-off, and the host asks the owner for it. Hmm, C7 is not in host checks and not in \"criteria to judge\" explicitly.\n\nI'll go with judging all criteria for completeness: C1–C7, I1, I2. Let me gather evidence for each.\n\nC1: unit loop-decision tests — the test file exists; need evidence it's green. Host check C1 PASS exit 0. I can quote the",
+          "state": "unknown",
+          "input": "null",
+          "output": "null"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\".opencode/goals/ocg-tick-and-loop-decision\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read directory .opencode/goals/ocg-tick-and-loop-decision, entries 1-6\\nevidence/\\ncontext.md\\ndecisions.jsonl\\ngoal.yaml\\nledger.jsonl\\nrun.json\"}]"
+        },
+        {
+          "type": "tool",
+          "tool": "grep",
+          "state": "error",
+          "input": "{\"pattern\":\"v0\\\\.6\\\\.0|opencode-goal#\",\"path\":\"/Users/keatonhoskins/.config/opencode/opencode.jsonc\"}",
+          "output": "{\"type\":\"permission.rejected\",\"message\":\"Permission denied: external_directory\"}"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "state": "completed",
+          "input": "{\"pattern\":\"scripts/check-installed-goal.ts\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"/Users/keatonhoskins/projects/opencode-goal/scripts/check-installed-goal.ts\"}]"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "reasoning",
+          "text": "opencode.jsonc is external and not readable. The host check C5 passed presumably. I can rely on the host check for the pin. But I should quote project-local text. C5's check is a script check-installed-goal.ts --min-version --assert-release, run by host (C5 PASS). For evidence I can quote package.json version and git history digest. The git digest proves HEAD 730ea88 but not the tag. Hmm. The digest doesn't include tags. Let me check CHANGELOG for v0.6.0, and the run.json for evidence of the tag/reload.\n\nLet me read CHANGELOG top and the goal's run.json / decisions.jsonl / ledger.jsonl.",
+          "state": "unknown",
+          "input": "null",
+          "output": "null"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\".opencode/goals/ocg-tick-and-loop-decision/run.json\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file .opencode/goals/ocg-tick-and-loop-decision/run.json, lines 1-116\\n1: {\\n2:   \\\"version\\\": 1,\\n3:   \\\"slug\\\": \\\"ocg-tick-and-loop-decision\\\",\\n4:   \\\"title\\\": \\\"v0.6.0: an ocg tick entry point and a pure loop decision function\\\",\\n5:   \\\"priority\\\": \\\"high\\\",\\n6:   \\\"sessionID\\\": \\\"ses_ebeed1b03ffeDc98PWOK7xeeVM\\\",\\n7:   \\\"runId\\\": \\\"146deb87e001\\\",\\n8:   \\\"lock\\\": \\\"d21b96be1a6816c7c34336ecb77ed66b374f94ffe54430bb646d04dfa06b7116\\\",\\n9:   \\\"status\\\": \\\"verifying\\\",\\n10:   \\\"createdAt\\\": 1792190363781,\\n11:   \\\"updatedAt\\\": 1792191144125,\\n12:   \\\"turn\\\": 0,\\n13:   \\\"activeMs\\\": 494575,\\n14:   \\\"activeSince\\\": 1792191144125,\\n15:   \\\"usage\\\": {\\n16:     \\\"tokens\\\": 1154750,\\n17:     \\\"cost\\\": 0.2576523899999992,\\n18:     \\\"baseTokens\\\": 9355972,\\n19:     \\\"baseCost\\\": 2.8338373319999994\\n20:   },\\n21:   \\\"base\\\": {\\n22:     \\\"commit\\\": \\\"ee290d7e60d8755d5792fbe90925efcf29d02f5d\\\"\\n23:   },\\n24:   \\\"counters\\\": {\\n25:     \\\"noProgress\\\": 0,\\n26:     \\\"failures\\\": 0\\n27:   },\\n28:   \\\"wrapup\\\": false,\\n29:   \\\"criteria\\\": {\\n30:     \\\"C1\\\": {\\n31:       \\\"status\\\": \\\"claimed\\\",\\n32:       \\\"rejections\\\": 0\\n33:     },\\n34:     \\\"C2\\\": {\\n35:       \\\"status\\\": \\\"claimed\\\",\\n36:       \\\"rejections\\\": 0\\n37:     },\\n38:     \\\"C3\\\": {\\n39:       \\\"status\\\": \\\"claimed\\\",\\n40:       \\\"rejections\\\": 0\\n41:     },\\n42:     \\\"C4\\\": {\\n43:       \\\"status\\\": \\\"claimed\\\",\\n44:       \\\"rejections\\\": 0\\n45:     },\\n46:     \\\"C5\\\": {\\n47:       \\\"status\\\": \\\"claimed\\\",\\n48:       \\\"rejections\\\": 0\\n49:     },\\n50:     \\\"C6\\\": {\\n51:       \\\"status\\\": \\\"claimed\\\",\\n52:       \\\"rejections\\\": 0\\n53:     },\\n54:     \\\"C7\\\": {\\n55:       \\\"status\\\": \\\"claimed\\\",\\n56:       \\\"rejections\\\": 0\\n57:     },\\n58:     \\\"I1\\\": {\\n59:       \\\"status\\\": \\\"claimed\\\",\\n60:       \\\"rejections\\\": 0\\n61:     },\\n62:     \\\"I2\\\": {\\n63:       \\\"status\\\": \\\"claimed\\\",\\n64:       \\\"rejections\\\": 0\\n65:     }\\n66:   },\\n67:   \\\"steps\\\": {\\n68:     \\\"S1\\\": \\\"active\\\",\\n69:   "
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\".opencode/goals/ocg-tick-and-loop-decision/decisions.jsonl\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file .opencode/goals/ocg-tick-and-loop-decision/decisions.jsonl, lines 1-6\\n1: {\\\"t\\\":\\\"2026-10-16T22:45:00Z\\\",\\\"q\\\":\\\"What should the next goal own?\\\",\\\"options\\\":[\\\"ocg tick + a pure decide() loop function\\\",\\\"The full @ocg/core split + npm publication\\\",\\\"CLEO verb wiring (Phase 2 - still blocked)\\\"],\\\"a\\\":\\\"ocg tick + a pure decide() loop function\\\",\\\"by\\\":\\\"owner\\\"}\\n2: {\\\"t\\\":\\\"2026-10-16T22:45:00Z\\\",\\\"q\\\":\\\"Confirm the boundaries and non-goals?\\\",\\\"options\\\":[\\\"As listed\\\",\\\"Also prepare npm publication metadata\\\",\\\"As listed, but no release\\\"],\\\"a\\\":\\\"As listed, plus prepare the npm publication metadata (without publishing)\\\",\\\"by\\\":\\\"owner\\\"}\\n3: {\\\"t\\\":\\\"2026-10-16T22:45:00Z\\\",\\\"q\\\":\\\"Should the next goal carry a budget?\\\",\\\"options\\\":[\\\"No budget\\\",\\\"Token budget (6M)\\\"],\\\"a\\\":\\\"No budget\\\",\\\"by\\\":\\\"owner\\\"}\\n4: {\\\"t\\\":\\\"2026-10-16T22:50:00Z\\\",\\\"q\\\":\\\"How should this goal ship?\\\",\\\"options\\\":[\\\"Minor v0.6.0 + installed proof\\\",\\\"Patch v0.5.3\\\",\\\"Source + tests, no release\\\"],\\\"a\\\":\\\"Minor v0.6.0 + installed proof\\\",\\\"by\\\":\\\"owner\\\"}\\n5: {\\\"t\\\":\\\"2026-10-16T22:50:00Z\\\",\\\"q\\\":\\\"What should the tick emit as its continuation reason?\\\",\\\"options\\\":[\\\"The exact adapter continuation\\\",\\\"A short harness-neutral instruction\\\",\\\"A minimal fixed string\\\"],\\\"a\\\":\\\"The exact adapter continuation\\\",\\\"by\\\":\\\"owner\\\"}\\n6: {\\\"t\\\":\\\"2026-10-16T22:50:00Z\\\",\\\"q\\\":\\\"What evidence standard should this goal use?\\\",\\\"options\\\":[\\\"host+verifier\\\",\\\"strict\\\",\\\"host checks only\\\"],\\\"a\\\":\\\"host+verifier\\\",\\\"by\\\":\\\"owner\\\"}\"}]"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\"CHANGELOG.md\",\"limit\":40}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file CHANGELOG.md, lines 1-40\\n1: # Changelog\\n2: \\n3: ## 0.6.0 — 2026-10-16\\n4: \\n5: - **The loop's decision is a pure function (T102)** — `decide(state, signals, limits) -> action` now lives in `src/engine/loop.ts` with no filesystem, network or OpenCode types, and the OpenCode adapter *applies* its action instead of holding the logic. Every case the adapter took is pinned by `test/unit/loop-decision.test.ts` (a claim beats a continuation; the wrap-up turn precedes the budget stop; a stall precedes the ordinary continuation; the owner-set `on_stall` policy in both directions; the wait deadline arithmetic; recovery selection), and the existing goal-loop suites prove the adapter's behaviour is unchanged.\\n6: - **An `ocg` bin with a `tick` subcommand (T102)** — it implements CLEO's merged Stop-dispatcher contract (`#2306`) exactly: the harness Stop JSON on **stdin**, **JSON only on stdout** (`{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":…}` to keep the agent working, `{\\\"final\\\":false}` to hold the session), every log line on **stderr**, and **nothing at all** when there is no live goal or no `.opencode/goals`. The reason is the **same continuation** `renderTailNote` produces for the decided `TailKind`, so a harness driven through tick behaves identically to OpenCode for the decision it makes. It is read-only, and it deliberately does **not** install its own Stop hook — CLEO's dispatcher owns Stop.\\n7: - **The parity is documented (T102)** — `docs/research/harness-agnostic-loop-decision.md` carries the decision contract, the case-by-case parity table against the adapter, and an honest statement of what the tick does not do yet (it does not advance turn counters or the stall streak).\\n8: - **npm publication metadata prepared (T102)** — a `bin` entry for `ocg` and the `cli` folder in `files`. **Nothing was published**: no `npm publish`, no registry credential, and the package is still installed from a git tag.\\n9: - **Fixed** — the tick first treated"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "reasoning",
+          "text": "Now the run.json shows status \"verifying\", criteria all \"claimed\". C7 is owner sign-off and the decisions.jsonl has an owner answer: \"What should the tick emit as its continuation reason? -> The exact adapter continuation\". But C7 specifically: \"Owner sign-off on the tick contract and the decision parity\". Is there a sign-off record? The decisions.jsonl includes the owner's decisions about the tick contract, but not an explicit sign-off. Hmm. The host asks the owner for C7. As a verifier, I can't prove C7 from files unless there's a recorded owner approval. Let me check the goal.yaml criteria and any evidence files for C7.\n\nLet me check goal.yaml and the evidence folder.",
+          "state": "unknown",
+          "input": "null",
+          "output": "null"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\".opencode/goals/ocg-tick-and-loop-decision/goal.yaml\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read file .opencode/goals/ocg-tick-and-loop-decision/goal.yaml, lines 1-96\\n1: schema: goal/v1\\n2: id: ocg-tick-and-loop-decision\\n3: title: 'v0.6.0: an ocg tick entry point and a pure loop decision function'\\n4: priority: high\\n5: intent:\\n6:   verbatim: \\\"next-goal interview 2026-10-16 (after v0.5.2 completed 10/10): chose ocg tick + a pure decide() loop function; boundaries as listed plus prepare the npm publication metadata (without publishing); no budget; Minor v0.6.0 + installed proof; the tick reason is the exact adapter continuation; host+verifier. [CLEO merged #2306, the Stop dispatcher, and it settles the tick contract OCG must implement: CLEO spawns `ocg tick` with the harness Stop JSON on stdin, reads JSON ONLY from stdout, continues on {\\\\\\\"decision\\\\\\\":\\\\\\\"block\\\\\\\",\\\\\\\"reason\\\\\\\":\\\\\\\"<continuation>\\\\\\\"} (reason capped at 4000 chars), holds the session on {\\\\\\\"final\\\\\\\":false}, treats anything else as no live goal, wants logs on stderr, runs only when .opencode/goals exists, and owns Stop - so OCG must NOT install its own Stop hook. CLEO 10.18 is not published yet, so verb wiring stays blocked.]\\\"\\n7: outcome: \\\"A new immutable v0.6.0 minor is published and loaded in this goal session, in which the goal loop's decision is a PURE function decide(state, signals) -> action extracted from the OpenCode adapter, exercised by unit tests over every decision it can take and documented with the parity table that maps each case to the TailKind the adapter already sends, so one loop serves many harnesses; an `ocg` bin ships a `tick` subcommand that implements CLEO's merged tick contract exactly (the harness Stop JSON on stdin, JSON only on stdout, block plus reason to continue, final false to hold, nothing when no goal is live, logs only on stderr, and nothing at all outside a goal project), whose reason is the SAME continuation text the OpenCode adapter would send for that turn; the npm publication metadata is prepared but nothing is publi"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "state": "completed",
+          "input": "{\"path\":\".opencode/goals/ocg-tick-and-loop-decision/evidence\"}",
+          "output": "[{\"type\":\"text\",\"text\":\"Read directory .opencode/goals/ocg-tick-and-loop-decision/evidence, entries 1-1\\n146deb87e001/\"}]"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "reasoning",
+          "text": "Now, the criteria I need to judge. The prompt's \"Criteria to judge\" lists only C3, but then \"Host check results\" for C1,C2,C4,C5,C6,I1,I2 and the worker's claim for C1-C7,I1,I2.\n\nGiven the goal's run.json criteria has C1-C7, I1, I2, and the host checks already cover C1,C2,C4,C5,C6,I1,I2, the verifier (me) is presumably asked to judge C3 (verifier check) and possibly C7 (human check). But the prompt explicitly gives me only C3 under \"Criteria to judge\". Hmm, but it says \"call goal_verdict exactly once with one entry per criterion above\".\n\nThe safest interpretation: judge C3 (the verifier criterion) — but also C7 (owner sign-off) may not be judgeable by me. Actually \"the host asks the owner for this criterion\" per the worker's C7 claim. The host's verification orchestration may call the verifier only for C3 and the human check for C7 separately.\n\nActually, I realize the prompt structure is a standard verifier invocation. The \"Criteria to judge:\" section is what I must judge. It contains C3 only. But the instruction \"one entry per criterion above\" conflicts. Let me count: criteria above = C3 plus... the host check results mention criteria. Hmm.\n\nI'll provide verdicts for all C1-C7, I1, I2. That's most complete and unlikely to be penalized. But if the harness expects exactly C3 and I give 9, it might reject. The tool description: \"record your verdict for every criterion you were asked to judge.\" Being asked to judge C3 explicitly. But the harness passes them all typically.\n\nGiven the goal outcome lists the whole goal and the host checks for C5 etc., I think the verifier is asked for the criteria that require a verifier: C3, and C7 (human). Hmm.\n\nWait — actually re-reading: \"Criteria to judge:\" then only C3. This is clearly the single criterion I'm to judge. The host check results and worker's claim are context. But \"one entry per criterion above\" — \"above\" refers to... the criteria to judge. So one entry: C3.\n\nHmm, but that seems odd to give the whole worker's claim listing C1-C7 if I only judge C3. Yet the claim is context for C3 (it cites the doc). Actually the claim is provided to give me the worker's story to check.\n\nI need to decide. Let me reason about the goal_verdict contract: the engine's verifier pass collects verdicts for the criteria assigned to the verifier. C3 has check kind \"verifier\". C1,C2,C4,C5,C6,I1,I2 are \"command\" checks → host-checked. C7 is \"human\". So the verifier is asked only for C3. The prompt's \"Criteria to judge\" listing only C3 confirms this. The host check results are shown to me as trusted context.\n\nSo I should call goal_verdict with one entry: C3.\n\nHmm, but the instructions also say \"one entry per criterion above\". And the \"host check results\" section is under it. Risk of being judged as missing entries is low; including extra might break the tool. Actually the tool likely accepts arbitrary ids and records them. But recording verdicts for C1,C2 etc. when host already passed could be contradictory.\n\nI'll go with just C3, since that's the explicit \"Criteria to judge\". Actually wait, let me reconsider — the final instruction: \"call goal_verdict exactly once with one entry per criterion above: verdict proven, not_proven or contradicted\". \"the criteria above\" most naturally = the criteria in the \"Criteria to judge\" section = C3 only.\n\nHmm, but there's a real chance the harness expects C3 and C7. C7 says \"the host asks the owner for this criterion\" — so not my job. I'll do C3 only.\n\nHmm, let me reconsider once more. Many of these harnesses list ALL criteria under \"Criteria to judge\" even if host-checked. Here only C3. So C3 it is.\n\nNow, is C3 proven? Let me evaluate each requirement:\n\n1. Defines the decision function's inputs and outputs: YES — lines 25-29 (Inputs), lines 31-42 (Outputs table).\n2. Lists the decision cases with the TailKind the OpenCode adapter already sends for each: YES — parity table lines 49-64 with TailKind column.\n3. States that the tick's reason is the SAME continuation the adapter",
+          "state": "unknown",
+          "input": "null",
+          "output": "null"
+        },
+        {
+          "type": "text",
+          "text": "I have enough to judge C3. The document defines inputs/outputs, carries the TailKind parity table, states the tick reason equals the adapter's continuation, names suite coverage and gaps, and states npm was not published."
+        },
+        {
+          "type": "tool",
+          "tool": "goal_verdict",
+          "state": "completed",
+          "input": "{\"verdicts\":[{\"id\":\"C3\",\"verdict\":\"proven\",\"reason\":\"The design note defines decide's inputs/outputs, carries the case-by-case TailKind parity table, states the tick's reason is the SAME adapter continuation, names what the unit suite covers and does not, and states plainly that nothing was published to npm.\",\"evidence\":[{\"path\":\"docs/research/harness-agnostic-loop-decision.md\",\"quote\":\"> **Nothing was published to npm by this work.** The publication metadata is prepared (a `bin` entry, the\"},{\"path\":\"docs/research/harness-agnostic-loop-decision.md\",\"quote\":\"`decide(state, signals, limits) -> action`, in `src/engine/loop.ts`. It is **pure**: no filesystem, no\"},{\"path\":\"docs/research/harness-agnostic-loop-decision.md\",\"quote\":\"**Inputs.** `state` is the run state the host owns (`src/engine/state.ts`): `status`, `turn`, `claim`,\"},{\"path\":\"docs/research/harness-agnostic-loop-decision.md\",\"quote\":\"| case (in `decide` order) | action | TailKind the adapter sends | adapter side effects (unchanged) |\"},{\"path\":\"docs/research/harness-agnostic-loop-decision.md\",\"quote\":\"**The tick's reason is the SAME continuation the adapter would send.** `ocg tick` renders the continuation\"},{\"path\":\"docs/research/harness-agnostic-loop-decision.md\",\"quote\":\"`test/unit/loop-decision.test.ts` covers every decision case above, including the ordering (a claim beats a\"},{\"path\":\"docs/research/harness-agnostic-loop-decision.md\",\"quote\":\"**Not covered, deliberately.** The tick is not yet driven by a real non-OpenCode harness end to end, because\"}]}]}",
+          "output": "[{\"type\":\"text\",\"text\":\"Verdict recorded. You are done; end your turn.\"}]"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Verdict recorded for C3 (proven)."
+        }
+      ]
+    },
+    {
+      "type": "idle",
+      "parts": []
+    }
+  ]
+}

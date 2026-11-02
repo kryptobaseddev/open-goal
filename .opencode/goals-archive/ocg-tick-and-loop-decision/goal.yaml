@@ -1,0 +1,96 @@
+schema: goal/v1
+id: ocg-tick-and-loop-decision
+title: 'v0.6.0: an ocg tick entry point and a pure loop decision function'
+priority: high
+intent:
+  verbatim: "next-goal interview 2026-10-16 (after v0.5.2 completed 10/10): chose ocg tick + a pure decide() loop function; boundaries as listed plus prepare the npm publication metadata (without publishing); no budget; Minor v0.6.0 + installed proof; the tick reason is the exact adapter continuation; host+verifier. [CLEO merged #2306, the Stop dispatcher, and it settles the tick contract OCG must implement: CLEO spawns `ocg tick` with the harness Stop JSON on stdin, reads JSON ONLY from stdout, continues on {\"decision\":\"block\",\"reason\":\"<continuation>\"} (reason capped at 4000 chars), holds the session on {\"final\":false}, treats anything else as no live goal, wants logs on stderr, runs only when .opencode/goals exists, and owns Stop - so OCG must NOT install its own Stop hook. CLEO 10.18 is not published yet, so verb wiring stays blocked.]"
+outcome: "A new immutable v0.6.0 minor is published and loaded in this goal session, in which the goal loop's decision is a PURE function decide(state, signals) -> action extracted from the OpenCode adapter, exercised by unit tests over every decision it can take and documented with the parity table that maps each case to the TailKind the adapter already sends, so one loop serves many harnesses; an `ocg` bin ships a `tick` subcommand that implements CLEO's merged tick contract exactly (the harness Stop JSON on stdin, JSON only on stdout, block plus reason to continue, final false to hold, nothing when no goal is live, logs only on stderr, and nothing at all outside a goal project), whose reason is the SAME continuation text the OpenCode adapter would send for that turn; the npm publication metadata is prepared but nothing is published; and the OpenCode plugin keeps working byte-for-byte."
+why: "The loop's decision currently lives only inside app.ts, so no other harness can reuse it and it can only be tested by booting OpenCode. CLEO has now merged the Stop dispatcher that expects an `ocg tick`, so the entry point is well specified and buildable today even though the rest of the CLEO verbs are still unreleased. Deferring this keeps the loop OpenCode-only, which is exactly the boundary the design doc set out to remove."
+scope:
+  in: [src/server/app.ts, src/engine/loop.ts, src/contract/render.ts, src/cli, test/unit, test/host, docs/research, package.json, CHANGELOG.md]
+  out: [CLEO's own repository and packages, any other project, global provider and permission configuration, existing immutable tags, the npm registry]
+non_goals:
+  - Publishing anything to npm (the metadata is prepared; the publish is a separate owner decision)
+  - Installing OCG's own Stop hook in Claude Code or Codex (CLEO's dispatcher owns Stop)
+  - Changing the OpenCode adapter's observable behaviour, its tool names, its guards, or the continuation text it sends
+  - Depending on the unreleased CLEO verbs (goal draft, goal close, tasks changeset) or on CLEO 10.18
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay guards
+  - Any release other than the single v0.6.0 minor
+constraints:
+  - decide() is pure: no filesystem, no network, no OpenCode types, so it can be tested and reused without a host
+  - The tick writes ONLY the contract's JSON to stdout and everything else to stderr
+  - The OpenCode adapter's behaviour is unchanged; the existing host suites are the proof
+criteria:
+  - id: C1
+    statement: "The extracted loop decision function SHALL be pure and SHALL cover every decision it can take, proven by its own unit suite"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/loop-decision.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C2
+    statement: "WHEN the ocg tick bin runs with a harness Stop payload on stdin THE stdout SHALL be exactly JSON as the contract specifies, around a live goal, a terminal goal, a goal awaiting the owner, and no goal at all"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/tick-bin.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C3
+    statement: "The design note SHALL document the decision contract and the parity between the pure decision and the OpenCode adapter, and SHALL state plainly that the tick emits the same continuation the adapter would send, that coverage is what its unit suite exercises, and that nothing was published to npm"
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/harness-agnostic-loop-decision.md and, if it cites them, src/engine/loop.ts and src/server/app.ts. Does it define the decision function's inputs and outputs, list the decision cases with the TailKind the OpenCode adapter already sends for each, state that the tick's reason is the SAME continuation the adapter would send, name what its unit suite does and does not cover, and state whether anything was published to npm? Quote the document, not this contract."}
+  - id: C4
+    statement: "The npm publication metadata SHALL be prepared without publishing anything"
+    essential: true
+    check: {kind: command, run: 'node -e "const p=require(''./package.json'');const ok=!!(p.bin&&p.bin.ocg)&&(p.files||[]).some((f)=>/^cli/.test(f))&&!!p.description&&!!p.license&&Array.isArray(p.exports)===false;process.exit(ok?0:1)"', expect: {exit: 0}, timeout: 120}
+  - id: C5
+    statement: "A new minor release SHALL be immutably published and actually loaded by this exact goal session before its completing round"
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.6.0 --assert-release', expect: {exit: 0}, timeout: 120}
+  - id: C6
+    statement: "The new decision and tick tests SHALL pass from the immutable v0.6.x tag installed by OpenCode"
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/unit/loop-decision.test.ts test/unit/tick.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C7
+    statement: "The owner SHALL approve the tick contract and the decision parity before the goal completes"
+    essential: true
+    check: {kind: human, ask: "Approve the tick contract and the decision parity recorded in docs/research/harness-agnostic-loop-decision.md as the right shape for driving an OCG goal from a harness other than OpenCode? Approving ratifies the in-repo behaviour and the design note only; it authorizes no npm publication and no change to CLEO."}
+invariants:
+  - id: I1
+    statement: "The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits, proving the OpenCode adapter is unchanged"
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/cleo-link.test.ts', timeout: 1800}
+  - id: I2
+    statement: "Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass"
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/cleo-health.test.ts
+  - test/host/cleo-linkage.test.ts
+  - test/host/cleo-evidence-bridge.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/cleo-link.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: 'Recon the decision points in onTurnEnd and admit read-only, and author the red unit suite for the pure decision', proves: []}
+  - {id: S2, title: 'Extract decide(state, signals) and have the OpenCode adapter use it, with behaviour unchanged', proves: [C1], depends_on: [S1]}
+  - {id: S3, title: 'Ship the ocg bin with the tick subcommand and its end-to-end contract test', proves: [C2], depends_on: [S2]}
+  - {id: S4, title: 'Write the design note with the decision contract and the adapter parity table', proves: [C3], depends_on: [S2]}
+  - {id: S5, title: 'Prepare the npm publication metadata without publishing', proves: [C4], depends_on: [S1]}
+  - {id: S6, title: 'Publish v0.6.0, reinstall it and prove it loaded here and from its tag', proves: [C5, C6], depends_on: [S2, S3, S4, S5]}
+  - {id: S7, title: 'Obtain the owner sign-off on the tick contract and parity', proves: [C7], depends_on: [S4]}
+assumptions:
+  - {id: A1, text: 'CLEO 10.18 is not published, so this goal depends only on the DOCUMENTED tick contract from the merged #2306, never on the CLEO binary.', rationale: 'npm view shows 2026.10.17 is still the newest and the installed CLI has none of the new verbs.', reversible: true}
+  - {id: A2, text: 'decide() is extracted so that the OpenCode adapter calls it, rather than being a parallel re-implementation; the adapter stays the single writer of run state.', rationale: 'Two implementations would drift; the owner asked for one loop serving many harnesses.', reversible: true}
+  - {id: A3, text: 'The tick reason is the exact continuation renderTailNote produces for the decided TailKind, so a harness driven through tick behaves identically to OpenCode.', rationale: 'The owner chose the exact adapter continuation.', reversible: true}
+  - {id: A4, text: 'The tick prints nothing (and exits 0) when no goal is live or outside a goal project, because CLEO treats anything but the documented JSON as no live goal.', rationale: 'The contract says non-JSON stdout means no live goal; printing nothing is the honest form of that.', reversible: true}
+  - {id: A5, text: 'The npm metadata is prepared only; nothing is published and no registry credential is used.', rationale: 'The owner chose to prepare the metadata without publishing; the publish is a separate owner decision.', reversible: true}
+  - {id: A6, text: 'Only EXISTING oracles are protected; the new decision and tick tests are left unprotected so the worker can author them.', rationale: 'The v0.4.6 run was impossible as written because protect listed the tests the worker had to create.', reversible: true}
+stop:
+  escalate_when:
+    - The tick contract cannot be implemented without a CLEO-side change or without CLEO 10.18
+    - Extracting decide() would change the OpenCode adapter's observable behaviour
+    - A fix requires weakening owner, exact-target, expiry, cross-session or once-only replay guards
+    - The npm metadata preparation would require a registry credential or an actual publish
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

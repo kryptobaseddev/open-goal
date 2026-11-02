@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { compareEnvironment, captureEnvironment, environmentLine } from "../../src/verify/environment"
 import { parseContract } from "../../src/contract/parse"
 import { initialRun } from "../../src/engine/state"
@@ -23,7 +25,9 @@ describe("environment snapshot", () => {
     })
     const snap = captureEnvironment(process.cwd(), 1000, git as never)
     expect(snap.at).toBe(1000)
-    expect(snap.packageVersion).toBe("0.12.2")
+    // Derive the expected version: the release job runs this file on the tag it is publishing.
+    const expected = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).version
+    expect(snap.packageVersion).toBe(expected)
     expect(snap.head).toBe("a".repeat(40))
     expect(snap.tagCommit).toBe("b".repeat(40))
     expect(snap.tagOnHead).toBe(true)

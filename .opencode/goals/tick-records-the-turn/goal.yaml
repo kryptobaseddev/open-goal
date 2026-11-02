@@ -1,0 +1,100 @@
+schema: goal/v1
+id: tick-records-the-turn
+title: 'v0.7.0: a tick that records the turn, proven by a scripted harness'
+priority: high
+intent:
+  verbatim: "next-goal interview 2026-10-16 (after v0.6.0 completed 9/9): chose Complete the loop: a tick that records the turn, proven by a scripted harness; boundaries as listed plus an npm pack dry run; no budget; Also mine the harness payload/transcript; Drive a real goal to complete; Minor v0.7.0 + installed proof; host+verifier. [The gap v0.6.0 documented: the tick is read-only, so under a harness other than OpenCode nothing increments noProgress, so the stall pause, recovery, the budget wrap-up and the blocker repeats can never fire. CLEO 10.18 is still unpublished, so the tick has no real non-OpenCode harness to be tested against yet.]"
+outcome: "A new immutable v0.7.0 minor is published and loaded in this goal session, in which `ocg tick` RECORDS the turn before deciding - through OCG's own store rather than by editing files by hand - by advancing the turn, recomputing the repository fingerprint and counting a move as progress, honouring a claim the run already carries, and (best-effort and optional) mining a transcript the harness Stop payload points at for the tool calls and progress the agent made, so that the stall, recovery, budget wrap-up and blocker-repeat decisions all work under a harness other than OpenCode; proven by a scripted harness that drives a real goal from kickoff to `complete` using only `ocg tick`, for a goal whose verification is host-only (a goal asking for the independent verifier child still needs the adapter, and the design note says so); the design note names exactly what the tick can and cannot observe and how it degrades when the payload, the transcript or the store are absent or unreadable; the npm package is validated with an `npm pack` dry run and nothing is published; and the OpenCode adapter keeps working byte-for-byte."
+why: "v0.6.0 gave one decision to many harnesses, but left the loop undrivable outside OpenCode: nothing advanced the counters the stall, recovery and wrap-up decisions read, so a goal driven by another harness could never reach those states and could never finish. Closing that makes the harness-agnostic claim real rather than aspirational, and it is the last piece before an adapter for another harness can exist."
+scope:
+  in: [src/engine/tick.ts, src/engine/loop.ts, src/engine/store.ts, src/verify/pipeline.ts, cli/ocg.ts, test/unit, test/host, docs/research, package.json, CHANGELOG.md]
+  out: [CLEO's own repository and packages, any other project, the npm registry, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - Publishing anything to npm (an `npm pack` dry run only)
+  - Changing the OpenCode adapter's observable behaviour, its tools, its guards or the continuation it sends
+  - Installing OCG's own Stop hook in any harness (CLEO's dispatcher owns Stop)
+  - Depending on the unreleased CLEO verbs or on CLEO 10.18
+  - Inventing session facts the tick cannot observe (no fabricated tool calls, progress calls or live-check transitions)
+  - Driving a goal that asks for the independent verifier child, or claiming to
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay guards
+  - Any release other than the single v0.7.0 minor
+constraints:
+  - The tick writes run state ONLY through OCG's own store modules, so the records, the ledger and the schema stay identical to the adapter's
+  - 'A missing or unreadable Stop payload, transcript or run store is never an error - the tick degrades to the honest minimum and says what it could not see'
+  - Everything the tick records is something a Stop-time observer can know or recover from the payload - never a guess
+criteria:
+  - id: C1
+    statement: "WHEN the tick's recording and payload-mining suite runs THE result SHALL exit 0, covering the turn increment, a fingerprint move counted as progress, a claim already on the run, a transcript mined when the payload points at one, and honest degradation when the payload, the transcript or the store is absent or unreadable"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/tick-record.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C2
+    statement: "WHEN a scripted harness drives a goal through `ocg tick` alone THE goal SHALL reach complete, with the recorded turns, progress and terminal state matching what the same turns would have produced under the OpenCode adapter"
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/tick-scripted-harness.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C3
+    statement: "The design note SHALL name what the tick can and cannot observe, how it degrades when the payload, the transcript or the store is missing, which goals it can and cannot drive to completion, and SHALL state plainly that nothing was published to npm"
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/harness-agnostic-loop-decision.md (and any note it supersedes). Does it state what the tick can observe and what it cannot, how it degrades when the Stop payload, the transcript or the run store is absent or unreadable, which goals it can drive to completion (host-only verification) and which still need the OpenCode adapter (the independent verifier child), and whether anything was published to npm? Quote the document, not this contract."}
+  - id: C4
+    statement: "The package SHALL be validated as it would ship, with nothing published"
+    essential: true
+    check: {kind: command, run: 'npm pack --dry-run --json', expect: {stdout_contains: "cli/ocg.ts"}, timeout: 600}
+  - id: C5
+    statement: "A new minor release SHALL be immutably published and actually loaded by this exact goal session before its completing round"
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.7.0 --assert-release', expect: {exit: 0}, timeout: 120}
+  - id: C6
+    statement: "The new recording and scripted-harness tests SHALL pass from the immutable v0.7.x tag installed by OpenCode"
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/unit/tick-record.test.ts test/unit/loop-decision.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C7
+    statement: "The owner SHALL approve the tick's recording design and its honesty about what it cannot observe before the goal completes"
+    essential: true
+    check: {kind: human, ask: "Approve the tick's recording design - what it advances through OCG's own store, what it mines from the harness payload, and what it refuses to invent - together with the design note's statement of which goals it can drive to completion? Approving ratifies the in-repo behaviour and the note only; it authorizes no npm publication and no change to CLEO."}
+invariants:
+  - id: I1
+    statement: "The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits, proving the OpenCode adapter is unchanged"
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts test/host/tick-bin.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/cleo-link.test.ts', timeout: 1800}
+  - id: I2
+    statement: "Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass"
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/cleo-health.test.ts
+  - test/host/cleo-linkage.test.ts
+  - test/host/cleo-evidence-bridge.test.ts
+  - test/host/tick-bin.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/cleo-link.test.ts
+  - test/unit/loop-decision.test.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: 'Recon the store writes the adapter performs and the verify path read-only, and author the red recording + degradation tests', proves: []}
+  - {id: S2, title: 'Make the tick record the turn through OCG own store, with the optional payload/transcript mining and honest degradation', proves: [C1], depends_on: [S1]}
+  - {id: S3, title: 'Run the verification path for a host-only goal so a tick-driven claim can complete', proves: [C1], depends_on: [S2]}
+  - {id: S4, title: 'Drive a real goal from kickoff to complete with a scripted harness over the built bin', proves: [C2], depends_on: [S3]}
+  - {id: S5, title: 'Extend the design note with what the tick observes, its degradation and which goals it can finish', proves: [C3], depends_on: [S2]}
+  - {id: S6, title: 'Validate the package with an npm pack dry run', proves: [C4], depends_on: [S1]}
+  - {id: S7, title: 'Publish v0.7.0, reinstall it and prove it loaded here and from its tag', proves: [C5, C6], depends_on: [S2, S3, S4, S5, S6]}
+assumptions:
+  - {id: A1, text: 'The harness Stop payload may carry a transcript path (Claude Code does) and may not (others); mining it is best-effort and optional, and a harness without one must still drive a goal.', rationale: 'The owner chose to mine the payload; the coupling must not become a requirement.', reversible: true}
+  - {id: A2, text: 'The scripted harness simulates a non-OpenCode harness: its own loop calls the built bin, and a scripted agent performs the goal side effect between ticks. It uses a goal whose verification is host-only, because the independent verifier child belongs to the adapter.', rationale: 'Only host checks can be run without the adapter; the design note states the boundary rather than hiding it.', reversible: true}
+  - {id: A3, text: 'The tick reuses the plugin own store and state modules, so the records, ledger and schema it writes are the same ones the adapter writes.', rationale: 'A second writer with its own format would drift and break the invariants.', reversible: true}
+  - {id: A4, text: 'Only EXISTING oracles are protected; the new recording and scripted-harness tests are left unprotected so the worker can author them.', rationale: 'The v0.4.6 run was impossible as written because protect listed the tests the worker had to create.', reversible: true}
+  - {id: A5, text: 'Nothing is published to npm; the pack dry run only validates what would ship.', rationale: 'The owner chose a dry run; publishing stays a separate owner decision.', reversible: true}
+  - {id: A6, text: 'A missing or unreadable payload, transcript or store degrades the tick to the honest minimum (the turn increment and the fingerprint it can compute) and is never an error.', rationale: 'A harness without a transcript must still be able to drive a goal.', reversible: true}
+stop:
+  escalate_when:
+    - The tick cannot record the turn without diverging from the adapter records, or without weakening a guard
+    - Driving a goal to completion would require a change to CLEO, or the independent verifier child
+    - A fix requires weakening owner, exact-target, expiry, cross-session or once-only replay guards
+    - The npm validation would require a registry credential or an actual publish
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

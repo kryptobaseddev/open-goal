@@ -1,0 +1,49 @@
+{
+  "form": {
+    "id": "frm_146bb797f001ExrsKvqC2zf146",
+    "sessionID": "ses_eb944dfebffeFPklfEPbNMS9Bm",
+    "title": "Questions",
+    "metadata": {
+      "kind": "question",
+      "tool": {
+        "messageID": "msg_146bb6947001THUBYqWbQnitCg",
+        "id": "call_00_NyfSQAat67S3tArBDVgr7209"
+      }
+    },
+    "fields": [
+      {
+        "key": "q0",
+        "title": "Evidence standard",
+        "description": "How should this QA goal prove its one end state — proof.txt containing the single line `status: ok`?",
+        "type": "string",
+        "options": [
+          {
+            "value": "Host file + contains checks only (Recommended)",
+            "label": "Host file + contains checks only (Recommended)",
+            "description": "Two host-run criteria: a `file` check that proof.txt exists, and a `contains` check that its text holds `status: ok`. No human sign-off, no verifier/judge criterion, no budget. Fastest and fully deterministic."
+          },
+          {
+            "value": "Host checks plus an exactness command check",
+            "label": "Host checks plus an exactness command check",
+            "description": "Same file + contains checks, plus a `command` check that fails if the file has anything other than the single line. Stricter on exactness, but adds a shell command beyond the direct host checks you specified."
+          },
+          {
+            "value": "Host checks plus a verifier criterion",
+            "label": "Host checks plus a verifier criterion",
+            "description": "Adds a read-only verifier that must quote proof.txt. Costs an extra review round; you said no verifier criterion."
+          },
+          {
+            "value": "Host checks plus owner sign-off",
+            "label": "Host checks plus owner sign-off",
+            "description": "Adds a `human` criterion requiring you to approve. Blocks automatic completion; you said no human sign-off."
+          }
+        ],
+        "custom": true
+      }
+    ]
+  },
+  "answer": {
+    "q0": "Use the fixed QA choices: proof.txt = status: ok; direct host checks only, no verifier/human criterion, no budget, fresh root launch with the original model/agent."
+  },
+  "automatedQATestOwner": true
+}

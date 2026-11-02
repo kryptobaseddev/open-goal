@@ -1,0 +1,83 @@
+{
+  "source": "claim",
+  "claim": {
+    "at": 1792216088635,
+    "turn": 2,
+    "summary": "The failed criteria were about repository-visible proof of the child sagas' completion, not about the work. I published and committed docs/cleo-t001-completion.md (commit e2cc751): literal `cleo show <id> --full` captures for T001, T002, T024, T035 and T039 showing status done, completedAt timestamps and child rollups (79/79, 18/18, 3/3, 4/4), plus `cleo list --parent <id> --status pending --limit 0` returning matched 0 for each. It explains why the epics carry only the implemented gate (epic completion is by child rollup; ADR-051 §11.1 forbids adding evidence to a completed task) and gives the per-AC evidence mapping with the 103-test/0-fail scoped report and typecheck exit 0. docs/dogfood-6.md now opens with a dated note that its 50/61 and pending-T035/T039 snapshots are historical. C1-C5 remain proven by the same scoped run and provenance.",
+    "evidence": {
+      "C1": "test/host/git-install.test.ts with OCGOAL_GIT_INSTALL=1 OCGOAL_GIT_SPEC=github:kryptobaseddev/opencode-goal#v0.8.0: 1 pass, 0 fail (registers /goal, lists the write-goal skill, resolves @opentui/solid). Live goal_provenance: source.target github:kryptobaseddev/opencode-goal#v0.8.0, packageVersion 0.8.0, openCodeVersion 2.0.29, features server/tui/rpc true.",
+      "C2": "test/host/goal.test.ts 'a clean reload resumes a running goal by itself' and test/host/paths.test.ts 'the compaction hook records the event and the run continues' both pass in the 103-test report; state persists in .opencode/goals/<slug>/run.json, ledger.jsonl and handoff.json.",
+      "C3": "test/host/goal.test.ts 'a false claim gets a HOST VERDICT; the fix completes only after host checks and the verifier pass', test/host/persistent-feedback.test.ts (rejected claim leaves a HOST VERDICT row) and test/host/runtime-provenance.test.ts all pass; src/verify/pipeline.ts and src/server/app.ts implement the verdict path.",
+      "C4": "TUI units pass (tui-card 6, tui-dashboard 12, tui-format 2, installed-tui 7, multi-goal-sidebar 3) and test/host/goal.test.ts 'status and pause run without a model turn; resume sends exactly one continuation' passes; goal_provenance reports features.tui true.",
+      "C5": "skills/write-goal/SKILL.md ships and is registered (git-install test and goal.test.ts 'the plugin registers write-goal and /goal new attaches it'); test/unit/contract.test.ts 33 tests pass; skills/write-goal/assets/goal.template.yaml parses via src/contract/parse.ts with 0 errors.",
+      "C6": "T002 is done, not merely gated. `cleo show T002 --full` at 2026-10-17T05:35Z returns status done, completedAt 2026-10-17T05:35:31.758Z, child rollup 79/79 done, and `cleo list --parent T002 --status pending --limit 0` returns matched 0. Repository text: docs/cleo-t001-completion.md §1 and the 'No pending children' block (commit e2cc751); docs/dogfood-6.md carries a dated top note that its older '50/61' snapshot is historical.",
+      "C7": "cleo show T024 --full returns status done, completedAt 2026-10-05T06:34:10.458Z, 18/18 children done; captured in docs/cleo-t001-completion.md §1 (commit e2cc751).",
+      "C8": "T035 is done. `cleo show T035 --full` returns status done, completedAt 2026-10-17T05:35:10.313Z, 3/3 children done (T036/T037/T038), pending children matched 0. Recorded in docs/cleo-t001-completion.md §1 and §2 (commit e2cc751). Epic completion is by child rollup (`cleo done --plan`: 'T035 is an epic; it completes through its children'); CLEO forbids adding gate evidence after completion (ADR-051 §11.1), which the receipt states; the rehearsal/write-guard/amendment code is covered by the same 103-test report.",
+      "C9": "T039 is done. `cleo show T039 --full` returns status done, completedAt 2026-10-17T05:35:20.158Z, 4/4 children done (T040-T043), pending children matched 0. Recorded in docs/cleo-t001-completion.md §1 and the pending-children block (commit e2cc751); docs/dogfood-6.md's 'T035/T039 pending' line is now preceded by the dated status update."
+    }
+  },
+  "outcome": {
+    "passed": true,
+    "needsHuman": [],
+    "results": [
+      {
+        "id": "C1",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 4 quote(s)"
+      },
+      {
+        "id": "C2",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 4 quote(s)"
+      },
+      {
+        "id": "C3",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 3 quote(s)"
+      },
+      {
+        "id": "C4",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 3 quote(s)"
+      },
+      {
+        "id": "C5",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 4 quote(s)"
+      },
+      {
+        "id": "C6",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 3 quote(s)"
+      },
+      {
+        "id": "C7",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 2 quote(s)"
+      },
+      {
+        "id": "C8",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 2 quote(s)"
+      },
+      {
+        "id": "C9",
+        "pass": true,
+        "by": "verifier",
+        "detail": "proven with 2 quote(s)"
+      }
+    ],
+    "integrity": [],
+    "lines": [
+      "All required criteria passed."
+    ]
+  }
+}

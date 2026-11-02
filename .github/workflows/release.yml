@@ -20,6 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The ancestry guard needs real history and the main ref, not just the
+          # tag commit a depth-1 tag checkout would otherwise fetch.
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2
@@ -42,7 +46,9 @@ jobs:
       # branch commit while main carried the previous version; every goal check
       # passed because the goal engine cannot see the release pipeline.
       - name: Tag must be on main
-        run: bun scripts/check-release-ancestry.ts --tag "$GITHUB_REF_NAME" --main origin/main
+        run: |
+          git fetch --no-tags origin main
+          bun scripts/check-release-ancestry.ts --tag "$GITHUB_REF_NAME" --main origin/main
       - name: Skip an already-published version
         id: published
         run: |

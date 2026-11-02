@@ -1,0 +1,16 @@
+[
+  {
+    "formID": "frm_146bb797f001ExrsKvqC2zf146",
+    "launch": false,
+    "answer": {
+      "q0": "Use the fixed QA choices: proof.txt = status: ok; direct host checks only, no verifier/human criterion, no budget, fresh root launch with the original model/agent."
+    }
+  },
+  {
+    "formID": "frm_146bc174d001vve49pF2aR3YvF",
+    "launch": true,
+    "answer": {
+      "q0": "Start goal now (Recommended)"
+    }
+  }
+]

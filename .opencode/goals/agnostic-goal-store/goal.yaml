@@ -1,0 +1,96 @@
+schema: goal/v1
+id: agnostic-goal-store
+title: Goals live outside .opencode
+priority: high
+intent:
+  verbatim: "fully plan all 3 goals and lock them in each make sure that there are CLEO tasks as each major goal is a Saga to Epic to Tasks with their respective goals logged making sure we have CLEAR path to a agnostic 'OCG' goal system that breaks away from 'opencode' as single operating harness. as all goals currently store in the project's '.opencode/goals/*' path too"
+outcome: New goal runs default to the harness-neutral canonical store (.cleo/goals) with the .cleo/goal-store.json override still honoured, existing .opencode/goals runs stay readable and resumable byte-for-byte, and the owner can opt in to a byte-preserving, hash-verified move whose dry run writes nothing.
+why: The store seam and the read-only migration planner shipped in 0.11.0, and ADR-001 scheduled the default flip one release later. Until the default flips, the "canonical" store is only reachable by an override and every new run still lands in .opencode/goals.
+scope:
+  in: [src/engine, src/server, src/cli, cli, test/unit, test/host, docs/research, docs/adr]
+  out: [cleocode repository, the adapter refactor, npm deprecation, automatic migration without owner consent]
+non_goals:
+  - Automatically moving or deleting existing .opencode/goals history
+  - Changing the goal/v1 contract schema
+  - Refactoring the harness adapter (separate goal)
+  - Editing CLEO's own repository
+  - Making the legacy path unreadable
+constraints:
+  - Merging requires reviewer approval on the exact PR head; work goes forward as a pull request onto main
+  - No data loss: the legacy path stays readable; a move is opt-in and dry-run first
+  - The write guard covers the active store and the legacy path during the transition
+  - Every read/write resolves one configured root; no scattered hardcoded paths
+criteria:
+  - id: C1
+    statement: WHEN a new goal starts in a project with no store configuration THE run SHALL be created under .cleo/goals while .opencode/goals stays readable
+    essential: true
+    check: {kind: command, run: "bun test test/host/goal-store-default.test.ts", expect: {exit: 0}, timeout: 1800}
+  - id: C2
+    statement: WHEN a project still has runs under .opencode/goals THE engine SHALL read, report and resume them without rewriting them
+    essential: true
+    check: {kind: command, run: "bun test test/host/store-layout-compat.test.ts", expect: {exit: 0}, timeout: 1200}
+  - id: C3
+    statement: WHEN the store root is configured THE resolver SHALL return that exact root or fail closed with StoreRootError, and the default with no configuration SHALL be the canonical layout
+    essential: true
+    check: {kind: command, run: "bun test test/unit/store-path-seam.test.ts", expect: {exit: 0}, timeout: 600}
+  - id: C4
+    statement: WHEN the owner runs the migration dry run THE report SHALL list every goal and write nothing; a confirmed move SHALL preserve bytes and history with the legacy copy retained
+    essential: true
+    check: {kind: command, run: "bun test test/unit/store-migration-plan.test.ts test/host/store-migration.test.ts", expect: {exit: 0}, timeout: 1800}
+  - id: C5
+    statement: The design note SHALL record the canonical store, the config override, the legacy read path, the opt-in dry-run-then-move migration and the no-data-loss rule, and quote the code that resolves the root
+    essential: true
+    check: {kind: verifier, ask: "Read docs/research/agnostic-goal-store.md. Does it name the canonical store (.cleo/goals by default), the .cleo/goal-store.json override, the legacy .opencode/goals read path, the opt-in dry-run-then-move migration, the no-data-loss rule, and quote the code that resolves the root?"}
+  - id: C6
+    statement: A minor release SHALL be published and actually loaded by this exact goal session before its completing round
+    essential: true
+    check: {kind: command, run: "bun scripts/check-installed-goal.ts --min-version 0.12.0 --assert-release --accept-package-at-tag", expect: {exit: 0}, timeout: 120}
+invariants:
+  - id: I1
+    statement: The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits
+    check: {kind: command, run: "cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts test/host/lifecycle-authority.test.ts test/host/ask-tool-decisions.test.ts test/host/durable-goal-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/goal-launch-flow.test.ts test/host/cleo-health.test.ts test/host/cleo-linkage.test.ts test/host/cleo-evidence-bridge.test.ts test/host/tick-bin.test.ts test/unit/inventory.test.ts test/unit/decisions.test.ts test/unit/cleo-link.test.ts", timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI/CLI freshness SHALL CONTINUE TO pass
+    check: {kind: command, run: "cleo run --wait --class build -- bun run typecheck", timeout: 1200}
+protect:
+  - test/host/natural-goal-flow.test.ts
+  - test/host/lifecycle-authority.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/goal-launch-flow.test.ts
+  - test/host/cleo-health.test.ts
+  - test/host/cleo-linkage.test.ts
+  - test/host/cleo-evidence-bridge.test.ts
+  - test/host/tick-bin.test.ts
+  - test/unit/inventory.test.ts
+  - test/unit/decisions.test.ts
+  - test/unit/cleo-link.test.ts
+  - test/unit/loop-decision.test.ts
+assumptions:
+  - {id: A1, text: "The canonical store is .cleo/goals; .cleo/goal-store.json is the only override and .opencode/goals remains a read-only legacy path", rationale: "ADR-001: the override shipped in 0.11.0, so the default flips now; CLEO owns the protocol, a harness-neutral owner is the point", reversible: true}
+  - {id: A2, text: "Migration is opt-in and dry-run first; no automatic move, and a move keeps the legacy copy as the archive", rationale: "owner history is not the worker's to relocate", reversible: true}
+  - {id: A3, text: "The release is cut from main after the merged change (0.12.2 as of this amendment); 0.12.0 was tagged before the merge, so it was republished as 0.12.1 and the defect-hardening fixes followed in 0.12.2", rationale: "new runs change location; legacy reads keep their bytes", reversible: false}
+  - {id: A4, text: "Merging requires reviewer approval on the exact PR head; tags are created only after CI on that commit is green; no force-push on shared branches", rationale: "review-release convention; v0.9.1 became a dead tag", reversible: false}
+  - {id: A5, text: "The resolver, legacy read path and migration planner shipped in 0.11.0; this goal re-proves them through their existing tests rather than reimplementing them", rationale: "PR #4 and 0.11.0 landed the seam, the override and the read-only planner", reversible: true}
+plan:
+  - {id: S1, title: "Flip the default to .cleo/goals and prove a new run lands there", proves: [C1, C3], depends_on: []}
+  - {id: S2, title: "Prove legacy runs stay readable and resumable", proves: [C2], depends_on: [S1]}
+  - {id: S3, title: "Implement the byte-preserving confirmed move", proves: [C4], depends_on: [S1]}
+  - {id: S4, title: "Write the design note and publish the release from main", proves: [C5, C6], depends_on: [S2, S3]}
+stop:
+  when: All essential criteria are host-verified and invariants hold
+  escalate_when:
+    - "A merge is requested without reviewer approval on the exact PR head"
+    - "A migration would rewrite or delete existing history"
+    - "A change would require editing CLEO's repository or the shared npm branch"
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: resume-on-message}
+verification: {mode: host+verifier, max_rejections: 3, read: ["../cleocode"]}
+execution: {agent: build}
+meta:
+  release: 0.12.2
+  cleo:
+    saga: T150
+    epics: [T151, T155, T159]
+    tasks: [T152, T153, T154, T156, T157, T158, T160, T161, T162]
+  goal_of: "OCG Agnostic Goal Store and Protocol"
+  depends_on: adapter-seam

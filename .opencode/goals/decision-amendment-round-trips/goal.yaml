@@ -1,0 +1,107 @@
+schema: goal/v1
+id: decision-amendment-round-trips
+title: 'v0.4.8: exact decision binding and durable amendment round-trips'
+priority: high
+intent:
+  verbatim: "next-goal interview 2026-10-15 (after v0.4.7): chose Owner-decision + amendment round-trips (T093-T098); red-first tests + patch release; Patch v0.4.8; T093 must bind to the exact decision + criterion; boundaries also fold in T080/T082/T085. [imported ACs: T093 bind rejected-criterion approval to an exact native criterion and recover legacy broken reviews; T094 trace and repair manager actions that select but do not activate; T095 resolve staged amendments from genuine Composer chat consent; T096 unhold explicit Composer amendment replies arriving before their native form; T097 honor authenticated amendment continuation when the agent supplies a false or omitted hint; T098 distinguish failed duplicate launch attempts from an existing active goal; T080 mounted banner retains previous completion after a new goal starts; T082 durable exact decision correlation and truthful owner-operation resolution; T085 recover native decision dialog choices arriving before form creation.]"
+outcome: A new immutable v0.4.8 patch is published and loaded in this goal session, in which a repeated-rejection review offers per-criterion native approval bound to the exact decision, run, lock and criterion (a bare, stale or mismatched approval cannot flip a criterion, and a legacy missing-argument review recovers a fresh validated nonce without executing the old choice); a focused manager action dispatches exactly once or shows explicit scoped feedback instead of a silent no-op; a staged amendment is resolved only from genuine Composer chat consent; an explicit amendment reply that arrives before its native form is unheld and applied exactly once; an authenticated amendment continuation is honored even when the agent sends a false or omitted hint while plain acceptance stays stopped; a failed duplicate launch is distinguished from a live run and never recommends aborting it; and the mounted banner and durable decision correlation update across replacement, empty mount, reload, missed events and reconnect.
+why: 'T093-T098 and T080/T082/T085 are the decision and amendment lifecycle gaps the owner hit repeatedly: a criterion approval that did not bind to what was offered, a manager action that selected but did nothing, an amendment that only a sidebar/manual command could resolve, a reply that arrived before its form and stranded, a continuation lost to a false agent hint, and a duplicate-launch banner that pointed at aborting a working run.'
+scope:
+  in: [src/server/app.ts, src/engine/decisions.ts, src/engine/owner-reviews.ts, src/engine/owner-intent.ts, src/engine/launches.ts, src/server/messages.ts, src/rpc.ts, src/tui, test/host, test/unit, docs/research, CHANGELOG.md, package.json]
+  out: [other projects' production state, global provider and permission configuration, existing immutable tags]
+non_goals:
+  - The T099-T101 exact-run workspace/oracle migration and divergence disposition
+  - The T103-T106 axiom-lab lifecycle triage and the T080-family banner work beyond T080/T082/T085
+  - The completed v0.4.6/v0.4.7 runs or any completed goal run and its history
+  - Editing production goal state, receipts, locks, criteria, protected oracles, provider/permission settings or an existing immutable tag
+  - Weakening owner, exact-target, expiry, cross-session or once-only replay guards beyond the T093 exact binding
+  - Any release other than the single v0.4.8 patch
+criteria:
+  - id: C1
+    statement: WHEN a repeated-rejection review offers per-criterion native approval THE selection SHALL carry the exact decision, run, lock and criterion, a bare or stale or mismatched approval SHALL be refused without flipping any criterion, and a legacy missing-argument review SHALL recover a fresh validated nonce without executing the old choice
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/criterion-approval-binding.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C2
+    statement: WHEN a focused manager action is activated THE action SHALL dispatch exactly once against the bound panel actor and exact target, or show explicit scoped pending/unavailable feedback, and SHALL never silently no-op or affect another session
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/manager-activation.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C3
+    statement: WHEN the owner accepts a staged amendment THE host SHALL consume that genuine Composer chat consent once and atomically re-lock only the reviewed diff, while ambiguous, multiple, stale, expired, quoted, synthetic, worker-only or sidebar/manual input SHALL NOT authorize acceptance
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/composer-amendment-consent.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C4
+    statement: WHEN an explicit owner chat acceptance arrives after review staging but before its native form binds THE reply SHALL reach the exact typed resolver once, while unrelated forms, later contradictory input, an expired/stale review and synthetic or worker text SHALL never cause acceptance
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/amendment-early-reply.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C5
+    statement: WHEN the owner accepts an exact staged amendment and explicitly asks continuation THE host SHALL resume only the accepted next session/run/lock once even if the agent hint is absent or false, while plain acceptance SHALL stay stopped and a true hint without real owner continuation SHALL not authorize it
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/amendment-continuation.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C6
+    statement: WHEN a redundant launch attempt targets the same session, slug and locked run THE banner and guidance SHALL keep the live run and never recommend aborting it, while unrelated, changed-lock and genuine failed launches SHALL retain explicit truthful recovery
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/duplicate-launch-guidance.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C7
+    statement: WHEN the mounted banner faces a same-session goal replacement, an empty mount, a missed terminal event or a reconnect THE rendered banner SHALL show the current goal and clear the previous completion, with no skipped assertions
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun scripts/run-scoped-tests.ts test/unit/banner-transition.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C8
+    statement: WHEN lifecycle decisions are offered THE exact decision and target identity SHALL survive reload and cancel, an unrelated form or custom commentary SHALL not approve a decision, a failed operation SHALL never be logged as a successful resolution, and a form plus dialog SHALL not double-execute
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun scripts/run-scoped-tests.ts test/host/durable-goal-decisions.test.ts test/host/decision-dialogs.test.ts test/host/ask-tool-decisions.test.ts', expect: {exit: 0}, timeout: 1800}
+  - id: C9
+    statement: WHEN an installed UI decision choice arrives before its native form is created THE choice SHALL be delivered exactly once on form.created (bounded, explicit missed-event recovery), and an expired or rejected choice SHALL never execute or log success
+    essential: true
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/decision-choice-recovery.test.ts', expect: {exit: 0}, timeout: 1200}
+  - id: C10
+    statement: A patch newer than v0.4.7 SHALL be immutably published and actually loaded by this exact goal session before its completing round, with matching installed revision and artifact hashes
+    essential: true
+    check: {kind: command, run: 'bun scripts/check-installed-goal.ts --min-version 0.4.8 --assert-release', expect: {exit: 0}, timeout: 120}
+  - id: C11
+    statement: The new decision and amendment tests SHALL pass from the immutable v0.4.8 tag installed by OpenCode
+    essential: true
+    check: {kind: command, run: 'OCGOAL_GIT_SPEC="github:kryptobaseddev/opencode-goal#v$(bun -p ''JSON.parse(await Bun.file("package.json").text()).version'')" cleo run --wait --class test -- bun test test/host/criterion-approval-binding.test.ts test/host/manager-activation.test.ts test/host/composer-amendment-consent.test.ts test/host/amendment-early-reply.test.ts test/host/amendment-continuation.test.ts test/host/duplicate-launch-guidance.test.ts test/host/decision-choice-recovery.test.ts', expect: {exit: 0}, timeout: 1800}
+invariants:
+  - id: I1
+    statement: The existing decision, amendment, launch and banner oracle suites SHALL CONTINUE TO pass without oracle edits
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/criterion-approval.test.ts test/host/manager-actions.test.ts test/host/composer-amendment.test.ts test/host/duplicate-launch.test.ts test/host/durable-goal-decisions.test.ts test/host/decision-dialogs.test.ts test/host/ask-tool-decisions.test.ts test/host/amendment-review-recovery.test.ts test/host/amendment-resume-prerequisite.test.ts test/host/conversational-amend.test.ts test/host/target-bound-decisions.test.ts test/host/owner-chat-launch.test.ts test/host/launch-disposition.test.ts test/unit/banner-transition.test.ts', timeout: 1800}
+  - id: I2
+    statement: Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass
+    check: {kind: command, run: 'cleo run --wait --class build -- bun run typecheck', timeout: 1200}
+protect:
+  - test/host/criterion-approval.test.ts
+  - test/host/manager-actions.test.ts
+  - test/host/composer-amendment.test.ts
+  - test/host/duplicate-launch.test.ts
+  - test/host/durable-goal-decisions.test.ts
+  - test/host/decision-dialogs.test.ts
+  - test/host/ask-tool-decisions.test.ts
+  - test/host/amendment-review-recovery.test.ts
+  - test/host/amendment-resume-prerequisite.test.ts
+  - test/host/conversational-amend.test.ts
+  - test/host/target-bound-decisions.test.ts
+  - test/host/owner-chat-launch.test.ts
+  - test/host/launch-disposition.test.ts
+  - test/unit/banner-transition.test.ts
+  - test/host/harness.ts
+  - scripts/check-installed-goal.ts
+plan:
+  - {id: S1, title: 'Red-first: author the AC-specific tests for T093-T098 and the pre-form choice case, recording each baseline', proves: []}
+  - {id: S2, title: Bind criterion approval to the exact decision/criterion and repair manager activation, proves: [C1, C2], depends_on: [S1]}
+  - {id: S3, title: Fix amendment consent, pre-form reply and authenticated continuation, proves: [C3, C4, C5], depends_on: [S1]}
+  - {id: S4, title: Fix duplicate-launch guidance and the banner/durable-correlation cases, proves: [C6, C7, C8, C9], depends_on: [S1]}
+  - {id: S5, title: Publish v0.4.8 and prove it loaded in this session, proves: [C10, C11], depends_on: [S2, S3, S4]}
+assumptions:
+  - {id: A1, text: 'The release is a single new immutable v0.4.8 patch using the project''s existing recipe; no old tag is moved and no contract schema changes.', rationale: Owner chose a patch; changes are lifecycle fixes inside the existing decision/amendment flow., reversible: true}
+  - {id: A2, text: 'Only EXISTING oracles are protected; the seven new AC-specific tests are left unprotected so the worker can author them.', rationale: The v0.4.6 run was impossible as written because protect listed the tests the worker had to create., reversible: true}
+  - {id: A3, text: 'The T093 binding is decision id plus criterion id against the currently offered review; a bare approve or a criterion from a different decision is refused.', rationale: Owner chose the exact binding; the ledger is the authoritative record., reversible: true}
+  - {id: A4, text: 'Native TUI-only concerns (pointer focus, rendered banner) are asserted through the existing host/RPC and banner-transition oracles; no new native screenshot capture is claimed.', rationale: The AC-named banner-transition oracle already renders the banner cases; the new tests assert the host-level contract., reversible: true}
+  - {id: A5, text: 'The thirteen existing decision/amendment/launch/banner suites already pass (baseline 36 tests across the first ten, 0 fail) and are protected as invariants.', rationale: Measured on 2026-10-15 before drafting., reversible: true}
+stop:
+  escalate_when:
+    - A fix requires weakening owner, exact-target, expiry, cross-session or once-only replay guards
+    - Recovery requires editing production goal state, receipts, locks, protected oracles, providers, permissions or an existing immutable tag
+    - The installed-engine reload needs a new actual owner continuation - do not replay launch consent
+    - A repair needs a native TUI capture this environment cannot produce
+autonomy: {questions: defer, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

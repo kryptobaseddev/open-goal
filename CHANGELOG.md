@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.4 — 2026-11-02
+
+- **Same guards as 0.12.3, released correctly.** 0.12.3's release job failed before publish because its own new unit test hard-coded the previous package version; the test now derives the expected version from `package.json`, and the release job checks out full history and fetches main before the ancestry guard (a depth-1 tag checkout has neither). No runtime change beyond 0.12.3's two guards.
+
 ## 0.12.3 — 2026-11-02
 
 - **A release tag must be on main.** `release.yml` now runs `scripts/check-release-ancestry.ts` before publishing and refuses a tag whose commit is not an ancestor of `origin/main`. v0.12.0 had been tagged and published from a branch commit while main still carried 0.11.0 — the goal engine could not see that, because it proves criteria and does not own the release pipeline.

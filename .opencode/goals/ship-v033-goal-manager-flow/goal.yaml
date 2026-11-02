@@ -1,0 +1,140 @@
+schema: goal/v1
+id: ship-v033-goal-manager-flow
+title: 'v0.3.3: a deployed goal manager and natural-language lifecycle'
+priority: high
+intent:
+  verbatim: |
+    I need you to assess the current state of this project:
+
+    1. Are we currently on the latest version, and have we installed it?
+    2. What goals do we currently have available in this project that are completed or not completed?
+    3. Have we fixed all the bugs and issues with handling and managing goals?
+
+    I want to make sure everything is correctly fixed, wired up, deployed, and that we are actually dogfooding ourselves with the goal tooling.
+
+    I also want to improve how agents run the goal plugin. I've noticed they aren't able to autonomously handle many commands, like amending or starting goals. I want the flow to be completely smooth, easy, and integrated:
+    • When I say I want to do a goal, I run /goal and write out the general idea.
+    • It runs through the write-goal functionality (the write-goal skill), works through the goal, asks questions, and I answer them.
+    • It optimizes the goal, then asks if I want to change anything or start it.
+    • We have functionality that is supposed to clear the context of the current session and start the goal, but I don't know if that is actually working. That is the piece that should make for a smooth transition and handoff.
+    • The plugin needs to handle a decision-tree flow: if there are amendments, changes, or other goal commands needed, it should handle them through natural language alone. I shouldn't have to manually run commands like /goal amend or /goal accept.
+    • It should parse natural language, interpret it correctly, and proceed. If there are explicit decisions to be made, it can present those via the ask tool for the human user to approve, reject, add commentary, or choose between options.
+
+    Additionally:
+    • Work through your optimized recommendations for T077, T078, and T079. Make sure those are actually built out, fully functional, and tested via dogfooding to ensure they work.
+    • Surface any other goals currently pending in this project. You should list all planned goals that aren't done, along with their hierarchy and goal-manager functionality.
+why: >-
+  The latest version label masks a stale installed UI revision; T076-T079 remain
+  unimplemented; existing commands and launch approval labels do not support a
+  complete conversational lifecycle. Past dogfood proved bounded checks, not that
+  every goal-management defect is resolved or the intended artifact is loaded.
+outcome: >-
+  An immutable v0.3.3 release is installed and its exact Git revision and UI
+  artifacts are verified in the owner's running OpenCode location. /goal plus an
+  idea invokes the write-goal interview, offers revision or approved launch, and
+  hands off visibly to a fresh goal session without erasing the original. Agents
+  handle supported lifecycle requests through natural language and guarded typed
+  operations; only genuine owner decisions require native ask forms. The existing
+  Goals tab is a manager usable even without a current-session goal; stacked
+  cards show all non-terminal goals across project sessions; selecting a goal
+  expands details before a deliberate session jump. T076-T079 are dogfood-proven,
+  and pending goal contracts versus task hierarchy are accurately enumerated.
+scope:
+  in:
+    - 'src/server, src/engine, src/contract, src/rpc.ts and src/tui: lifecycle, decision handling, manager inventory and navigation'
+    - 'skills/write-goal: conversational decisions and honest clean-start handoff'
+    - 'Focused host/unit tests, real two-goal pty walkthrough and release artifact checks'
+    - 'A new immutable v0.3.3 tag, exact installed-artifact proof and real-model dogfood'
+    - 'T076-T079 plus newly evidenced lifecycle/deployment bugs and hierarchy reconciliation'
+  out:
+    - 'Cross-project scheduling, relay mode, queued goal execution, adapters and npm publishing'
+    - 'Unrelated global OpenCode/MCP/provider configuration changes'
+non_goals:
+  - 'No deletion or rewriting of completed goal ledgers/evidence; no automatic archiving without owner authorization'
+  - 'No clearing or deleting the original session; clean start is a new root session with visible handoff'
+  - 'No claim of finding every possible bug; completion covers the named scenarios and regressions'
+  - 'No worker authority to approve itself, waive criteria, edit protected oracles or silently weaken checks'
+  - 'No web frontend, unrelated dashboard redesign, new provider, or new orchestration service'
+constraints:
+  - 'Use the owner-approved a/a/a design: existing Goals tab, stacked cards, expand then explicit jump; support keyboard and pointer input.'
+  - 'Use OpenCode V2 APIs verified against the installed binary. Preserve original session model/agent or report an explicit handoff fallback.'
+  - 'Natural-language interpretation belongs to the agent; host-side typed operations enforce target identity, permissions, replay protection and approval. Never execute raw natural-language text as shell.'
+  - 'Owner asks are native selectable forms with concrete descriptions and commentary/reject paths, durable across restarts and bound to the exact decision/action/contract.'
+  - 'Do not repeat the movable-tag/cache mistake: never force-move v0.3.2 or any new release tag; fixes after tagging require a new patch tag and exact revision proof.'
+  - 'Heavy tests/builds/typechecks/installs use the machine resource governor, one at a time. Use scoped files/affected tests, not an unscoped whole-suite run.'
+  - 'The completing verification runs the installed engine, not the working tree. Record which package revision serves the run, not just its semantic version.'
+criteria:
+  - id: C1
+    statement: '/goal alone starts an actionable create-or-manage flow; /goal plus a general idea and ordinary goal-management language route state-aware to the interview or intended typed operation, rather than misreading the first word as a rigid command.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/natural-goal-flow.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C2
+    statement: 'After contract review the owner can revise or start via native forms; both ordinary and fresh-session launch work, with one-use approval bound to session, slug, locked contract and launch mode; spoofed, expired and replayed approval is rejected.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/goal-launch-flow.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C3
+    statement: 'Natural-language amendments produce a staged validated diff and native accept/reject/comment flow; only owner acceptance re-locks the goal atomically, preserving unchanged evidence and invalidating changed statements or checks. No owner must hand-edit YAML or run /goal amend.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/conversational-amend.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C4
+    statement: 'The inventory carries every project goal, including drafts, stopped/active/completed runs and archives, with truthful session/agent/progress/priority and existing relationship metadata; it does not invent goal parent links from CLEO task ids.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/manager-inventory.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C5
+    statement: 'T077: stacked width-safe cards show all non-terminal goals across sessions, current first and elsewhere marked, with bounded height and an accessible overflow pointer; missed events/reconnects converge rather than freezing the collection.'
+    check: {kind: command, run: 'test -f test/unit/multi-goal-sidebar.test.ts && test -f test/host/multi-goal-refresh.test.ts && cleo run --wait --class test -- bun test test/unit/multi-goal-sidebar.test.ts test/host/multi-goal-refresh.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C6
+    statement: 'T078: the existing Goals tab is an interactive manager even in a primary session with no goal; selecting any goal displays its details and targets pause/resume/verify/attach/abort to that goal with correct availability and destructive-action confirmation.'
+    check: {kind: command, run: 'test -f test/unit/goal-manager.test.ts && test -f test/host/manager-actions.test.ts && cleo run --wait --class test -- bun test test/unit/goal-manager.test.ts test/host/manager-actions.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C7
+    statement: 'T076/T079: selecting a goal expands before an explicit session jump; fresh-session launch opens and focuses its new tab, with router fallback when tabs are disabled and a persistent pointer in the original session. The original history remains intact.'
+    check: {kind: command, run: 'test -f test/unit/goal-navigation.test.ts && test -f test/host/fresh-handoff.test.ts && cleo run --wait --class test -- bun test test/unit/goal-navigation.test.ts test/host/fresh-handoff.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C8
+    statement: 'Decision forms survive reload/cancel/dismiss and cannot bind unrelated forms, interpret commentary as approval, double-execute via form plus dialog, or log failed operations as successful resolutions; invalid inputs leave recoverable explicit state.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/durable-goal-decisions.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C9
+    statement: 'The real two-goal pty gate opens the manager from a goal-less session, sees both sessions and cards, expands a row, explicitly jumps sessions, exercises an action on the selected goal without changing the other, and verifies fresh-start tab focus. Narrow width and focus are tested; no transcript substring can substitute for a rendered selectable control.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun scripts/goal-manager-smoke.ts --assert', expect: {exit: 0}, timeout: 900, live: true}
+  - id: C10
+    statement: 'Supported conversational lifecycle operations remain approval-gated where required; the worker cannot forge consent, waive evidence, approve criteria itself, edit protected oracles or trigger an arbitrary owner operation, including after restart or during amendments.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/lifecycle-authority.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C11
+    statement: 'Git-install proof asserts the exact expected release commit and the UI/server artifact hashes, not merely command registration or the newest cache directory; a cache pointing at the old revision demonstrably fails.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/host/release-artifact.test.ts', expect: {exit: 0}, timeout: 600}
+  - id: C12
+    statement: 'The new release is pushed and active in this real project: the location-specific plugin API reports the immutable release SHA, outdated=false, and matching loaded artifact hashes, with a semantic version at least 0.3.3.'
+    check: {kind: command, run: 'cleo run --wait --class scan -- bun scripts/check-installed-goal.ts --min-version 0.3.3 --assert-release', expect: {exit: 0}, timeout: 300, live: true}
+  - id: C13
+    statement: 'Dogfood records a real-model interview, launch/handoff, natural-language lifecycle request and two-goal manager use on the installed release, plus this run served by that exact artifact before its completing verification. Fixture-only or source-tree-only proof is insufficient.'
+    check: {kind: verifier, ask: 'Inspect the installed-revision evidence, real session transcripts and pty artifacts cited in docs/dogfood-6.md. Are interview, approved launch/fresh handoff, conversational lifecycle and multi-goal navigation actually exercised on the deployed artifact, with failures honestly reported and no claims based solely on version labels?'}
+  - id: C14
+    statement: 'The audit, shipped interface, tests and handoff accurately distinguish goal contracts from planned CLEO work; T076-T079 have verified completion evidence, pending parents are reconciled or explicitly explained, and no unsupported claim of all bugs fixed or nonexistent hierarchy remains.'
+    check: {kind: verifier, ask: 'Compare docs/dogfood-6.md and HANDOFF with the project goal folders, CLI task inventory, code and deployment proof. Are the approved a/a/a design and all named bugs covered by real evidence, T076-T079 completed with gates, and outstanding parent/task/goal status honestly represented?'}
+invariants:
+  - id: I1
+    statement: 'Existing contract/state/owner-final/registry behavior and focused loop/guard/amend/launch/decision regressions continue to pass under scoped resource-governed runs.'
+    check: {kind: command, run: 'cleo run --wait --class test -- bun test test/unit/contract.test.ts test/unit/state.test.ts test/unit/owner-final.test.ts test/unit/registry.test.ts test/host/goal.test.ts test/host/amend.test.ts test/host/clean-start.test.ts test/host/launch-approval.test.ts test/host/decision-dialogs.test.ts test/host/ask-tool-decisions.test.ts', expect: {exit: 0}, timeout: 900}
+  - id: I2
+    statement: 'Typecheck remains covering and green.'
+    check: {kind: command, run: 'cleo run --wait --class typecheck -- bun run typecheck', expect: {exit: 0}, timeout: 300}
+  - id: I3
+    statement: 'The isolated-host oracle, authority oracle and historical goal evidence remain unchanged; no test is skipped or weakened to hide a failure.'
+    check: {kind: diff, paths: ['test/host/harness.ts', 'test/unit/owner-final.test.ts', 'test/host/goal.test.ts', '.opencode/goals/ship-v031-launch-experience/**', '.opencode/goals/ship-v032-trust-the-card/**', '.opencode/goals-archive/**']}
+protect: ['test/host/harness.ts', 'test/unit/owner-final.test.ts', 'test/host/goal.test.ts', '.opencode/goals-archive/**']
+plan:
+  - {id: S1, title: 'Capture regressions and provenance-aware install checks', proves: [], depends_on: []}
+  - {id: S2, title: 'Guarded conversational routing, launch and staged amendments', proves: [C1, C2, C3, C10], depends_on: [S1]}
+  - {id: S3, title: 'Durable decision forms with exact authenticated resolution', proves: [C8], depends_on: [S2]}
+  - {id: S4, title: 'Project inventory and stacked cross-session cards', proves: [C4, C5], depends_on: [S1]}
+  - {id: S5, title: 'Interactive Goals manager, expand/jump and visible fresh handoff', proves: [C6, C7], depends_on: [S4]}
+  - {id: S6, title: 'Two-goal real-TUI gate and scoped regressions', proves: [C9], depends_on: [S3, S5]}
+  - {id: S7, title: 'Immutable release, exact live install proof and real-model dogfood', proves: [C11, C12, C13], depends_on: [S6]}
+  - {id: S8, title: 'Reconcile the task board and publish evidence-backed findings', proves: [C14], depends_on: [S7]}
+assumptions:
+  - {id: A1, text: 'The a/a/a answer chooses existing Goals tab, stacked cards and expand-before-jump.', rationale: 'Direct mapping to the prior interview choices.', reversible: true, status: confirmed}
+  - {id: A2, text: 'No live owner sign-off criterion is required; automated real-TUI and independent evidence review replace it.', rationale: 'Owner explicitly selected No live sign-off in round one.', reversible: true, status: confirmed}
+  - {id: A3, text: 'Use F9 while testing OpenCode 2.0.26; do not assume the old S28 leader limitation persists.', rationale: 'Preserves the documented default while a focused upgrade probe checks actual behavior.', reversible: true}
+  - {id: A4, text: 'Natural-language autonomy does not grant the worker power to approve itself or rewrite its completion contract.', rationale: 'Preserves the existing trust boundary while removing manual slash-command work.', reversible: true}
+stop:
+  escalate_when:
+    - 'A required V2 navigation/form capability is absent after a reproducible probe and no safe fallback exists.'
+    - 'Implementation needs a user-product decision outside the approved a/a/a design or permission to alter protected history.'
+    - 'Deployment requires changing unrelated providers, credentials, global permission policy, or deleting cached/user data.'
+autonomy: {questions: allow, on_user_message: steer, on_interrupt: pause}
+verification: {mode: host+verifier, max_rejections: 3}

@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "slug": "ocg-tick-and-loop-decision",
+  "title": "v0.6.0: an ocg tick entry point and a pure loop decision function",
+  "priority": "high",
+  "sessionID": "ses_ebeed1b03ffeDc98PWOK7xeeVM",
+  "runId": "146deb87e001",
+  "lock": "d21b96be1a6816c7c34336ecb77ed66b374f94ffe54430bb646d04dfa06b7116",
+  "status": "complete",
+  "createdAt": 1792190363781,
+  "updatedAt": 1792194592193,
+  "turn": 0,
+  "activeMs": 603028,
+  "activeSince": null,
+  "usage": {
+    "tokens": 1997554,
+    "cost": 0.4593659939999988,
+    "baseTokens": 9355972,
+    "baseCost": 2.8338373319999994
+  },
+  "base": {
+    "commit": "ee290d7e60d8755d5792fbe90925efcf29d02f5d"
+  },
+  "counters": {
+    "noProgress": 0,
+    "failures": 0
+  },
+  "wrapup": false,
+  "criteria": {
+    "C1": {
+      "status": "pass",
+      "by": "host",
+      "at": 1792191383544,
+      "detail": "exit 0 in 0.8s",
+      "rejections": 0
+    },
+    "C2": {
+      "status": "pass",
+      "by": "host",
+      "at": 1792191383544,
+      "detail": "exit 0 in 0.8s",
+      "rejections": 0
+    },
+    "C3": {
+      "status": "pass",
+      "by": "verifier",
+      "at": 1792191383544,
+      "detail": "proven with 8 quote(s)",
+      "rejections": 0
+    },
+    "C4": {
+      "status": "pass",
+      "by": "host",
+      "at": 1792191383544,
+      "detail": "exit 0 in 0.2s",
+      "rejections": 0
+    },
+    "C5": {
+      "status": "pass",
+      "by": "host",
+      "at": 1792191383544,
+      "detail": "exit 0 in 1.3s",
+      "rejections": 0
+    },
+    "C6": {
+      "status": "pass",
+      "by": "host",
+      "at": 1792191383544,
+      "detail": "exit 0 in 1.1s",
+      "rejections": 0
+    },
+    "C7": {
+      "status": "pass",
+      "by": "human",
+      "at": 1792191383544,
+      "detail": "approved by the owner",
+      "rejections": 0
+    },
+    "I1": {
+      "status": "pass",
+      "by": "host",
+      "at": 1792191383544,
+      "detail": "exit 0 in 33.0s",
+      "rejections": 0
+    },
+    "I2": {
+      "status": "pass",
+      "by": "host",
+      "at": 1792191383544,
+      "detail": "exit 0 in 3.8s",
+      "rejections": 0
+    }
+  },
+  "steps": {
+    "S1": "active",
+    "S2": "pending",
+    "S3": "done",
+    "S4": "pending",
+    "S5": "pending",
+    "S6": "done",
+    "S7": "pending"
+  },
+  "turnFacts": {
+    "tools": 79,
+    "goalCalls": 3,
+    "stepsChanged": true,
+    "progressRecorded": true
+  },
+  "steers": 0,
+  "compacted": false,
+  "flags": [],
+  "amendments": [],
+  "fingerprint": "f58cb81404db79d54fe4",
+  "lastUsageEmit": 1792194592193,
+  "progress": {
+    "note": "S4/S5/S6 done: the design note with the parity table is committed; the npm metadata is prepared (nothing published); v0.6.0 is tagged/pushed (730ea88) and C6's tag-install run passes 22/22. Reinstalling v0.6.0 so this session serves it (C5).",
+    "next": "After the owner resumes from the reload, verify the criteria and claim; C7 is the owner's sign-off on the tick contract and parity.",
+    "at": 1792190765946,
+    "turn": 0
+  },
+  "reason": "all required criteria verified",
+  "verdict": {
+    "at": 1792191383544,
+    "turn": 0,
+    "passed": true,
+    "lines": [
+      "All required criteria passed."
+    ]
+  }
+}

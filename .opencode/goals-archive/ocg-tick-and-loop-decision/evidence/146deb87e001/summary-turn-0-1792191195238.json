@@ -1,0 +1,108 @@
+{
+  "slug": "ocg-tick-and-loop-decision",
+  "title": "v0.6.0: an ocg tick entry point and a pure loop decision function",
+  "status": "needs_review",
+  "turns": 0,
+  "headline": "goal needs_review — 8/9 criteria proven, 1 not yet",
+  "criteria": [
+    {
+      "id": "C1",
+      "statement": "The extracted loop decision function SHALL be pure and SHALL cover every decision it can take, proven by its own unit suite",
+      "status": "pass",
+      "by": "host",
+      "detail": "exit 0 in 0.6s"
+    },
+    {
+      "id": "C2",
+      "statement": "WHEN the ocg tick bin runs with a harness Stop payload on stdin THE stdout SHALL be exactly JSON as the contract specifies, around a live goal, a terminal goal, a goal awaiting the owner, and no goal at all",
+      "status": "pass",
+      "by": "host",
+      "detail": "exit 0 in 0.8s"
+    },
+    {
+      "id": "C3",
+      "statement": "The design note SHALL document the decision contract and the parity between the pure decision and the OpenCode adapter, and SHALL state plainly that the tick emits the same continuation the adapter would send, that coverage is what its unit suite exercises, and that nothing was published to npm",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 7 quote(s)"
+    },
+    {
+      "id": "C4",
+      "statement": "The npm publication metadata SHALL be prepared without publishing anything",
+      "status": "pass",
+      "by": "host",
+      "detail": "exit 0 in 0.2s"
+    },
+    {
+      "id": "C5",
+      "statement": "A new minor release SHALL be immutably published and actually loaded by this exact goal session before its completing round",
+      "status": "pass",
+      "by": "host",
+      "detail": "exit 0 in 1.0s"
+    },
+    {
+      "id": "C6",
+      "statement": "The new decision and tick tests SHALL pass from the immutable v0.6.x tag installed by OpenCode",
+      "status": "pass",
+      "by": "host",
+      "detail": "exit 0 in 0.6s"
+    },
+    {
+      "id": "C7",
+      "statement": "The owner SHALL approve the tick contract and the decision parity before the goal completes",
+      "status": "unknown",
+      "by": "human",
+      "detail": "awaiting owner sign-off"
+    },
+    {
+      "id": "I1",
+      "statement": "The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits, proving the OpenCode adapter is unchanged",
+      "status": "pass",
+      "by": "host",
+      "detail": "exit 0 in 28.3s"
+    },
+    {
+      "id": "I2",
+      "statement": "Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass",
+      "status": "pass",
+      "by": "host",
+      "detail": "exit 0 in 3.0s"
+    }
+  ],
+  "caveats": [],
+  "scopeAudit": [
+    {
+      "kind": "scope",
+      "id": "src/contract/render.ts",
+      "title": "src/contract/render.ts",
+      "why": "no criterion statement or check maps to it — discussed but unproven"
+    },
+    {
+      "kind": "scope",
+      "id": "src/cli",
+      "title": "src/cli",
+      "why": "no criterion statement or check maps to it — discussed but unproven"
+    },
+    {
+      "kind": "scope",
+      "id": "CHANGELOG.md",
+      "title": "CHANGELOG.md",
+      "why": "no criterion statement or check maps to it — discussed but unproven"
+    }
+  ],
+  "nonGoals": [
+    "Publishing anything to npm (the metadata is prepared; the publish is a separate owner decision)",
+    "Installing OCG's own Stop hook in Claude Code or Codex (CLEO's dispatcher owns Stop)",
+    "Changing the OpenCode adapter's observable behaviour, its tool names, its guards, or the continuation text it sends",
+    "Depending on the unreleased CLEO verbs (goal draft, goal close, tasks changeset) or on CLEO 10.18",
+    "Weakening owner, exact-target, expiry, cross-session or once-only replay guards",
+    "Any release other than the single v0.6.0 minor"
+  ],
+  "findings": [],
+  "followUps": [
+    "Resolve the review: /goal approve <C#> (final) or /goal reject <C#> <why>, then /goal verify.",
+    "Break the discussed-but-unproven items out into a follow-up goal so they stop riding on this one.",
+    "Decompose long-running work with CLEO (this project is already linked; keep tasks completing with evidence)."
+  ],
+  "text": "# Post-goal summary — v0.6.0: an ocg tick entry point and a pure loop decision function\ngoal needs_review — 8/9 criteria proven, 1 not yet · 0 turn(s)\n\nThe loop has stopped (needs_review). Nothing further runs, verifies, or spends on its own.\nFollow-ups live here: the list below, the Goal panel (F9), and .opencode/goals/ocg-tick-and-loop-decision/ (ledger, evidence, this summary).\n\nOutcome (as contracted): A new immutable v0.6.0 minor is published and loaded in this goal session, in which the goal loop's decision is a PURE function decide(state, signals) -> action extracted from the OpenCode adapter, exercised by unit tests over every decision it can take and documented with the parity table that maps each case to the TailKind the adapter already sends, so one loop serves many harnesses; an `ocg` bin ships a `tick` subcommand that implements CLEO's merged tick contract exactly (the harness Stop JSON on stdin, JSON only on stdout, block plus reason to continue, final false to hold, nothing when no goal is live, logs only on stderr, and nothing at all outside a goal project), whose reason is the SAME continuation text the OpenCode adapter would send for that turn; the npm publication metadata is prepared but nothing is published; and the OpenCode plugin keeps working byte-for-byte.\n\n## Criteria\n- ✓ pass C1 [host] The extracted loop decision function SHALL be pure and SHALL cover every decision it can take, proven by its own unit suite\n- ✓ pass C2 [host] WHEN the ocg tick bin runs with a harness Stop payload on stdin THE stdout SHALL be exactly JSON as the contract specifies, around a live goal, a terminal goal, a goal awaiting the owner, and no goal at all\n- ✓ pass C3 [verifier] The design note SHALL document the decision contract and the parity between the pure decision and the OpenCode adapter, and SHALL state plainly that the tick emits the same continuation the adapter would send, that coverage is what its unit suite exercises, and that nothing was published to npm\n- ✓ pass C4 [host] The npm publication metadata SHALL be prepared without publishing anything\n- ✓ pass C5 [host] A new minor release SHALL be immutably published and actually loaded by this exact goal session before its completing round\n- ✓ pass C6 [host] The new decision and tick tests SHALL pass from the immutable v0.6.x tag installed by OpenCode\n- · unknown C7 [human] The owner SHALL approve the tick contract and the decision parity before the goal completes\n    awaiting owner sign-off\n- ✓ pass I1 [host] The existing goal-loop oracle suites SHALL CONTINUE TO pass without oracle edits, proving the OpenCode adapter is unchanged\n- ✓ pass I2 [host] Covering TypeScript and generated TUI freshness SHALL CONTINUE TO pass\n\n## Scope audit — discussed but unproven (flagged, not blocking)\n- scope.in src/contract/render.ts — src/contract/render.ts: no criterion statement or check maps to it — discussed but unproven\n- scope.in src/cli — src/cli: no criterion statement or check maps to it — discussed but unproven\n- scope.in CHANGELOG.md — CHANGELOG.md: no criterion statement or check maps to it — discussed but unproven\n\n## Non-goals (deliberately not done)\n- Publishing anything to npm (the metadata is prepared; the publish is a separate owner decision)\n- Installing OCG's own Stop hook in Claude Code or Codex (CLEO's dispatcher owns Stop)\n- Changing the OpenCode adapter's observable behaviour, its tool names, its guards, or the continuation text it sends\n- Depending on the unreleased CLEO verbs (goal draft, goal close, tasks changeset) or on CLEO 10.18\n- Weakening owner, exact-target, expiry, cross-session or once-only replay guards\n- Any release other than the single v0.6.0 minor\n\n## Follow-ups\n- Resolve the review: /goal approve <C#> (final) or /goal reject <C#> <why>, then /goal verify.\n- Break the discussed-but-unproven items out into a follow-up goal so they stop riding on this one.\n- Decompose long-running work with CLEO (this project is already linked; keep tasks completing with evidence)."
+}

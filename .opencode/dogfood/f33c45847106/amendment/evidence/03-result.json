@@ -1,0 +1,170 @@
+{
+  "pass": true,
+  "before": {
+    "version": 1,
+    "slug": "qa-chat-amend",
+    "title": "Deployed Composer acceptance QA",
+    "sessionID": "ses_eb93f2d62ffe3f2hkWtf71aSk2",
+    "runId": "146c0d743001",
+    "lock": "bae127ddbcf589794ec61e4b743b895c479664006325fa586d8b97a05edc158b",
+    "status": "waiting",
+    "createdAt": 1792188405580,
+    "updatedAt": 1792188424481,
+    "turn": 1,
+    "activeMs": 18901,
+    "activeSince": 1792188424481,
+    "usage": {
+      "tokens": 20168,
+      "cost": 0.004684554,
+      "baseTokens": 7061,
+      "baseCost": 0.0012665639999999998
+    },
+    "base": {},
+    "counters": {
+      "noProgress": 0,
+      "failures": 0
+    },
+    "wrapup": false,
+    "criteria": {
+      "C1": {
+        "status": "unknown",
+        "rejections": 0
+      },
+      "C2": {
+        "status": "unknown",
+        "rejections": 0
+      }
+    },
+    "steps": {},
+    "turnFacts": {
+      "tools": 0,
+      "goalCalls": 0,
+      "stepsChanged": false,
+      "progressRecorded": false
+    },
+    "steers": 0,
+    "compacted": false,
+    "flags": [],
+    "amendments": [],
+    "activity": {
+      "kind": "waiting",
+      "since": 1792188424481,
+      "until": 1792188721922,
+      "detail": "Contract constraint: after writing the marker, wait 300s to give the QA owner time to inspect before claiming."
+    },
+    "lastUsageEmit": 1792188424471,
+    "progress": {
+      "note": "Inspected the contract and qa-evidence; wrote qa-marker.txt containing the required 'status: ok' line.",
+      "next": "Confirm the file and its contents, then call goal_wait for 300 seconds per the QA constraint.",
+      "at": 1792188418803,
+      "turn": 1
+    },
+    "wait": {
+      "until": 1792188721922,
+      "reason": "Contract constraint: after writing the marker, wait 300s to give the QA owner time to inspect before claiming."
+    },
+    "reason": "Contract constraint: after writing the marker, wait 300s to give the QA owner time to inspect before claiming."
+  },
+  "after": {
+    "version": 1,
+    "slug": "qa-chat-amend",
+    "title": "Deployed Composer acceptance QA",
+    "sessionID": "ses_eb93f2d62ffe3f2hkWtf71aSk2",
+    "runId": "146c0d743001",
+    "lock": "c996dc6d1d09726cb46a454c7f1094596f68a4e2d11c3b53aab0f1c9e139f3ba",
+    "status": "waiting",
+    "createdAt": 1792188405580,
+    "updatedAt": 1792188458450,
+    "turn": 1,
+    "activeMs": 35483,
+    "activeSince": 1792188458450,
+    "usage": {
+      "tokens": 69608,
+      "cost": 0.015471348000000001,
+      "baseTokens": 7061,
+      "baseCost": 0.0012665639999999998
+    },
+    "base": {},
+    "counters": {
+      "noProgress": 0,
+      "failures": 0
+    },
+    "wrapup": false,
+    "criteria": {
+      "C1": {
+        "status": "unknown",
+        "rejections": 0
+      },
+      "C2": {
+        "status": "unknown",
+        "rejections": 0
+      }
+    },
+    "steps": {},
+    "turnFacts": {
+      "tools": 0,
+      "goalCalls": 0,
+      "stepsChanged": false,
+      "progressRecorded": false
+    },
+    "steers": 1,
+    "compacted": false,
+    "flags": [],
+    "amendments": [
+      {
+        "change": "outcome: CHANGED · criteria unchanged [C1, C2] changed [-] added [-] removed [-] · sections changed [outcome]",
+        "rationale": "replaced by accepted amendment",
+        "at": 1792188431211,
+        "status": "rejected"
+      },
+      {
+        "change": "outcome: CHANGED · criteria unchanged [C1, C2] changed [-] added [-] removed [-] · sections changed [outcome]",
+        "rationale": "owner accepted decision e7373e80-128a-4849-a7c5-c6408614170c",
+        "at": 1792188448590,
+        "status": "accepted"
+      }
+    ],
+    "activity": {
+      "kind": "waiting",
+      "since": 1792188458450,
+      "until": 1792188756520,
+      "detail": "Contract constraint: after writing the marker, wait 300 seconds. The prior wait was interrupted by the owner's amendment steer, so this re-runs the full QA-owner inspection window before claiming."
+    },
+    "lastUsageEmit": 1792188458438,
+    "progress": {
+      "note": "Re-read amended contract (outcome now 'revised QA semantics', lock c996dc6d…) and repo: qa-marker.txt intact with 'status: ok'. Earlier 300s wait was interrupted by the amendment steer.",
+      "next": "Re-issue goal_wait for 300s so the QA owner's inspection window completes, then claim with evidence for C1 and C2.",
+      "at": 1792188454489,
+      "turn": 1
+    },
+    "wait": {
+      "until": 1792188756520,
+      "reason": "Contract constraint: after writing the marker, wait 300 seconds. The prior wait was interrupted by the owner's amendment steer, so this re-runs the full QA-owner inspection window before claiming."
+    },
+    "reason": "Contract constraint: after writing the marker, wait 300 seconds. The prior wait was interrupted by the owner's amendment steer, so this re-runs the full QA-owner inspection window before claiming."
+  },
+  "ownerMessageID": "msg_146c13c65001qRLxVF2xXVmLxC",
+  "resolved": [
+    {
+      "t": 1792188448596,
+      "type": "amendment-chat-resolved",
+      "decisionId": "e7373e80-128a-4849-a7c5-c6408614170c",
+      "ownerMessageID": "msg_146c13c65001qRLxVF2xXVmLxC",
+      "lock": "c996dc6d1d09726cb46a454c7f1094596f68a4e2d11c3b53aab0f1c9e139f3ba",
+      "ok": true
+    }
+  ],
+  "continued": [
+    {
+      "t": 1792188448615,
+      "type": "amendment-chat-continuation",
+      "decisionId": "e7373e80-128a-4849-a7c5-c6408614170c",
+      "ownerMessageID": "msg_146c13c65001qRLxVF2xXVmLxC",
+      "lock": "c996dc6d1d09726cb46a454c7f1094596f68a4e2d11c3b53aab0f1c9e139f3ba",
+      "ok": true,
+      "message": "Goal resumed: Deployed Composer acceptance QA — /goal status · /goal pause"
+    }
+  ],
+  "automatedQATestOwner": true,
+  "providerIsFixture": false
+}

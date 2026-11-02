@@ -1,0 +1,84 @@
+{
+  "slug": "cleo-t001",
+  "title": "opencode-goal: goal mode for OpenCode 2",
+  "status": "complete",
+  "turns": 2,
+  "headline": "goal complete — 9/9 criteria proven",
+  "criteria": [
+    {
+      "id": "C1",
+      "statement": "T001 acceptance 1: Plugin loads on OpenCode 2.0.22+ from a git install",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 4 quote(s)"
+    },
+    {
+      "id": "C2",
+      "statement": "T001 acceptance 2: Goals persist across restarts and compaction",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 4 quote(s)"
+    },
+    {
+      "id": "C3",
+      "statement": "T001 acceptance 3: Completion is host-verified, never self-attested",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 3 quote(s)"
+    },
+    {
+      "id": "C4",
+      "statement": "T001 acceptance 4: Live TUI shows goal state without model turns",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 3 quote(s)"
+    },
+    {
+      "id": "C5",
+      "statement": "T001 acceptance 5: write-goal skill authors valid goal contracts",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 4 quote(s)"
+    },
+    {
+      "id": "C6",
+      "statement": "T001 acceptance 6: Complete child T002: opencode-goal v0.1: OpenCode 2 goal plugin with bundled write-goal skill",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 3 quote(s)"
+    },
+    {
+      "id": "C7",
+      "statement": "T001 acceptance 7: Complete child T024: v0.3: goal registry, agent-forward help, project identity and integrations",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 2 quote(s)"
+    },
+    {
+      "id": "C8",
+      "statement": "T001 acceptance 8: Complete child T035: v0.2.0 integrity model (council 145323Z-a46b2ff9): rehearsal, write-guard, amendment",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 2 quote(s)"
+    },
+    {
+      "id": "C9",
+      "statement": "T001 acceptance 9: Complete child T039: v0.2.0 hardening, coverage and release",
+      "status": "pass",
+      "by": "verifier",
+      "detail": "proven with 2 quote(s)"
+    }
+  ],
+  "caveats": [],
+  "scopeAudit": [],
+  "nonGoals": [
+    "Changing anything outside the linked CLEO task's scope",
+    "Editing this goal's contract or its evidence"
+  ],
+  "findings": [],
+  "followUps": [
+    "Start the next goal: /goal new <what you want done> — the non-goals below are the ready-made backlog.",
+    "Decompose long-running work with CLEO (this project is already linked; keep tasks completing with evidence)."
+  ],
+  "text": "# Post-goal summary — opencode-goal: goal mode for OpenCode 2\ngoal complete — 9/9 criteria proven · 2 turn(s)\n\nThe loop has stopped (complete). Nothing further runs, verifies, or spends on its own.\nFollow-ups live here: the list below, the Goal panel (F9), and .opencode/goals/cleo-t001/ (ledger, evidence, this summary).\n\nOutcome (as contracted): opencode-goal: goal mode for OpenCode 2\n\n## Criteria\n- ✓ pass C1 [verifier] T001 acceptance 1: Plugin loads on OpenCode 2.0.22+ from a git install\n- ✓ pass C2 [verifier] T001 acceptance 2: Goals persist across restarts and compaction\n- ✓ pass C3 [verifier] T001 acceptance 3: Completion is host-verified, never self-attested\n- ✓ pass C4 [verifier] T001 acceptance 4: Live TUI shows goal state without model turns\n- ✓ pass C5 [verifier] T001 acceptance 5: write-goal skill authors valid goal contracts\n- ✓ pass C6 [verifier] T001 acceptance 6: Complete child T002: opencode-goal v0.1: OpenCode 2 goal plugin with bundled write-goal skill\n- ✓ pass C7 [verifier] T001 acceptance 7: Complete child T024: v0.3: goal registry, agent-forward help, project identity and integrations\n- ✓ pass C8 [verifier] T001 acceptance 8: Complete child T035: v0.2.0 integrity model (council 145323Z-a46b2ff9): rehearsal, write-guard, amendment\n- ✓ pass C9 [verifier] T001 acceptance 9: Complete child T039: v0.2.0 hardening, coverage and release\n\n## Non-goals (deliberately not done)\n- Changing anything outside the linked CLEO task's scope\n- Editing this goal's contract or its evidence\n\n## Follow-ups\n- Start the next goal: /goal new <what you want done> — the non-goals below are the ready-made backlog.\n- Decompose long-running work with CLEO (this project is already linked; keep tasks completing with evidence)."
+}
