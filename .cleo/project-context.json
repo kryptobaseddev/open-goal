@@ -12,8 +12,13 @@
   },
   "evidence": {
     "ciSatisfies": true,
-    "ciChecks": [
-      "Typecheck, unit tests, Node bin"
-    ]
+    "ciChecks": {
+      "tests": [
+        "Typecheck, unit tests, Node bin"
+      ],
+      "qa": [
+        "Typecheck, unit tests, Node bin"
+      ]
+    }
   }
 }
