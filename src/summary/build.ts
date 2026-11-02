@@ -15,8 +15,8 @@ export type Provenance = "host" | "verifier" | "verifier-fallback" | "human"
 export type SummaryCriterion = {
   id: string
   statement: string
-  /** T178: `stale` is its own outcome, never folded into unknown. */
-  status: "pass" | "fail" | "stale" | "unknown"
+  /** T178/T179: `stale` and `disputed` are their own outcomes, never folded into unknown. */
+  status: "pass" | "fail" | "stale" | "disputed" | "unknown"
   by?: Provenance
   detail?: string
   caveat?: string
@@ -107,7 +107,7 @@ export function provenanceCaveat(by: Provenance | undefined): string | undefined
   return undefined
 }
 
-const label = (status: string) => (status === "pass" ? "✓ pass" : status === "fail" ? "✗ fail" : status === "stale" ? "⚠ stale" : "· unknown")
+const label = (status: string) => (status === "pass" ? "✓ pass" : status === "fail" ? "✗ fail" : status === "stale" ? "⚠ stale" : status === "disputed" ? "⚖ disputed" : "· unknown")
 
 /** Mid-run findings worth surfacing at the end, from the run's ledger:
  *  criterion flags, blocker keys, empty verifier rounds, fallback parses,
@@ -146,7 +146,7 @@ export function buildPostGoalSummary(input: SummaryInput): PostGoalSummary {
   const { contract, state } = input
   const criteria: SummaryCriterion[] = [...contract.criteria, ...contract.invariants].map((c) => {
     const s = state.criteria[c.id]
-    const status = s?.status === "pass" ? ("pass" as const) : s?.status === "fail" ? ("fail" as const) : s?.status === "stale" ? ("stale" as const) : ("unknown" as const)
+    const status = s?.status === "pass" ? ("pass" as const) : s?.status === "fail" ? ("fail" as const) : s?.status === "stale" ? ("stale" as const) : s?.status === "disputed" ? ("disputed" as const) : ("unknown" as const)
     const by = (s?.by as Provenance | undefined) ?? undefined
     return { id: c.id, statement: c.statement, status, by, detail: s?.detail, caveat: status === "pass" ? provenanceCaveat(by) : undefined }
   })
@@ -187,7 +187,7 @@ export function buildPostGoalSummary(input: SummaryInput): PostGoalSummary {
   const split = provenanceSplit(criteria)
   const rejections = Object.values(state.criteria).reduce((n, c) => n + (c.rejections ?? 0), 0)
   wentRight.push(`${proven}/${criteria.length} criteria proven${split ? ` (${split})` : ""}`)
-  if (!criteria.some((c) => c.status === "fail" || c.status === "stale")) wentRight.push(rejections === 0 ? "no failed checks and no rejected claims" : "no failed criteria at the end")
+  if (!criteria.some((c) => c.status === "fail" || c.status === "disputed" || c.status === "stale")) wentRight.push(rejections === 0 ? "no failed checks and no rejected claims" : "no failed criteria at the end")
   const acceptedAmendments = state.amendments.filter((a) => a.status === "accepted").length
   if (acceptedAmendments) wentRight.push(`${acceptedAmendments} amendment${acceptedAmendments === 1 ? "" : "s"} accepted and re-locked`)
 
@@ -196,7 +196,7 @@ export function buildPostGoalSummary(input: SummaryInput): PostGoalSummary {
   for (const c of criteria.filter((c) => c.status === "fail")) {
     wentWrong.push(`${c.id} ${c.statement} — ${(c.detail ?? "failed").split("\n")[0]}`)
   }
-  for (const c of criteria.filter((c) => c.status === "stale")) {
+  for (const c of criteria.filter((c) => c.status === "disputed" || c.status === "stale")) {
     wentWrong.push(`${c.id} ${c.statement} — ${c.status}: ${(c.detail ?? c.status).split("\n")[0]}`)
   }
   for (const f of findings) {

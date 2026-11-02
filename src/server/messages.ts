@@ -173,6 +173,16 @@ export const M = {
       { label: "Amend the check", run: "start a Composer interview for the check change; no contract changes before reviewed acceptance", act: "amend", arg: "interview" },
       abort,
     ], "question"),
+  /** T179: the host passed its check and the verifier did not. The owner sees
+   *  both sides and decides; nothing is folded into a silent fail. */
+  disputed: (ids: string[]) =>
+    msg("goal.needs-review.disputed", "warning", `Goal needs your decision on ${ids.join(", ")}: the host check passed, but the independent verifier did not prove the criterion. Both sides are named in the verdict — approve the criterion (final, never re-checked), reject it with a reason, or amend the check.`, [
+      ...ids.map((id) => ({ label: `Approve ${id} (final, triggers verify)`, run: `/goal approve ${id}`, act: "approve", arg: id })),
+      ...ids.map((id) => ({ label: `Reject ${id} with a reason`, run: `/goal reject ${id} <why>`, act: "reject", arg: id })),
+      { label: "Inspect both sides", run: "/goal status" },
+      { label: "Amend the check", run: "start a Composer interview for the check change; no contract changes before reviewed acceptance", act: "amend", arg: "interview" },
+      abort,
+    ], "question"),
   claimRejected: (firstLine: string) =>
     msg("goal.claim.rejected", "warning", `Claim rejected by the host — the verdict goes back to the agent: ${firstLine}`, [
       { label: "Agent: fix and re-claim", run: "read the HOST VERDICT lines, fix the work, then goal_claim again" },

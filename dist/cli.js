@@ -8994,7 +8994,7 @@ var fmtTokens = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Ma
 function boardLine(state, contract) {
   return [...contract.criteria, ...contract.invariants].map((c) => {
     const s = state.criteria[c.id];
-    const mark = s?.status === "pass" ? "✓" : s?.status === "fail" ? "✗" : s?.status === "claimed" ? "◐" : s?.status === "stale" ? "⚠" : "·";
+    const mark = s?.status === "pass" ? "✓" : s?.status === "fail" ? "✗" : s?.status === "claimed" ? "◐" : s?.status === "stale" ? "⚠" : s?.status === "disputed" ? "⚖" : "·";
     return `${mark} ${c.id}${s?.by ? ` (${s.by})` : ""}`;
   }).join("  ");
 }
@@ -9336,11 +9336,20 @@ async function tick(deps) {
       const demoted = new Set((outcome.demotions ?? []).map((d) => d.criterion));
       for (const r of outcome.results) {
         const prev = live.criteria[r.id];
-        const status = r.pass ? "pass" : demoted.has(r.id) ? "stale" : "fail";
+        const status = r.pass ? "pass" : r.by === "disputed" ? "disputed" : demoted.has(r.id) ? "stale" : "fail";
         live.criteria[r.id] = { status, by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: prev?.rejections ?? 0, ...r.evidence ? { evidence: r.evidence } : !r.pass && prev?.evidence ? { evidence: prev.evidence } : {} };
       }
       live.verdict = { passed: outcome.passed, lines: outcome.lines.slice(0, 20), at: now, turn: live.turn };
       deps.store.evidence(live.slug, live.runId, `verify-tick-${live.turn}`, outcome);
+      const disputed = outcome.results.filter((r) => r.by === "disputed").map((r) => r.id);
+      if (disputed.length) {
+        setStatus(live, "needs_review", `host and verifier disagree on ${disputed.join(", ")}`);
+        deps.store.ledger(live.slug, { type: "disputed", criteria: disputed, turn: live.turn });
+        if (!write(live))
+          return { stdout: HOLD, log, harness };
+        log.push(`goal ${live.slug} needs an owner decision: host and verifier disagree on ${disputed.join(", ")}`);
+        return { stdout: HOLD, log, harness };
+      }
       if (outcome.passed) {
         setStatus(live, "complete", "all required criteria verified");
         deps.store.ledger(live.slug, { type: "complete", turn: live.turn });
@@ -9639,6 +9648,18 @@ async function verifyClaim(contract, state, deps) {
           raw: v
         };
         if (prior >= 0) {
+          const hostSide = results[prior];
+          if (v && (v.verdict === "not_proven" || v.verdict === "contradicted")) {
+            results[prior] = {
+              id: c.id,
+              pass: false,
+              by: "disputed",
+              detail: `host passed but the verifier says ${v.verdict}${v.reason ? `: ${v.reason}` : ""}`,
+              dispute: { host: hostSide.detail, verifier: entry.detail, verdict: v.verdict, ...v.reason ? { reason: v.reason } : {} },
+              raw: v
+            };
+            continue;
+          }
           if (!checked.ok)
             results[prior] = { ...entry, detail: `host passed but verifier disagrees: ${entry.detail}` };
         } else
@@ -9653,14 +9674,27 @@ async function verifyClaim(contract, state, deps) {
   }
   const required = new Set([...contract.criteria.filter((c) => c.essential).map((c) => c.id), ...contract.invariants.map((c) => c.id)]);
   const failed = results.filter((r) => required.has(r.id) && !r.pass && r.by !== "human");
+  const disputed = results.filter((r) => r.by === "disputed" && required.has(r.id)).map((r) => r.id);
   const reProven = new Set(results.filter((r) => r.pass).map((r) => r.id));
   const staleOpen = demotions.filter((d) => !reProven.has(d.criterion));
-  const passed = integrity.length === 0 && failed.length === 0 && needsHuman.filter((id) => required.has(id)).length === 0 && staleOpen.length === 0;
+  const passed = integrity.length === 0 && failed.length === 0 && needsHuman.filter((id) => required.has(id)).length === 0 && disputed.length === 0 && staleOpen.length === 0;
   const lines = [];
   for (const line of deps.environment ?? [])
     lines.push(line);
   for (const i of integrity)
     lines.push(`INTEGRITY: ${i}`);
+  for (const r of results) {
+    if (r.by !== "disputed" || !r.dispute)
+      continue;
+    const c = [...contract.criteria, ...contract.invariants].find((x) => x.id === r.id);
+    const host = r.dispute.host.replace(/\n/g, `
+      `);
+    const verifier = r.dispute.verifier.replace(/\n/g, `
+      `);
+    lines.push(`${r.id} DISPUTED ${required.has(r.id) ? "" : "(optional) "}[host × verifier] ${c?.statement ?? ""}
+    host passed: ${host}
+    verifier said ${r.dispute.verdict}${r.dispute.reason ? `: ${r.dispute.reason}` : ""}: ${verifier}`);
+  }
   const named = new Set;
   for (const binding of staleOpen) {
     if (named.has(binding.criterion))
@@ -9671,7 +9705,7 @@ async function verifyClaim(contract, state, deps) {
     ${demotionReason(binding)}. Re-prove it against the current bytes.`);
   }
   for (const r of results) {
-    if (r.pass)
+    if (r.pass || r.by === "disputed")
       continue;
     const c = [...contract.criteria, ...contract.invariants].find((x) => x.id === r.id);
     lines.push(`${r.id} ${required.has(r.id) ? "FAILED" : "not met (optional)"} [${r.by}] ${c?.statement ?? ""}
@@ -9680,7 +9714,7 @@ async function verifyClaim(contract, state, deps) {
   }
   if (!lines.length)
     lines.push("All required criteria passed.");
-  return { passed, needsHuman, results, integrity, lines, demotions };
+  return { passed, needsHuman, results, integrity, lines, demotions, disputed };
 }
 
 // src/engine/store-migration.ts

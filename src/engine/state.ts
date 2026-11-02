@@ -24,15 +24,17 @@ export const isActive = (s: Status) => ACTIVE.includes(s)
 export const isTerminal = (s: Status) => TERMINAL.includes(s)
 
 /**
- * T178: the criterion board is more than pass/fail. `stale` means a proof that
- * once stood no longer binds the bytes it cited. It is additive to the older
- * four values, so a run.json written before it still parses.
+ * T178/T179: the criterion board is more than pass/fail. `stale` means a proof
+ * that once stood no longer binds the bytes it cited; `disputed` means the host
+ * passed the check while the verifier did not — a disagreement only the owner
+ * can settle. Both are additive to the older four values, so a run.json written
+ * before them still parses.
  */
-export type CriterionStatus = "unknown" | "pass" | "fail" | "claimed" | "stale"
+export type CriterionStatus = "unknown" | "pass" | "fail" | "claimed" | "stale" | "disputed"
 
 export type CriterionState = {
   status: CriterionStatus
-  by?: "host" | "verifier" | "verifier-fallback" | "human"
+  by?: "host" | "verifier" | "verifier-fallback" | "human" | "disputed"
   at?: number
   detail?: string
   /**

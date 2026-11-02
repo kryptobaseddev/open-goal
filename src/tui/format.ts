@@ -131,7 +131,7 @@ export function bannerText(view: GoalView): { text: string; tone: Tone } | undef
 export function statusText(view: GoalView, now: number): string {
   const st = statusOf(view.status)
   const lines = [`${view.title} — ${st.icon} ${st.label}${view.reason ? ` (${view.reason})` : ""}`, `Outcome: ${view.outcome}`, usageLine(view, now), ""]
-  for (const c of view.criteria) lines.push(`${c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : c.status === "claimed" ? "◐" : c.status === "stale" ? "⚠" : "·"} ${c.id}${c.invariant ? " (invariant)" : ""} ${c.statement}${c.detail && c.status !== "pass" ? `\n    ${c.detail.split("\n")[0]}` : ""}`)
+  for (const c of view.criteria) lines.push(`${c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : c.status === "claimed" ? "◐" : c.status === "stale" ? "⚠" : c.status === "disputed" ? "⚖" : "·"} ${c.id}${c.invariant ? " (invariant)" : ""} ${c.statement}${c.detail && c.status !== "pass" ? `\n    ${c.detail.split("\n")[0]}` : ""}`)
   if (view.steps.length) {
     lines.push("")
     for (const s of view.steps) lines.push(`${s.status === "done" ? "✓" : s.status === "active" ? "▸" : "·"} ${s.id} ${s.title}`)
