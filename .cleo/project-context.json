@@ -7,17 +7,29 @@
   "monorepo": false,
   "release": {
     "prRequiredWorkflows": [
-      "Typecheck, unit tests, Node bin"
+      {
+        "name": "Typecheck, unit tests, Node bin",
+        "app": "github-actions",
+        "workflow": ".github/workflows/ci.yml"
+      }
     ]
   },
   "evidence": {
     "ciSatisfies": true,
     "ciChecks": {
       "tests": [
-        "Typecheck, unit tests, Node bin"
+        {
+          "name": "Typecheck, unit tests, Node bin",
+          "app": "github-actions",
+          "workflow": ".github/workflows/ci.yml"
+        }
       ],
       "qa": [
-        "Typecheck, unit tests, Node bin"
+        {
+          "name": "Typecheck, unit tests, Node bin",
+          "app": "github-actions",
+          "workflow": ".github/workflows/ci.yml"
+        }
       ]
     }
   }
