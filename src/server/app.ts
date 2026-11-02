@@ -13,7 +13,7 @@ import { isHostCheck } from "../contract/types"
 import { GoalRpc, type GoalSummary, type GoalTarget, type GoalView, type ManageAction } from "../rpc"
 import { account, budgetUse, initialRun, isActive, isTerminal, modelCan, ownerCan, setStatus, type Handoff, type PendingKind, type RunState, type Status } from "../engine/state"
 import { isHarnessIdentity } from "../engine/harness-identity"
-import { Store } from "../engine/store"
+import { Store, type RunWriteOutcome } from "../engine/store"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
 import { LaunchStore, launchChoices, launchView, processAlive, type LaunchActivity, type LaunchRequest } from "../engine/launches"
 import { amendmentDiff, amendedState } from "../engine/amendment"
@@ -447,15 +447,24 @@ export class GoalApp {
     ].join(" ")
   }
 
-  private persist(state: RunState) {
+  private persist(state: RunState, options: { replace?: boolean } = {}): RunWriteOutcome {
     account(state)
     if (!isActive(state.status)) state.activity = undefined // T053: no stale tracer on stopped/terminal states
-    this.store.writeRun(state)
+    const outcome = this.store.writeRun(state, options)
+    if (!outcome.written) {
+      // T172: a newer VALID run.json exists (an owner repair, or a successor
+      // run). The store left the disk bytes untouched and journalled the
+      // receipt; never refresh the derived index or the UI from a snapshot the
+      // disk has already superseded. The owner is told once per generation.
+      if (outcome.journalled) this.noticeM(state.sessionID, M.staleWrite(state.slug, outcome.mine.revision, outcome.disk.revision))
+      return outcome
+    }
     // T026: every persisted transition refreshes the derived machine-level
     // index (skipped when nothing changed, since usage bursts persist often).
     // T061: priority rides the registry entry (absent stays absent).
     this.registry.update(this.rootReal, state.slug, { title: state.title, status: state.status, ...(state.runId ? { runId: state.runId } : {}), ...(state.lock ? { lock: state.lock } : {}), ...(state.priority ? { priority: state.priority } : {}), updatedAt: Date.now() })
     this.emitUpdate(state)
+    return outcome
   }
 
   private factsOf(sessionID: string): SessionFacts {
@@ -1939,7 +1948,7 @@ export class GoalApp {
         if (link) this.store.ledger(slug, link)
         this.store.ledger(slug, { type: "cleo-health", state: health.state, ...(health.cli.version ? { version: health.cli.version } : {}), ...(health.projectId ? { projectId: health.projectId } : {}) })
       }
-      this.persist(state)
+      this.persist(state, { replace: true })
       this.noticeM(sessionID, M.goalStarted(contract.title))
       if (!this.factsOf(sessionID).busy) await this.admit(state, "kickoff")
       return `Goal "${contract.title}" started (run ${state.runId}). The host drives the loop from here: work toward the outcome, record progress with goal_progress, and call goal_claim when every criterion holds.`

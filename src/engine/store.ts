@@ -2,23 +2,80 @@
 // and the plugin's run.json, ledger.jsonl and evidence/. Where <goals> lives is
 // a project setting resolved once in store-root.ts; today, with nothing
 // configured, it is still `.opencode/goals`, so existing projects are untouched.
-import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, writeFileSync, writeSync } from "node:fs"
+import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync, writeSync } from "node:fs"
 import { join } from "node:path"
 import { parseContract, type ParseResult } from "../contract/parse"
-import type { RunState } from "./state"
+import type { RunState, RunWriter } from "./state"
 import type { AmendmentRequest } from "./amendments"
 import { resolveStoreRoots, type StoreRoots } from "./store-root"
 
 export type LedgerEvent = { t: number; type: string; [key: string]: unknown }
 
+/** T172: one generation of a run row, as a refusal receipt names it. */
+export type RunGeneration = {
+  revision: number
+  runId: string
+  lock: string
+  status: string
+  updatedAt: number
+  writtenAt?: number
+  writtenBy?: RunWriter
+}
+
+export type RunWriteOutcome =
+  | { written: true; revision: number }
+  | {
+      written: false
+      /** True the first time this process refuses this (writer, disk) pair. */
+      journalled: boolean
+      /** `stale`: same run, disk generation ahead. `superseded`: another run owns the row. */
+      reason: "stale" | "superseded"
+      mine: RunGeneration
+      disk: RunGeneration
+    }
+
+export const runGeneration = (state: Pick<RunState, "revision" | "runId" | "lock" | "status" | "updatedAt" | "writtenAt" | "writtenBy">): RunGeneration => ({
+  revision: state.revision ?? 0,
+  runId: state.runId,
+  lock: state.lock,
+  status: state.status,
+  updatedAt: state.updatedAt,
+  ...(state.writtenAt !== undefined ? { writtenAt: state.writtenAt } : {}),
+  ...(state.writtenBy ? { writtenBy: state.writtenBy } : {}),
+})
+
+/** The highest revision mentioned by a file we cannot parse. Used ONLY to keep
+ * the counter monotonic across a corruption repair — never to refuse a write. */
+function revisionsInText(text: string): number {
+  let max = 0
+  for (const match of text.matchAll(/"revision"\s*:\s*(\d+)/g)) max = Math.max(max, Number(match[1]))
+  return Number.isFinite(max) ? max : 0
+}
+
+function parseRunText(text: string): RunState | undefined {
+  try {
+    const value = JSON.parse(text)
+    return value?.version === 1 ? (value as RunState) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export class Store {
   readonly goalsDir: string
   readonly archiveDir: string
   readonly roots: StoreRoots
-  constructor(readonly root: string, roots: StoreRoots = resolveStoreRoots(root)) {
+  /** T172: this process's identity as a run writer. */
+  private readonly writerStartedAt = Date.now() - Math.round(process.uptime() * 1000)
+  /** T172: one durable receipt per (writer, disk) generation pair per process,
+   * so a refused burst cannot fill the ledger with the same refusal. */
+  private readonly refused = new Set<string>()
+  private readonly logLine: (line: string) => void
+  constructor(readonly root: string, roots: StoreRoots = resolveStoreRoots(root), options: { log?: (line: string) => void } = {}) {
     this.roots = roots
     this.goalsDir = roots.goals
     this.archiveDir = roots.archive
+    this.logLine = options.log ?? ((line) => process.stderr.write(`${line}\n`))
   }
 
   dir(slug: string) {
@@ -77,12 +134,7 @@ export class Store {
   readRun(slug: string, options: { archived?: boolean } = {}): RunState | undefined {
     const raw = this.readRunRaw(slug, options)
     if (!raw || raw.duplicates.length) return undefined
-    try {
-      const value = JSON.parse(raw.text)
-      return value?.version === 1 ? (value as RunState) : undefined
-    } catch {
-      return undefined
-    }
+    return parseRunText(raw.text)
   }
 
   /** Keep the exact bytes a corrupt run.json had, beside the run. */
@@ -94,19 +146,84 @@ export class Store {
     return path
   }
 
-  writeRun(state: RunState) {
-    const dir = this.dir(state.slug)
+  /**
+   * T172: write the run row, but never over a newer VALID generation.
+   *
+   * This is a real defect, seen twice in a sibling project: a dying engine's
+   * final `run.json` write landed after the owner had repaired the file and
+   * undid the repair. `revision` is a monotonic generation stamped by every
+   * accepted write, so the snapshot a writer holds names the generation it has
+   * seen. A write is refused when the disk row it would replace is valid and
+   *
+   *   - belongs to another run (a successor already took the row), or
+   *   - carries a higher revision (this writer's snapshot is behind).
+   *
+   * A malformed or partially-written disk file is NOT newer: it is the
+   * existing corruption path, and the repair must still write. A writer that is
+   * ahead (or level with) the disk is forward progress and writes normally.
+   *
+   * Refusal leaves the disk bytes untouched and journals one `stale-write`
+   * receipt naming both generations; nothing is a silent no-op.
+   *
+   * `replace` is the explicit new-run path (a different runId deliberately
+   * takes the row over); only the host's start path passes it.
+   */
+  writeRun(state: RunState, options: { replace?: boolean } = {}): RunWriteOutcome {
+    const slug = state.slug
+    const raw = this.readRunRaw(slug)
+    const disk = raw && !raw.duplicates.length ? parseRunText(raw.text) : undefined
+    const mine = runGeneration(state)
+    if (disk && !options.replace) {
+      if (disk.runId !== state.runId) return this.refuseStale(state, mine, runGeneration(disk), "superseded")
+      if ((disk.revision ?? 0) > (state.revision ?? 0)) return this.refuseStale(state, mine, runGeneration(disk), "stale")
+    }
+    // Preserve monotonicity across a corruption repair: the unreadable bytes may
+    // still name a generation, and the repair must not roll the counter back
+    // (which would let a demonstrably old writer look current again).
+    const corrupt = raw && !disk ? revisionsInText(raw.text) : 0
+    const next = Math.max(state.revision ?? 0, disk?.revision ?? 0, corrupt) + 1
+    const now = Date.now()
+    const writtenBy: RunWriter = { pid: process.pid, startedAt: this.writerStartedAt, sessionID: state.sessionID }
+    const dir = this.dir(slug)
     mkdirSync(dir, { recursive: true })
     const path = join(dir, "run.json")
-    const tmp = `${path}.${process.pid}.${Date.now()}.tmp`
+    const tmp = `${path}.${process.pid}.${now}.tmp`
     const fd = openSync(tmp, "w", 0o600)
     try {
-      writeSync(fd, `${JSON.stringify(state, null, 2)}\n`)
+      writeSync(fd, `${JSON.stringify({ ...state, revision: next, writtenAt: now, writtenBy }, null, 2)}\n`)
       fsyncSync(fd)
     } finally {
       closeSync(fd)
     }
+    // One more read just before the rename closes all but the final instant: a
+    // valid newer generation that landed between the check above and this write
+    // still wins. `state` is left exactly as it was until the rename succeeds.
+    const again = this.readRun(slug)
+    if (again && !options.replace && (again.runId !== state.runId || (again.revision ?? 0) > (state.revision ?? 0))) {
+      try { unlinkSync(tmp) } catch { /* already gone */ }
+      return this.refuseStale(state, mine, runGeneration(again), again.runId !== state.runId ? "superseded" : "stale")
+    }
     renameSync(tmp, path)
+    state.revision = next
+    state.writtenAt = now
+    state.writtenBy = writtenBy
+    return { written: true, revision: next }
+  }
+
+  /** Journal (once per pair per process), log and name both generations. */
+  private refuseStale(state: RunState, mine: RunGeneration, disk: RunGeneration, reason: "stale" | "superseded"): RunWriteOutcome {
+    const key = `${state.slug}|${mine.runId}|${mine.revision}|${disk.runId}|${disk.revision}|${disk.writtenAt ?? 0}|${disk.writtenBy?.pid ?? "-"}`
+    const journalled = !this.refused.has(key)
+    if (journalled) {
+      this.refused.add(key)
+      this.ledger(state.slug, {
+        type: "stale-write", slug: state.slug, runId: state.runId, reason,
+        pid: process.pid, writerStartedAt: this.writerStartedAt, sessionID: state.sessionID,
+        mine, disk, action: "disk-left-untouched",
+      })
+      this.logLine(`open-goal: refused a ${reason} run.json write for "${state.slug}" (pid ${process.pid}, session ${state.sessionID}): this writer holds generation ${mine.revision} (lock ${mine.lock.slice(0, 12)}), disk is generation ${disk.revision} (lock ${disk.lock.slice(0, 12)}, writer pid ${disk.writtenBy?.pid ?? "unknown"}). The disk bytes were left untouched.`)
+    }
+    return { written: false, journalled, reason, mine, disk }
   }
 
   writeContractSnapshot(slug: string, runId: string, lock: string, text: string) {
@@ -130,10 +247,17 @@ export class Store {
     if (!read || read.lock !== request.lock && read.lock !== request.nextLock) throw new Error("Amendment disk contract changed outside the reviewed generation")
     if (request.commit.state.lock !== request.nextLock || request.commit.state.runId !== state.runId) throw new Error("Invalid host write-ahead state")
     const result = state.lock === request.nextLock ? state : request.commit.state
+    // T172: the commit re-read the run above and bound this exact runId/lock.
+    // Carry that just-read generation so a legitimate amendment commit is
+    // forward progress even when its write-ahead snapshot predates it.
+    result.revision = Math.max(result.revision ?? 0, state.revision ?? 0)
     this.writeContractSnapshot(request.slug, request.runId, request.lock, read.lock === request.lock ? read.text : this.lockedSnapshot(request.slug, request.runId, request.lock))
     this.writeContractSnapshot(request.slug, request.runId, request.nextLock, request.nextText)
     if (read.lock !== request.nextLock) this.writeAtomic(this.contractPath(request.slug), request.nextText)
-    if (state.lock !== request.nextLock) this.writeRun(result)
+    if (state.lock !== request.nextLock) {
+      const write = this.writeRun(result)
+      if (!write.written) throw new Error(`The run row on disk is a newer generation (${write.disk.revision}) than this accepted amendment (${write.mine.revision}); the accepted generation was not written over it`)
+    }
     const generation = result.amendments.filter((a) => a.status === "accepted").length
     this.evidence(request.slug, request.runId, `amendment-${generation}-${request.id}`, {
       decisionId: request.id, generation, oldLock: request.lock, newLock: request.nextLock,
