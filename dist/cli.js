@@ -7667,6 +7667,61 @@ function parseContract(text, options = {}) {
       if (cleoTasks.length && !criterion.proves?.length && gateForCheck(criterion.check))
         warn(`${at}.proves`, `declares no CLEO AC, so this criterion's evidence is not written to any of ${cleoTasks.map((t) => t.id).join(", ")} — add proves: ["T123#AC1"] if it should be`);
     }
+  const workstreams = [];
+  const rawWorkstreams = raw.workstreams;
+  if (rawWorkstreams !== undefined) {
+    if (!Array.isArray(rawWorkstreams))
+      err("workstreams", "workstreams must be a list");
+    else {
+      const seenIds = new Set;
+      for (const [index, entry] of rawWorkstreams.entries()) {
+        const at = `workstreams[${index}]`;
+        if (!isRecord(entry)) {
+          err(at, "workstream must be a mapping");
+          continue;
+        }
+        const item = entry;
+        const wsId = str(item.id).trim();
+        if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(wsId)) {
+          err(`${at}.id`, "id must be a lowercase kebab-case handle");
+          continue;
+        }
+        if (seenIds.has(wsId)) {
+          err(`${at}.id`, `duplicate workstream id "${wsId}"`);
+          continue;
+        }
+        seenIds.add(wsId);
+        const wsTitle = str(item.title).trim();
+        if (!wsTitle)
+          err(`${at}.title`, "title is required");
+        const task = str(item.task).trim();
+        if (!/^[A-Z]{1,4}\d+$/.test(task))
+          err(`${at}.task`, `task must be a CLEO task id like T169 (got "${task}")`);
+        else if (!cleoTasks.some((t) => t.id === task))
+          err(`${at}.task`, `${task} must also be declared in cleo.tasks so the workstream maps to this goal's saga`);
+        const worker = str(item.worker).trim();
+        if (!/^[a-z0-9][a-z0-9-]{1,39}@[a-z0-9][a-z0-9.-]{1,63}$/.test(worker))
+          err(`${at}.worker`, "worker must be an explicit agent@host address; wildcards are not allowed");
+        const doneWhen = str(item.done_when).trim();
+        if (!doneWhen)
+          err(`${at}.done_when`, "done_when is required: say what the worker must return");
+        const gates = [];
+        if (item.gates !== undefined) {
+          if (!Array.isArray(item.gates))
+            err(`${at}.gates`, "gates must be a list");
+          else
+            for (const value of item.gates) {
+              const gate = str(value);
+              if (!CLEO_GATES.includes(gate))
+                err(`${at}.gates`, `unknown gate "${gate}"; allowed: ${CLEO_GATES.join(", ")}`);
+              else if (!gates.includes(gate))
+                gates.push(gate);
+            }
+        }
+        workstreams.push({ id: wsId, title: wsTitle, task, worker, done_when: doneWhen, ...gates.length ? { gates } : {} });
+      }
+    }
+  }
   const contract = {
     schema: SCHEMA,
     id,
@@ -7683,6 +7738,7 @@ function parseContract(text, options = {}) {
     invariants,
     ...workspace ? { workspace } : {},
     ...cleoTasks.length || cleoSaga || cleoEpics.length ? { cleo: { ...cleoSaga ? { saga: cleoSaga } : {}, ...cleoEpics.length ? { epics: cleoEpics } : {}, tasks: cleoTasks } } : {},
+    ...workstreams.length ? { workstreams } : {},
     protect: strings(raw.protect),
     assumptions,
     plan,
@@ -7762,6 +7818,49 @@ var budgetUse = (state, contract, now = Date.now()) => {
   return { active, parts, ratio };
 };
 
+// src/engine/workstreams.ts
+function planWorkstreams(contract) {
+  const links = new Map((contract.cleo?.tasks ?? []).map((task) => [task.id, task]));
+  return (contract.workstreams ?? []).map((workstream) => {
+    const acs = [];
+    const gates = new Set(workstream.gates ?? []);
+    for (const [gate, aliases] of Object.entries(links.get(workstream.task)?.acs ?? {})) {
+      for (const alias of aliases ?? [])
+        if (!acs.includes(alias))
+          acs.push(alias);
+      if ((aliases ?? []).length)
+        gates.add(gate);
+    }
+    return { ...workstream, acs, gates: CLEO_GATES.filter((gate) => gates.has(gate)) };
+  });
+}
+function aggregate(states) {
+  const list = [...states];
+  const count = (status) => list.filter((state) => state.status === status).length;
+  return {
+    total: list.length,
+    accepted: count("accepted"),
+    rejected: count("rejected"),
+    pending: count("pending") + count("dispatched"),
+    proven: list.length > 0 && list.every((state) => state.status === "accepted")
+  };
+}
+function workstreamRows(contract, states) {
+  return planWorkstreams(contract).map((workstream) => {
+    const state = states?.[workstream.id];
+    return {
+      id: workstream.id,
+      title: workstream.title,
+      task: workstream.task,
+      worker: workstream.worker,
+      done_when: workstream.done_when,
+      status: state?.status ?? "pending",
+      ...state?.reason ? { reason: state.reason } : {},
+      ...state?.at ? { at: state.at } : {}
+    };
+  });
+}
+
 // src/cli/status.ts
 var STATUS_SCHEMA_VERSION = 1;
 var NONE = {
@@ -7814,6 +7913,7 @@ function goalStatus(store, now = Date.now(), extras = {}) {
   });
   const states = Object.values(run.criteria).filter((c) => c && typeof c === "object");
   const budget = contract ? budgetUse(run, contract, now) : { ratio: 0, parts: [] };
+  const workstreams = contract ? workstreamRows(contract, run.workstreams) : [];
   return {
     schemaVersion: STATUS_SCHEMA_VERSION,
     goal: run.slug,
@@ -7828,6 +7928,7 @@ function goalStatus(store, now = Date.now(), extras = {}) {
     proven: states.filter((c) => c.status === "pass").length,
     total: states.length,
     ...extras.cleo ? { cleo: extras.cleo } : {},
+    ...workstreams.length ? { workstreams, workstreamsProven: aggregate(Object.values(run.workstreams ?? {})) } : {},
     budget: { ratio: budget.ratio, parts: budget.parts.map((p) => ({ name: p.name, used: p.used, limit: p.limit })) },
     verdict: run.verdict ? { passed: run.verdict.passed, lines: run.verdict.lines, turn: run.verdict.turn } : null,
     blocker: run.blocker ? { key: run.blocker.key, count: run.blocker.count, reason: run.blocker.reason } : null,

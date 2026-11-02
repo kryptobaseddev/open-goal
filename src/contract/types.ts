@@ -166,6 +166,9 @@ export const gateForCheck = (check: Check): CleoGate | undefined => {
   if (check.kind === "command") return /\btypecheck\b|\blint\b/.test(check.run) ? "qaPassed" : "testsPassed"
   if (check.kind === "file" || check.kind === "contains" || check.kind === "absent") return "implemented"
   return undefined
+}
+
+/**
  * T169 — one declared workstream: a CLEO task under this goal, a named worker to
  * do it, and what that worker must return to be believed. Optional and additive:
  * a contract without workstreams behaves exactly as it did before.

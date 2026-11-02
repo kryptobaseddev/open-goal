@@ -45,6 +45,7 @@ export type GoalStatusJson = {
    * `cleo:` block and the CLEO CLI answered; `schemaVersion` stays 1.
    */
   cleo?: CleoRollup
+  /**
    * T169: declared workstreams. Optional and additive — `schemaVersion` stays 1
    * and a run without workstreams omits the field entirely.
    */
