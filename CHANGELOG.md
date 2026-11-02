@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.2 — 2026-11-02
+
+- **Completing a goal never asks you to start what is already running (D5, closed).** The completion notice is now `completeFallback`: it names a successor that is already live (or says plainly that nothing was started because no ready CLEO item and no live successor existed), and it offers only real acts — inspect the goal and archive it. The stale "Start the next goal" row is gone from both the completion notice and the completion decision; `/goal new` remains available at any time. New message builder registered in the actionless-message registry test.
+- **An inverse-intent stop rule is visible at validation instead of at turn 40 (D7, closed as a warning).** A `stop.when` or `stop.escalate_when` entry phrased as the inverse of continuing ("SHALL NOT continue past X") now produces a warning naming the exact rule and the positive phrasing to use, and `write-goal` states that rule. It is deliberately not an error: a contract that parses today keeps parsing, and an owner contract is never rewritten by a validator.
+- **The registry unit test no longer flakes (test-only).** Its fixture no longer shares a mutable file between concurrently running unit files.
+
 ## 0.12.1 — 2026-11-02
 
 - **Republished from main, no runtime change.** v0.12.0 was tagged and published from `7a7a654` before the branch merged; 0.12.1 is the same canonical-store behaviour built from the merge commit `eec7d2a` on main, and carries the three test-only commits that landed after that tag (the `.cleo/goal-store.json` override end to end, a legacy goal driven in place with an untouched run file, and `ocg migrate` at the process boundary) plus their fixture helpers. Nothing in `src/` differs from 0.12.0.
