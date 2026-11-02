@@ -23,6 +23,9 @@ export type HandoffFacts = {
   title: string
   fromSessionID: string
   toSessionID: string
+  /** T187: the store this project resolved, project-relative POSIX. The
+   *  document names it instead of guessing a path the run does not use. */
+  store: { goalsRel: string }
   prior?: PriorRun
   repo: { head?: string; branch?: string; dirty?: string[] }
   baseline?: Array<{ id: string; pass: boolean }>
@@ -86,7 +89,7 @@ export function buildHandoff(facts: HandoffFacts): HandoffDocument {
     lines.push("")
   }
   lines.push("## What this document is not")
-  lines.push("- It is not a contract: only .opencode/goals/<slug>/goal.yaml is locked and verified.")
+  lines.push(`- It is not a contract: only ${facts.store.goalsRel}/<slug>/goal.yaml is locked and verified.`)
   lines.push("- It is not consent: owner decisions still need their own exact review.")
   lines.push("- If it disagrees with the contract, the contract wins and the disagreement is an owner question.")
   const markdown = lines.join("\n")

@@ -159,8 +159,28 @@ export function planStoreMigration(store: Store, target: StoreRoots): StoreMigra
   }
 }
 
-export type StoreMoveResult = {
-  schemaVersion: 1
+/**
+ * A deterministic digest of the exact reviewed plan. A native owner review is
+ * bound to this value: if either store changed between the review and the
+ * confirmation (a goal finished, a folder appeared at the target), the digest
+ * differs and the move is refused instead of executing bytes nobody reviewed.
+ */
+export function migrationPlanDigest(plan: StoreMigrationPlan): string {
+  const lines = [
+    `source\0${plan.source.layout}\0${plan.source.goals}\0${plan.source.archive}`,
+    `target\0${plan.target.layout}\0${plan.target.goals}\0${plan.target.archive}`,
+    // Bind exactly what the move executes. A skipped goal is reviewed as
+    // skipped; its own bytes may keep changing (a live run writes its ledger)
+    // without invalidating the review. If it becomes movable, `move`/`skip`
+    // flips and the digest changes — so the owner can never confirm a larger
+    // set than the one they saw.
+    ...plan.goals.map((goal) =>
+      `${goal.archived ? "archive" : "live"}\0${goal.slug}\0${goal.migratable ? `move\0${goal.from}\0${goal.to}\0${goal.digest}` : "skip"}`),
+  ]
+  return sha256(lines.join("\n"))
+}
+
+export type StoreMoveResult = {  schemaVersion: 1
   dryRun: false
   /** Goal folders actually copied (the legacy copies stay in place). */
   writes: number

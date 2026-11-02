@@ -140,7 +140,7 @@ export default {
       const label = String(data.status ?? "summary").replace(/_/g, " ")
       return data.status === "complete" ? `✓ Goal complete — ${data.title ?? label}` : `Goal ${label}`
     }
-    const summaryBody = (data: any) => String(data.digest ?? dialogDigest(String(data.headline ?? "summary"), String(data.text ?? "")))
+    const summaryBody = (data: any) => String(data.digest ?? dialogDigest(String(data.headline ?? "summary"), String(data.text ?? ""), 14, 100, views[data.sessionID]?.store))
     const flushSummary = (sessionID: string) => {
       const queued = pendingSummaries.get(sessionID)
       pendingSummaries.delete(sessionID)

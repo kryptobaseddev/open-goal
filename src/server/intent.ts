@@ -16,6 +16,8 @@ export function directGoalCommand(text: string, slugs: readonly string[]): boole
     case "cleo": return true
     // T173: the supported reconcile after a plugin hot-load.
     case "reload": case "reconcile": return !arg
+    // T188: the store-migration surface (dry run, then a native confirmation).
+    case "migrate": return !arg || arg === "confirm"
     case "amend": return !arg || arg === "confirm" || rest.length === 1 && named(rest[0]!)
     // T183: the owner rebases the run's baseline to one named commit (or HEAD).
     // It is never a conversational instruction for the agent to interpret.

@@ -263,6 +263,14 @@ export const M = {
       // stays guidance
       ...(cleoPresent ? [] : [{ label: "Install CLEO for tracking", run: "install CLEO — no .cleo workspace in this project yet" }]),
     ], "done"),
+  /* T188: the store-migration review. The act carries the plan digest, so the
+   * move can only execute the exact folders the owner reviewed. */
+  storeMigration: (plan: { source: { goals: string }; target: { goals: string }; totals: { goals: number; migratable: number } }, digest: string) =>
+    msg("goal.store.migration", "warning", `Move ${plan.totals.migratable} of ${plan.totals.goals} goal folder(s) from ${plan.source.goals}/ into ${plan.target.goals}/? Finished and draft goals are copied; live, unreadable and conflicting runs are skipped. The legacy copies stay in place; nothing moves until you choose.`, [
+      { label: `Move into ${plan.target.goals}/`, run: "answer with this option to confirm the exact reviewed migration; nothing else moves", act: "migrate", arg: digest },
+      { label: "Cancel operation", run: "keep both stores exactly as they are" },
+      { label: "Comment instead", run: "reply with commentary; no migration is authorized" },
+    ], "question"),
 }
 
 /** Every engine notice comes from M — the unit suite pins none is actionless. */

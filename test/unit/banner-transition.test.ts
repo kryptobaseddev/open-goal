@@ -14,6 +14,9 @@ const view = (slug: string, status: string): GoalView => ({
   turn: 1, timeline: [], activeMs: 0, activeSince: null,
   usage: { tokens: 0, cost: 0 }, budget: [], budgetRatio: 0,
   criteria: [], steps: [], awaitingUser: false, amendments: 0, flags: 0,
+  // This fixture stands for a goal that lives in the legacy store; the banner
+  // names whatever store the view carries (T187), so carry one.
+  store: { goalsRel: ".opencode/goals", archiveRel: ".opencode/goals-archive" },
   updatedAt: Date.now(),
   ...(status === "running" ? { activity: { kind: "turn" as const, since: Date.now() } } : {}),
   ...(status === "blocked" ? { blocker: { key: "token", reason: `token for ${slug}`, count: 3 } } : {}),

@@ -46,6 +46,7 @@ const viewOf = (status: string): GoalView =>
     outcome: contract.outcome,
     status,
     runId: "r1",
+    store: { goalsRel: ".cleo/goals", archiveRel: ".cleo/goals-archive" },
     turn: 4,
     timeline: [],
     activeMs: 60000,
@@ -71,11 +72,11 @@ describe("end-state copy (T071)", () => {
       const banner = bannerText(view)
       expect(banner).toBeDefined()
       expect(banner!.text.toLowerCase()).toContain("stopped")
-      expect(banner!.text).toContain(".opencode/goals/demo/")
+      expect(banner!.text).toContain(".cleo/goals/demo/")
 
       const compact = cardCompactLines(view, 1, 60).map((l) => l.text).join("\n")
       expect(compact.toLowerCase()).toContain("stopped")
-      expect(compact).toContain(".opencode/goals/demo/")
+      expect(compact).toContain(".cleo/goals/demo/")
 
       const expanded = cardExpandedLines(view, 1, 60).map((l) => l.text).join("\n")
       expect(expanded.toLowerCase()).toContain("stopped")

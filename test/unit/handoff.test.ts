@@ -9,12 +9,13 @@ const facts = {
   title: "Next goal",
   fromSessionID: "ses_from",
   toSessionID: "ses_to",
-  prior: { slug: "done-goal", runId: "r1", lock: "a".repeat(64), status: "complete", turn: 9, evidence: ".opencode/goals/done-goal/evidence/r1/", summary: "9/9 proven" },
+  store: { goalsRel: ".cleo/goals" },
+  prior: { slug: "done-goal", runId: "r1", lock: "a".repeat(64), status: "complete", turn: 9, evidence: ".cleo/goals/done-goal/evidence/r1/", summary: "9/9 proven" },
   repo: { head: "abc123", branch: "main", dirty: [] },
   baseline: [{ id: "C1", pass: false }, { id: "I1", pass: true }],
   nextAction: { step: "S1", title: "author the red tests" },
   authority: { trust: ["goal.yaml", "docs/HANDOFF-v0.8.0.md"], stale: ["docs/HANDOFF.md (v0.3.x body)"] },
-  evidence: [".opencode/goals/done-goal/evidence/r1/"],
+  evidence: [".cleo/goals/done-goal/evidence/r1/"],
   now: 1_000,
 }
 
@@ -28,7 +29,16 @@ test("the handoff names the prior run, lock, baseline, next action and stale doc
   expect(h.markdown).toContain("S1: author the red tests")
   expect(h.markdown).toContain("docs/HANDOFF.md (v0.3.x body)")
   expect(h.markdown).toContain("context, not authority")
+  // T187: the "not a contract" line names the store this project resolved.
+  expect(h.markdown).toContain("only .cleo/goals/<slug>/goal.yaml is locked")
+  expect(h.data.store).toEqual({ goalsRel: ".cleo/goals" })
   expect(h.data.prior?.runId).toBe("r1")
+})
+
+test("a pinned legacy store is named verbatim, not the canonical default", () => {
+  const h = buildHandoff({ ...facts, store: { goalsRel: ".opencode/goals" } })
+  expect(h.markdown).toContain("only .opencode/goals/<slug>/goal.yaml is locked")
+  expect(h.markdown).not.toContain("only .cleo/goals/<slug>/goal.yaml")
 })
 
 test("a first goal says so instead of inventing a prior run", () => {

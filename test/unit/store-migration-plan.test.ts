@@ -6,7 +6,7 @@ import { join, relative } from "node:path"
 import { parseContract } from "../../src/contract/parse"
 import { initialRun, type RunState } from "../../src/engine/state"
 import { Store } from "../../src/engine/store"
-import { StoreMigrationError, planStoreMigration } from "../../src/engine/store-migration"
+import { StoreMigrationError, migrationPlanDigest, planStoreMigration } from "../../src/engine/store-migration"
 import { CANONICAL_GOALS_REL, LEGACY_GOALS_REL, resolveStoreRoots } from "../../src/engine/store-root"
 
 // The migration dry run is READ ONLY. These cases prove the plan lists every
@@ -130,8 +130,7 @@ describe("planning a migration", () => {
     expect(first.totals).toEqual({ goals: 1, bytes: goal.bytes, migratable: 1 })
   })
 
-  test("a target that already holds the slug is a reported conflict", () => {
-    const root = project("conflict")
+  test("a target that already holds the slug is a reported conflict", () => {    const root = project("conflict")
     const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
     addGoal(store, "finished", { status: "complete" })
     const target = resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL })
@@ -166,5 +165,39 @@ describe("a migration refuses unsafe geometry", () => {
     const source = new Store(root, resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL }))
     const target = resolveStoreRoots(root, { goalsDir: ".cleo/goals/nested" })
     expect(() => planStoreMigration(source, target)).toThrow(/overlap/)
+  })
+})
+
+// T188: the native owner review is bound to this digest. If the store changed
+// between review and confirmation, the digest changes and the move is refused.
+describe("the reviewed-plan digest", () => {
+  test("is stable for unchanged bytes and changes when a goal or its content changes", () => {
+    const root = project("digest")
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
+    addGoal(store, "finished", { status: "complete", extra: "one" })
+    const target = resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL })
+    const first = planStoreMigration(store, target)
+    expect(migrationPlanDigest(first)).toBe(migrationPlanDigest(planStoreMigration(store, target)))
+    expect(migrationPlanDigest(first)).toMatch(/^[a-f0-9]{64}$/)
+
+    // a goal that becomes non-migratable changes what the owner reviewed
+    const run = JSON.parse(readFileSync(join(store.dir("finished"), "run.json"), "utf8"))
+    writeFileSync(join(store.dir("finished"), "run.json"), JSON.stringify({ ...run, status: "running" }))
+    expect(migrationPlanDigest(planStoreMigration(store, target))).not.toBe(migrationPlanDigest(first))
+
+    // and so does a different plan shape
+    addGoal(store, "another", { status: "complete" })
+    expect(migrationPlanDigest(planStoreMigration(store, target))).not.toBe(migrationPlanDigest(first))
+  })
+
+  test("a live (skipped) goal's own writes do not invalidate the reviewed move", () => {
+    const root = project("digest-live")
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
+    addGoal(store, "running", { status: "waiting" })
+    const target = resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL })
+    const reviewed = migrationPlanDigest(planStoreMigration(store, target))
+    // the live run keeps appending ledger lines; it is not moved either way
+    writeFileSync(join(store.dir("running"), "ledger.jsonl"), `${JSON.stringify({ t: 9, type: "turn" })}\n`)
+    expect(migrationPlanDigest(planStoreMigration(store, target))).toBe(reviewed)
   })
 })

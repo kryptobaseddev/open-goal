@@ -6,8 +6,8 @@
 // actionable rows become keyboard-selectable models the TUI renders as
 // native Select components. The raw ledger timeline is gone from the UI (it
 // stays in the file).
-import type { GoalSummary, GoalView, TimelineEntry } from "../rpc"
-import { bar, elapsed, endStateCopy, fit, fmtTokens, type Line, type Tone } from "./format"
+import type { GoalSummary, GoalView, StorePaths, TimelineEntry } from "../rpc"
+import { bar, elapsed, endStateCopy, fit, fmtTokens, goalFolder, type Line, type Tone } from "./format"
 import { tracerLines } from "./tracer"
 
 
@@ -63,8 +63,8 @@ export function cardCompactLines(view: GoalView, now: number, width = 40): Line[
   // T071: at a terminal state the card says the loop stopped and where the
   // follow-ups live (the progress note is moot then). Compact form: the slug
   // path fits the sidebar; the full line lives in the banner and the panel.
-  const stopped = endStateCopy(view.status, view.slug)
-  if (stopped) lines.push({ text: fit(`■ loop stopped — follow-ups: .opencode/goals/${view.slug}/`, width), tone: stopped.tone })
+  const stopped = endStateCopy(view.status, view.slug, view.store)
+  if (stopped) lines.push({ text: fit(`■ loop stopped — follow-ups: ${goalFolder(view.store, view.slug)}`, width), tone: stopped.tone })
   else if (view.progress) lines.push({ text: fit(`↻ ${view.progress.note}`, width), tone: "muted", tab: "now" })
   // T073: the expand affordance always occupies the card's last line — the
   // cap stays 12; the sections the width truncated name their panel tab so
@@ -93,7 +93,7 @@ export function cardExpandedLines(view: GoalView, now: number, width = 46): Line
     for (const r of rest) lines.push({ text: r, tone })
   }
   emit(`◎ GOAL ${st.icon} ${st.label}${view.reason ? ` — ${view.reason}` : ""}`, st.tone, { bold: true })
-  const stopped = endStateCopy(view.status, view.slug)
+  const stopped = endStateCopy(view.status, view.slug, view.store)
   if (stopped) emit(stopped.text, stopped.tone)
   emit(view.title, "base", { bold: true, tab: "now" })
   if (view.actionRequired) emit(`⚑ ${view.actionRequired}`, "error", { bold: true, tab: "decisions" })
@@ -229,11 +229,11 @@ export function decisionRows(view: GoalView): ActionRow[] {
  *  summary (~50 lines) overflowed off the owner's screen. Everything shown
  *  in a dialog goes through this digest: headline, the first lines, and a
  *  pointer to where the rest lives. */
-export function dialogDigest(title: string, text: string, maxLines = 14, maxCols = 100): string {
+export function dialogDigest(title: string, text: string, maxLines = 14, maxCols = 100, store?: StorePaths): string {
   const lines = text.split("\n").map((l) => (l.length > maxCols ? `${l.slice(0, maxCols - 1)}…` : l))
   const head = lines.slice(0, maxLines)
   const rest = lines.length - head.length
-  return [title, ...head, ...(rest > 0 ? [`… +${rest} more lines — full text: the Goal panel (F9) or .opencode/goals/ evidence` ] : [])].join("\n")
+  return [title, ...head, ...(rest > 0 ? [`… +${rest} more lines — full text: the Goal panel (F9) or ${goalFolder(store)} evidence` ] : [])].join("\n")
 }
 
 /** (B) the tabbed panel body. Pure; snapshot-tested. T073: the panel is the
