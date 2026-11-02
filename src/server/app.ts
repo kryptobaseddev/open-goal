@@ -3537,7 +3537,7 @@ export class GoalApp {
 
   // ───────────────────────────── owner actions (command, RPC)
 
-  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose" | "revert" | "rebase" | "migrate"
+  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose" | "revert" | "rebase" | "migrate", arg?: string, via: "form" | "dialog" = "dialog", decisionId?: string): Promise<{ ok: boolean; message: string }> {
     return this.serial(async () => {
       const pending = this.pendingDecisions.get(sessionID)
       const request = this.decisions.get(decisionId ?? pending?.id ?? "")
