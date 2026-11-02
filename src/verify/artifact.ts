@@ -68,12 +68,27 @@ export function artifactDiscrepancies(actual: RuntimeProvenance, expected: {
   runId?: string
   lock?: string
   minVersion?: string
+  /**
+   * T124: a package installed from the npm registry cannot report the release
+   * tag's Git revision in `source.version` (it reports the version label), so
+   * the owner accepted that channel for this project. When set, the revision
+   * label is replaced by `packageVersion === releaseVersion`; every other rule
+   * (package source, outdated, caller binding, every artifact byte, version
+   * floor) still applies, so the proof is the bytes, not the channel.
+   */
+  acceptPackageAtTag?: boolean
+  /** The release version the tag was cut for; required with `acceptPackageAtTag`. */
+  releaseVersion?: string
 }): string[] {
   const errors: string[] = []
   if (actual.schema !== "opencode-goal/provenance/v1") errors.push("missing runtime provenance schema")
   if (!/^[a-f0-9]{40}$/.test(expected.revision)) errors.push("expected revision must be a full immutable Git SHA")
   if (actual.source.type !== "package") errors.push("the running plugin is not a package install")
-  if (actual.source.version !== expected.revision) errors.push(`running revision ${actual.source.version ?? "unknown"} differs from ${expected.revision}`)
+  if (expected.acceptPackageAtTag) {
+    if (actual.packageVersion !== expected.releaseVersion) errors.push(`running package ${actual.packageVersion ?? "unknown"} differs from release ${expected.releaseVersion ?? "unknown"}`)
+  } else if (actual.source.version !== expected.revision) {
+    errors.push(`running revision ${actual.source.version ?? "unknown"} differs from ${expected.revision}`)
+  }
   if (actual.source.outdated === true) errors.push("the running plugin reports outdated=true")
   if (actual.status !== "active" || !actual.features?.server || !actual.features?.tui || !actual.features?.rpc) errors.push("the serving plugin is not active with server/TUI/RPC features")
   for (const key of ["location", "serverPID", "sessionID", "runId", "lock"] as const) {
