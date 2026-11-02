@@ -18,18 +18,10 @@
     "ciSatisfies": true,
     "ciChecks": {
       "tests": [
-        {
-          "name": "Typecheck, unit tests, Node bin",
-          "app": "github-actions",
-          "workflow": ".github/workflows/ci.yml"
-        }
+        "Typecheck, unit tests, Node bin"
       ],
       "qa": [
-        {
-          "name": "Typecheck, unit tests, Node bin",
-          "app": "github-actions",
-          "workflow": ".github/workflows/ci.yml"
-        }
+        "Typecheck, unit tests, Node bin"
       ]
     }
   }
