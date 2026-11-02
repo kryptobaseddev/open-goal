@@ -147,6 +147,27 @@ export type CleoGate = (typeof CLEO_GATES)[number]
  */
 export type CleoTaskLink = { id: string; acs?: Partial<Record<CleoGate, string[]>> }
 
+/**
+ * T171 — the optional CLEO block, extended with the rollup scope. `saga`/`epics`
+ * name where the goal's work lands in CLEO's hierarchy so the read-only rollup
+ * can report proven vs unproven work for that saga and its epics. They add
+ * nothing to what is written: evidence still goes through `cleo verify` only.
+ */
+export type CleoLinks = { saga?: string; epics?: string[]; tasks: CleoTaskLink[] }
+
+/**
+ * T171 — the gate whose evidence CAN demonstrate a criterion, decided by the
+ * criterion's OWN check (never its position). Kept beside the types so the
+ * parser can warn about a `proves:` binding no gate can ever satisfy, and the
+ * bridge uses the same rule. `diff` (a pass means paths are UNCHANGED), a
+ * verifier verdict and a human sign-off prove no CLEO gate.
+ */
+export const gateForCheck = (check: Check): CleoGate | undefined => {
+  if (check.kind === "command") return /\btypecheck\b|\blint\b/.test(check.run) ? "qaPassed" : "testsPassed"
+  if (check.kind === "file" || check.kind === "contains" || check.kind === "absent") return "implemented"
+  return undefined
+}
+
 export type Contract = {
   schema: typeof SCHEMA
   id: string
@@ -167,8 +188,8 @@ export type Contract = {
    *  protect/diff base and the fingerprint resolve here; default is the project
    *  root. `.opencode/goals/**` still resolves at the project root. */
   workspace?: string
-  /** v0.5.0 — the tasks this goal serves (absent ⇒ no CLEO behaviour change). */
-  cleo?: { tasks: CleoTaskLink[] }
+  /** v0.5.0 — the tasks this goal serves; T171 adds the rollup scope. */
+  cleo?: CleoLinks
   protect: string[]
   assumptions: Assumption[]
   plan: Step[]

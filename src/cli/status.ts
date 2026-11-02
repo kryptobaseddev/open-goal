@@ -6,6 +6,7 @@ import type { Contract } from "../contract/types"
 import { budgetUse, isTerminal, type RunState, type Status } from "../engine/state"
 import type { HarnessIdentity } from "../engine/harness-identity"
 import type { Store } from "../engine/store"
+import type { CleoRollup, CleoRollupTargets, GoalCriterionRollup } from "../engine/cleo-rollup"
 
 export const STATUS_SCHEMA_VERSION = 1
 
@@ -37,6 +38,12 @@ export type GoalStatusJson = {
   criteria: StatusCriterion[]
   proven: number
   total: number
+  /**
+   * T171: the read-only CLEO evidence rollup for this goal's saga/epics/tasks.
+   * Optional and additive like `harness`: present only when the contract has a
+   * `cleo:` block and the CLEO CLI answered; `schemaVersion` stays 1.
+   */
+  cleo?: CleoRollup
   budget: { ratio: number; parts: Array<{ name: string; used: number; limit: number }> }
   verdict: { passed: boolean; lines: string[]; turn: number } | null
   blocker: { key: string; count: number; reason: string } | null
@@ -82,7 +89,7 @@ function lockedContract(store: Store, run: RunState): Contract | undefined {
 }
 
 /** Build the status reply for the project the store belongs to. */
-export function goalStatus(store: Store, now = Date.now()): GoalStatusJson {
+export function goalStatus(store: Store, now = Date.now(), extras: { cleo?: CleoRollup } = {}): GoalStatusJson {
   const run = selectRun(store)
   if (!run) return NONE
   const contract = lockedContract(store, run)
@@ -116,9 +123,34 @@ export function goalStatus(store: Store, now = Date.now()): GoalStatusJson {
     criteria,
     proven: states.filter((c) => c.status === "pass").length,
     total: states.length,
+    ...(extras.cleo ? { cleo: extras.cleo } : {}),
     budget: { ratio: budget.ratio, parts: budget.parts.map((p) => ({ name: p.name, used: p.used, limit: p.limit })) },
     verdict: run.verdict ? { passed: run.verdict.passed, lines: run.verdict.lines, turn: run.verdict.turn } : null,
     blocker: run.blocker ? { key: run.blocker.key, count: run.blocker.count, reason: run.blocker.reason } : null,
     updatedAt: run.updatedAt,
   }
+}
+
+/**
+ * T171 — the read-only inputs the CLI passes to `readRollup`: the contract's
+ * saga/epics/tasks and this run's criteria with the ACs each one claims. Pure
+ * read of the locked contract + run state; no CLEO call happens here.
+ */
+export function statusRollupInput(store: Store): { targets: CleoRollupTargets; goal: GoalCriterionRollup[] } | undefined {
+  const run = selectRun(store)
+  if (!run) return undefined
+  const contract = lockedContract(store, run)
+  const cleo = contract?.cleo
+  if (!cleo) return undefined
+  const targets: CleoRollupTargets = { ...(cleo.saga ? { saga: cleo.saga } : {}), epics: cleo.epics ?? [], tasks: cleo.tasks.map((task) => task.id) }
+  if (!targets.saga && !targets.epics.length && !targets.tasks.length) return undefined
+  const declared = [...(contract?.criteria ?? []), ...(contract?.invariants ?? [])]
+  const goal: GoalCriterionRollup[] = declared.map((c) => ({
+    id: c.id,
+    statement: c.statement,
+    status: run.criteria[c.id]?.status ?? "unknown",
+    essential: c.essential,
+    proves: c.proves ?? [],
+  }))
+  return { targets, goal }
 }

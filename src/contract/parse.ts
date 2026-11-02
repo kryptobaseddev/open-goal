@@ -13,6 +13,7 @@ import {
   type CleoGate,
   type CleoTaskLink,
   type GoalAcRef,
+  gateForCheck,
   HOST_KINDS,
   PRIORITIES,
   SCHEMA,
@@ -407,10 +408,24 @@ export function parseContract(text: string, options: { slug?: string; tolerateUn
   // v0.5.0 — the optional CLEO linkage. `cleo.tasks` is a list whose entries are
   // either a bare task id (link for reporting) or `{id, acs}` declaring which
   // gate's evidence proves which AC alias. Absent ⇒ no CLEO behaviour change.
+  // T171 — `cleo.saga`/`cleo.epics` name the rollup scope, nothing more.
   const cleoTasks: CleoTaskLink[] = []
+  let cleoSaga: string | undefined
+  const cleoEpics: string[] = []
   if (raw.cleo !== undefined) {
     if (!isRecord(raw.cleo)) err("cleo", "cleo must be a mapping with a tasks list")
     else {
+      const sagaRaw = str(raw.cleo.saga)
+      if (sagaRaw && !/^[A-Z]{1,4}\d+$/.test(sagaRaw)) err("cleo.saga", `saga id must look like T123 (got "${sagaRaw}")`)
+      else if (sagaRaw) cleoSaga = sagaRaw
+      const epicsRaw = raw.cleo.epics
+      if (epicsRaw !== undefined && !Array.isArray(epicsRaw)) err("cleo.epics", "epics must be a list of epic ids")
+      for (const [index, entry] of (Array.isArray(epicsRaw) ? epicsRaw : []).entries()) {
+        const epicId = str(entry)
+        if (!/^[A-Z]{1,4}\d+$/.test(epicId)) { err(`cleo.epics[${index}]`, `epic id must look like T123 (got "${epicId}")`); continue }
+        if (cleoEpics.includes(epicId)) { err(`cleo.epics[${index}]`, `duplicate epic ${epicId}`); continue }
+        cleoEpics.push(epicId)
+      }
       const tasksRaw = raw.cleo.tasks
       if (tasksRaw !== undefined && !Array.isArray(tasksRaw)) err("cleo.tasks", "tasks must be a list of task ids")
       const seen = new Set<string>()
@@ -439,6 +454,28 @@ export function parseContract(text: string, options: { slug?: string; tolerateUn
     }
   }
 
+  // T171 — the criterion → task map must resolve. `proves: ["T123#AC2"]` on a task
+  // that `cleo.tasks` does not name is dead: the bridge only ever visits declared
+  // tasks, so the AC would silently stay open. Say so at validation time instead.
+  const linkedTaskIds = new Set(cleoTasks.map((t) => t.id))
+  // Only a goal that declares a CLEO block is held to the map: without one the
+  // refs are inert, and a contract that predates the block must still parse.
+  for (const [section, list] of (raw.cleo !== undefined ? [["criteria", criteria], ["invariants", invariants]] as const : []))
+    for (const [index, criterion] of list.entries()) {
+      const at = `${section}[${index}]`
+      for (const ref of criterion.proves ?? []) {
+        const refTask = ref.split("#")[0]!
+        if (!linkedTaskIds.has(refTask))
+          err(`${at}.proves`, `${ref} names ${refTask}, which cleo.tasks does not declare — add it to cleo.tasks or the bridge can never write that evidence`)
+        if (!gateForCheck(criterion.check))
+          warn(`${at}.proves`, `${ref} is bound to a ${criterion.check.kind} check, whose evidence proves no CLEO gate (diff passes when paths are UNCHANGED; a verifier/human verdict is not implemented/testsPassed evidence) — it will stay open`)
+      }
+      // A gate-provable criterion with no binding is allowed, but when the goal
+      // declares CLEO tasks the owner almost always wants it recorded: warn.
+      if (cleoTasks.length && !criterion.proves?.length && gateForCheck(criterion.check))
+        warn(`${at}.proves`, `declares no CLEO AC, so this criterion's evidence is not written to any of ${cleoTasks.map((t) => t.id).join(", ")} — add proves: ["T123#AC1"] if it should be`)
+    }
+
   const contract: Contract = {
     schema: SCHEMA,
     id,
@@ -454,7 +491,7 @@ export function parseContract(text: string, options: { slug?: string; tolerateUn
     criteria,
     invariants,
     ...(workspace ? { workspace } : {}),
-  ...(cleoTasks.length ? { cleo: { tasks: cleoTasks } } : {}),
+  ...(cleoTasks.length || cleoSaga || cleoEpics.length ? { cleo: { ...(cleoSaga ? { saga: cleoSaga } : {}), ...(cleoEpics.length ? { epics: cleoEpics } : {}), tasks: cleoTasks } } : {}),
     protect: strings(raw.protect),
     assumptions,
     plan,
@@ -492,5 +529,10 @@ function yamlHint(text: string): string {
   return ""
 }
 
-export const formatIssues = (issues: Issue[]) =>
-  issues.length ? issues.map((i) => `${i.level === "error" ? "✗" : "!"} ${i.path || "goal.yaml"}: ${i.message}`).join("\n") : "✓ goal.yaml is valid"
+export const formatIssues = (issues: Issue[]) => {
+  const lines = issues.map((i) => `${i.level === "error" ? "✗" : "!"} ${i.path || "goal.yaml"}: ${i.message}`)
+  // A contract with warnings is still valid. Say so, so `validate` never looks
+  // like a failure just because it reported an advisory issue (T171).
+  if (!issues.some((i) => i.level === "error")) lines.push(`✓ goal.yaml is valid${issues.length ? " (with warnings)" : ""}`)
+  return lines.join("\n")
+}
