@@ -45,8 +45,27 @@ export function renderSystemBlock(contract: Contract, lock: string): string {
     out.push(`Scope: in ${contract.scope.in.join(", ") || "(unspecified)"}; out ${contract.scope.out.join(", ") || "(unspecified)"}`)
   out.push(`Non-goals: ${contract.non_goals.join("; ")}`)
   if (contract.constraints.length) out.push(`Constraints: ${contract.constraints.join("; ")}`)
-  if (contract.cleo?.tasks.length)
-    out.push(`CLEO tasks this goal serves (evidence is recorded through the cleo CLI only; an AC no evidence proves stays open and is reported): ${contract.cleo.tasks.map((t) => (t.acs ? `${t.id} (${Object.entries(t.acs).map(([g, acs]) => `${g}=${(acs ?? []).join("/")}`).join(", ")})` : t.id)).join("; ")}`)
+  if (contract.cleo?.tasks.length || contract.cleo?.saga || contract.cleo?.epics?.length) {
+    const cleo = contract.cleo
+    // T171 — render the criterion → task map in the direction the worker needs:
+    // per task, which criterion's AC its gate evidence proves. Derived from the
+    // criteria's own `proves:`, never assigned by position.
+    const provesByTask = new Map<string, string[]>()
+    for (const c of [...contract.criteria, ...contract.invariants])
+      for (const ref of c.proves ?? []) {
+        const [task, ac] = ref.split("#")
+        if (!task || !ac) continue
+        provesByTask.set(task, [...(provesByTask.get(task) ?? []), `${c.id}→${ac}`])
+      }
+    const scope = [cleo.saga ? `saga ${cleo.saga}` : "", cleo.epics?.length ? `epics ${cleo.epics.join(", ")}` : ""].filter(Boolean)
+    const tasks = cleo.tasks.map((t) => {
+      const bound = provesByTask.get(t.id)
+      if (bound?.length) return `${t.id} (${bound.join(", ")})`
+      if (t.acs) return `${t.id} (${Object.entries(t.acs).map(([g, acs]) => `${g}=${(acs ?? []).join("/")}`).join(", ")})`
+      return t.id
+    })
+    out.push(`CLEO ${scope.length ? `${scope.join(" · ")} — ` : ""}tasks this goal serves (evidence is recorded through the cleo CLI only; an AC no evidence proves stays open and is reported): ${tasks.join("; ")}`)
+  }
   // v0.5.2 - a multi-task goal's run commits must cite every linked task id, or a
   // later `cleo goal close` cannot bind the ones no commit names.
   const linked = contract.cleo?.tasks.map((t) => t.id) ?? []

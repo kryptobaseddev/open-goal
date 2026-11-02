@@ -19,7 +19,9 @@
 import { readFileSync } from "node:fs"
 import pkg from "../package.json"
 import { InstallError, installProject, PACKAGE_NAME } from "../src/cli/install"
-import { goalStatus } from "../src/cli/status"
+import { cleoRunner } from "../src/cli/cleo-runner"
+import { goalStatus, statusRollupInput } from "../src/cli/status"
+import { cleoRollupReport, readRollup } from "../src/engine/cleo-rollup"
 import { fingerprint } from "../src/util/git"
 import { Store } from "../src/engine/store"
 import { tick } from "../src/engine/tick"
@@ -36,6 +38,7 @@ const store = new Store(root)
 const USAGE = [
   "usage: cleo-goal --version",
   "       cleo-goal status --json",
+  "       cleo-goal rollup [--json]",
   "       cleo-goal install --project [--spec <npm-or-git spec>] [--json] [--dry-run]",
   "       cleo-goal tick   (reads the harness Stop JSON on stdin; writes JSON on stdout)",
   "usage: ocg tick   (alias; same contract)",
@@ -54,12 +57,29 @@ if (sub === "--version" || sub === "-v" || sub === "version") {
 if (sub === "status") {
   if (!argv.includes("--json")) usage()
   try {
-    process.stdout.write(`${JSON.stringify(goalStatus(store))}\n`)
+    // T171 — when the contract names a CLEO saga/epics/tasks, append the
+    // read-only evidence rollup. No cleo block ⇒ no CLI spawn and the exact
+    // shape callers already rely on.
+    const input = statusRollupInput(store)
+    const cleo = input ? await readRollup(input.targets, cleoRunner(), input.goal) : undefined
+    process.stdout.write(`${JSON.stringify(goalStatus(store, Date.now(), cleo ? { cleo } : {}))}\n`)
     process.exit(0)
   } catch (error) {
     process.stdout.write(`${JSON.stringify({ schemaVersion: 1, error: error instanceof Error ? error.message : String(error) })}\n`)
     process.exit(1)
   }
+}
+
+if (sub === "rollup") {
+  // A human-readable form of the same read-only view status --json carries.
+  const input = statusRollupInput(store)
+  if (!input) {
+    process.stdout.write("No CLEO rollup: the live goal's contract has no cleo saga/epics/tasks.\n")
+    process.exit(0)
+  }
+  const rollup = await readRollup(input.targets, cleoRunner(), input.goal)
+  process.stdout.write(argv.includes("--json") ? `${JSON.stringify(rollup)}\n` : `${cleoRollupReport(rollup)}\n`)
+  process.exit(0)
 }
 
 if (sub === "install") {

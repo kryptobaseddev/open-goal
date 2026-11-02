@@ -31,6 +31,7 @@ import { restartDecision } from "../engine/interrupt-policy"
 import { staleDecision } from "../engine/stale-decisions"
 import { cleoFacts, cleoHealth, cleoHealthReport, cleoLinkEvent, CLEO_INIT_COMMAND, CLEO_INSTALL_COMMAND, type Runner } from "../engine/cleo-link"
 import { bridgeReport, acsByGateFromProves, junitToVitestJson, runBridge, sha256Hex, suggestLinkedTasks, type BridgeReport, type CleoRun, type TaskOutcome } from "../engine/cleo-bridge"
+import { cleoRollupReport, cleoRollupSummary, readRollup, type CleoRollup } from "../engine/cleo-rollup"
 import { OPENCODE_ADAPTER, type HarnessAdapter } from "../engine/harness"
 import type { CleoTaskLink } from "../contract/types"
 import { buildPostGoalSummary } from "../summary/build"
@@ -3784,7 +3785,9 @@ export class GoalApp {
       case "status": {
         const state = this.stateFor(sessionID)
         if (!state) return say(this.listText() || "No goal in this session. /goal new <what you want> writes one; /goal start <slug> runs an existing one.")
-        void this.rpc?.events.emit("notice", { sessionID, level: "info", text: this.statusText(state), panel: true }).catch(() => {})
+        // T171 — a contract with a cleo block also shows the read-only rollup.
+        const rollup = await this.cleoRollupFor(state)
+        void this.rpc?.events.emit("notice", { sessionID, level: "info", text: this.statusText(state, rollup), panel: true }).catch(() => {})
         return
       }
       case "list": {
@@ -3915,6 +3918,14 @@ export class GoalApp {
           const detail = (result.stderr || result.stdout).trim().split("\n").slice(-6).join("\n")
           return say([`Ran on your explicit choice: ${command}`, `exit ${result.exit}${result.timedOut ? " (timed out)" : ""}`, after.detail, detail].filter(Boolean).join("\n"), result.exit === 0 ? "success" : "error")
         }
+        if (what === "rollup") {
+          // T171 — read-only; never writes and never invents a status.
+          const slug = parts[1]
+          const state = slug ? ([...this.runs.values()].find((r) => r.slug === slug) ?? this.store.readRun(slug)) : this.stateFor(sessionID)
+          if (!state) return say(slug ? `No goal "${slug}" here.` : "No goal in this session. /goal start <slug> runs one.", "warning")
+          const rollup = await this.cleoRollupFor(state)
+          return say(rollup ? cleoRollupReport(rollup) : `${state.slug} has no cleo saga/epics/tasks in its contract, so there is nothing to roll up.`, rollup ? "info" : "warning")
+        }
         if (what === "sync") {
           const rest = parts.slice(1)
           // T### links a task; T###@<sha> supplies the implementing commit for a
@@ -3937,7 +3948,7 @@ export class GoalApp {
           const outcomes = await this.runCleoBridge(tasks, links, commitByTask)
           return say(bridgeReport(outcomes), outcomes.every((o) => o.completed) ? "success" : "error")
         }
-        return say("Usage: /goal cleo [install|init|sync [<slug>] [T### …]]", "warning")
+        return say("Usage: /goal cleo [install|init|sync [<slug>] [T### …]|rollup [<slug>]]", "warning")
       }
       case "help":
         return say(goalHelp({ version: (this.ctx.options as any)?.version ?? "v0.2.0" }), "info")
@@ -3961,11 +3972,37 @@ export class GoalApp {
     await this.ctx.session.prompt({ sessionID, text: prompt, skills: [{ id: "write-goal" }], metadata: { goal: { kind: "owner-intent" } } } as any)
   }
 
-  private statusText(state: RunState): string {
+  /**
+   * T171 — the read-only rollup for a live goal. Returns undefined when the
+   * contract names no CLEO scope (so /goal status pays nothing and stays the
+   * same view for a goal that never touched CLEO). Every failed read is carried
+   * in `unread`; this never throws and never writes.
+   */
+  private async cleoRollupFor(state: RunState): Promise<CleoRollup | undefined> {
+    const contract = this.contractOf(state)
+    const cleo = contract?.cleo
+    if (!cleo) return undefined
+    const targets = { ...(cleo.saga ? { saga: cleo.saga } : {}), epics: cleo.epics ?? [], tasks: cleo.tasks.map((t) => t.id) }
+    if (!targets.saga && !targets.epics.length && !targets.tasks.length) return undefined
+    const goal = [...(contract?.criteria ?? []), ...(contract?.invariants ?? [])].map((c) => ({
+      id: c.id,
+      statement: c.statement,
+      status: state.criteria[c.id]?.status ?? ("unknown" as const),
+      essential: c.essential,
+      proves: c.proves ?? [],
+    }))
+    try {
+      return await readRollup(targets, (argv) => this.cleoRun(argv), goal)
+    } catch {
+      return undefined
+    }
+  }
+
+  private statusText(state: RunState, rollup?: CleoRollup): string {
     const v = this.view(state)
     if (!v) return `${state.slug}: ${state.status}`
     const proven = v.criteria.filter((c) => c.status === "pass").length
-    return [`◎ ${v.title} — ${v.status}${v.reason ? ` (${v.reason})` : ""}`, `criteria ${proven}/${v.criteria.length} · turn ${v.turn}`, ...v.criteria.map((c) => `${c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : "·"} ${c.id} ${c.statement}`)].join("\n")
+    return [`◎ ${v.title} — ${v.status}${v.reason ? ` (${v.reason})` : ""}`, `criteria ${proven}/${v.criteria.length} · turn ${v.turn}`, ...v.criteria.map((c) => `${c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : "·"} ${c.id} ${c.statement}`), ...(rollup ? ["", cleoRollupSummary(rollup)] : [])].join("\n")
   }
 
   private listText(): string {

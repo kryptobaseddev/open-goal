@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
 var __require = /* @__PURE__ */ createRequire(import.meta.url);
 
-// node_modules/yaml/dist/nodes/identity.js
+// ../../node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS(function(exports) {
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
@@ -57,7 +57,7 @@ var require_identity = __commonJS(function(exports) {
   exports.isSeq = isSeq;
 });
 
-// node_modules/yaml/dist/visit.js
+// ../../node_modules/yaml/dist/visit.js
 var require_visit = __commonJS(function(exports) {
   var identity = require_identity();
   var BREAK = Symbol("break visit");
@@ -212,7 +212,7 @@ var require_visit = __commonJS(function(exports) {
   exports.visitAsync = visitAsync;
 });
 
-// node_modules/yaml/dist/doc/directives.js
+// ../../node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS(function(exports) {
   var identity = require_identity();
   var visit = require_visit();
@@ -364,7 +364,7 @@ var require_directives = __commonJS(function(exports) {
   exports.Directives = Directives;
 });
 
-// node_modules/yaml/dist/doc/anchors.js
+// ../../node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS(function(exports) {
   var identity = require_identity();
   var visit = require_visit();
@@ -426,7 +426,7 @@ var require_anchors = __commonJS(function(exports) {
   exports.findNewAnchor = findNewAnchor;
 });
 
-// node_modules/yaml/dist/doc/applyReviver.js
+// ../../node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS(function(exports) {
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
@@ -473,7 +473,7 @@ var require_applyReviver = __commonJS(function(exports) {
   exports.applyReviver = applyReviver;
 });
 
-// node_modules/yaml/dist/nodes/toJS.js
+// ../../node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS(function(exports) {
   var identity = require_identity();
   function toJS(value, arg, ctx) {
@@ -500,7 +500,7 @@ var require_toJS = __commonJS(function(exports) {
   exports.toJS = toJS;
 });
 
-// node_modules/yaml/dist/nodes/Node.js
+// ../../node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS(function(exports) {
   var applyReviver = require_applyReviver();
   var identity = require_identity();
@@ -537,7 +537,7 @@ var require_Node = __commonJS(function(exports) {
   exports.NodeBase = NodeBase;
 });
 
-// node_modules/yaml/dist/nodes/Alias.js
+// ../../node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS(function(exports) {
   var anchors = require_anchors();
   var visit = require_visit();
@@ -645,7 +645,7 @@ var require_Alias = __commonJS(function(exports) {
   exports.Alias = Alias;
 });
 
-// node_modules/yaml/dist/nodes/Scalar.js
+// ../../node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS(function(exports) {
   var identity = require_identity();
   var Node = require_Node();
@@ -673,7 +673,7 @@ var require_Scalar = __commonJS(function(exports) {
   exports.isScalarValue = isScalarValue;
 });
 
-// node_modules/yaml/dist/doc/createNode.js
+// ../../node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS(function(exports) {
   var Alias = require_Alias();
   var identity = require_identity();
@@ -745,7 +745,7 @@ var require_createNode = __commonJS(function(exports) {
   exports.createNode = createNode;
 });
 
-// node_modules/yaml/dist/nodes/Collection.js
+// ../../node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS(function(exports) {
   var createNode = require_createNode();
   var identity = require_identity();
@@ -860,7 +860,7 @@ var require_Collection = __commonJS(function(exports) {
   exports.isEmptyPath = isEmptyPath;
 });
 
-// node_modules/yaml/dist/stringify/stringifyComment.js
+// ../../node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS(function(exports) {
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
@@ -877,7 +877,7 @@ var require_stringifyComment = __commonJS(function(exports) {
   exports.stringifyComment = stringifyComment;
 });
 
-// node_modules/yaml/dist/stringify/foldFlowLines.js
+// ../../node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS(function(exports) {
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
@@ -1014,7 +1014,7 @@ ${indent}${text.slice(fold + 1, end)}`;
   exports.foldFlowLines = foldFlowLines;
 });
 
-// node_modules/yaml/dist/stringify/stringifyString.js
+// ../../node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   var foldFlowLines = require_foldFlowLines();
@@ -1312,7 +1312,7 @@ ${indent}`);
   exports.stringifyString = stringifyString;
 });
 
-// node_modules/yaml/dist/stringify/stringify.js
+// ../../node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS(function(exports) {
   var anchors = require_anchors();
   var identity = require_identity();
@@ -1432,7 +1432,7 @@ ${ctx.indent}${str}`;
   exports.stringify = stringify;
 });
 
-// node_modules/yaml/dist/stringify/stringifyPair.js
+// ../../node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS(function(exports) {
   var identity = require_identity();
   var Scalar = require_Scalar();
@@ -1568,7 +1568,7 @@ ${ctx.indent}`;
   exports.stringifyPair = stringifyPair;
 });
 
-// node_modules/yaml/dist/log.js
+// ../../node_modules/yaml/dist/log.js
 var require_log = __commonJS(function(exports) {
   var node_process = __require("process");
   function debug(logLevel, ...messages) {
@@ -1587,7 +1587,7 @@ var require_log = __commonJS(function(exports) {
   exports.warn = warn;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS(function(exports) {
   var identity = require_identity();
   var Scalar = require_Scalar();
@@ -1641,7 +1641,7 @@ var require_merge = __commonJS(function(exports) {
   exports.merge = merge;
 });
 
-// node_modules/yaml/dist/nodes/addPairToJSMap.js
+// ../../node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS(function(exports) {
   var log = require_log();
   var merge = require_merge();
@@ -1702,7 +1702,7 @@ var require_addPairToJSMap = __commonJS(function(exports) {
   exports.addPairToJSMap = addPairToJSMap;
 });
 
-// node_modules/yaml/dist/nodes/Pair.js
+// ../../node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS(function(exports) {
   var createNode = require_createNode();
   var stringifyPair = require_stringifyPair();
@@ -1740,7 +1740,7 @@ var require_Pair = __commonJS(function(exports) {
   exports.createPair = createPair;
 });
 
-// node_modules/yaml/dist/stringify/stringifyCollection.js
+// ../../node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS(function(exports) {
   var identity = require_identity();
   var stringify = require_stringify();
@@ -1885,7 +1885,7 @@ ${indent}${end}`;
   exports.stringifyCollection = stringifyCollection;
 });
 
-// node_modules/yaml/dist/nodes/YAMLMap.js
+// ../../node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS(function(exports) {
   var stringifyCollection = require_stringifyCollection();
   var addPairToJSMap = require_addPairToJSMap();
@@ -2012,7 +2012,7 @@ var require_YAMLMap = __commonJS(function(exports) {
   exports.findPair = findPair;
 });
 
-// node_modules/yaml/dist/schema/common/map.js
+// ../../node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS(function(exports) {
   var identity = require_identity();
   var YAMLMap = require_YAMLMap();
@@ -2031,7 +2031,7 @@ var require_map = __commonJS(function(exports) {
   exports.map = map;
 });
 
-// node_modules/yaml/dist/nodes/YAMLSeq.js
+// ../../node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS(function(exports) {
   var createNode = require_createNode();
   var stringifyCollection = require_stringifyCollection();
@@ -2124,7 +2124,7 @@ var require_YAMLSeq = __commonJS(function(exports) {
   exports.YAMLSeq = YAMLSeq;
 });
 
-// node_modules/yaml/dist/schema/common/seq.js
+// ../../node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS(function(exports) {
   var identity = require_identity();
   var YAMLSeq = require_YAMLSeq();
@@ -2143,7 +2143,7 @@ var require_seq = __commonJS(function(exports) {
   exports.seq = seq;
 });
 
-// node_modules/yaml/dist/schema/common/string.js
+// ../../node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS(function(exports) {
   var stringifyString = require_stringifyString();
   var string = {
@@ -2159,7 +2159,7 @@ var require_string = __commonJS(function(exports) {
   exports.string = string;
 });
 
-// node_modules/yaml/dist/schema/common/null.js
+// ../../node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   var nullTag = {
@@ -2174,7 +2174,7 @@ var require_null = __commonJS(function(exports) {
   exports.nullTag = nullTag;
 });
 
-// node_modules/yaml/dist/schema/core/bool.js
+// ../../node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   var boolTag = {
@@ -2195,7 +2195,7 @@ var require_bool = __commonJS(function(exports) {
   exports.boolTag = boolTag;
 });
 
-// node_modules/yaml/dist/stringify/stringifyNumber.js
+// ../../node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS(function(exports) {
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
@@ -2219,7 +2219,7 @@ var require_stringifyNumber = __commonJS(function(exports) {
   exports.stringifyNumber = stringifyNumber;
 });
 
-// node_modules/yaml/dist/schema/core/float.js
+// ../../node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   var stringifyNumber = require_stringifyNumber();
@@ -2262,7 +2262,7 @@ var require_float = __commonJS(function(exports) {
   exports.floatNaN = floatNaN;
 });
 
-// node_modules/yaml/dist/schema/core/int.js
+// ../../node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS(function(exports) {
   var stringifyNumber = require_stringifyNumber();
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -2304,7 +2304,7 @@ var require_int = __commonJS(function(exports) {
   exports.intOct = intOct;
 });
 
-// node_modules/yaml/dist/schema/core/schema.js
+// ../../node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS(function(exports) {
   var map = require_map();
   var _null = require_null();
@@ -2329,7 +2329,7 @@ var require_schema = __commonJS(function(exports) {
   exports.schema = schema;
 });
 
-// node_modules/yaml/dist/schema/json/schema.js
+// ../../node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   var map = require_map();
@@ -2393,7 +2393,7 @@ var require_schema2 = __commonJS(function(exports) {
   exports.schema = schema;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS(function(exports) {
   var node_buffer = __require("buffer");
   var Scalar = require_Scalar();
@@ -2448,7 +2448,7 @@ var require_binary = __commonJS(function(exports) {
   exports.binary = binary;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS(function(exports) {
   var identity = require_identity();
   var Pair = require_Pair();
@@ -2523,7 +2523,7 @@ ${cn.comment}` : item.comment;
   exports.resolvePairs = resolvePairs;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS(function(exports) {
   var identity = require_identity();
   var toJS = require_toJS();
@@ -2595,7 +2595,7 @@ var require_omap = __commonJS(function(exports) {
   exports.omap = omap;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   function boolStringify({ value, source }, ctx) {
@@ -2624,7 +2624,7 @@ var require_bool2 = __commonJS(function(exports) {
   exports.trueTag = trueTag;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/float.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   var stringifyNumber = require_stringifyNumber();
@@ -2670,7 +2670,7 @@ var require_float2 = __commonJS(function(exports) {
   exports.floatNaN = floatNaN;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/int.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS(function(exports) {
   var stringifyNumber = require_stringifyNumber();
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -2746,7 +2746,7 @@ var require_int2 = __commonJS(function(exports) {
   exports.intOct = intOct;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/set.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS(function(exports) {
   var identity = require_identity();
   var Pair = require_Pair();
@@ -2829,7 +2829,7 @@ var require_set = __commonJS(function(exports) {
   exports.set = set;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS(function(exports) {
   var stringifyNumber = require_stringifyNumber();
   function parseSexagesimal(str, asBigInt) {
@@ -2911,7 +2911,7 @@ var require_timestamp = __commonJS(function(exports) {
   exports.timestamp = timestamp;
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// ../../node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS(function(exports) {
   var map = require_map();
   var _null = require_null();
@@ -2952,7 +2952,7 @@ var require_schema3 = __commonJS(function(exports) {
   exports.schema = schema;
 });
 
-// node_modules/yaml/dist/schema/tags.js
+// ../../node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS(function(exports) {
   var map = require_map();
   var _null = require_null();
@@ -3043,7 +3043,7 @@ var require_tags = __commonJS(function(exports) {
   exports.getTags = getTags;
 });
 
-// node_modules/yaml/dist/schema/Schema.js
+// ../../node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS(function(exports) {
   var identity = require_identity();
   var map = require_map();
@@ -3073,7 +3073,7 @@ var require_Schema = __commonJS(function(exports) {
   exports.Schema = Schema;
 });
 
-// node_modules/yaml/dist/stringify/stringifyDocument.js
+// ../../node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS(function(exports) {
   var identity = require_identity();
   var stringify = require_stringify();
@@ -3153,7 +3153,7 @@ var require_stringifyDocument = __commonJS(function(exports) {
   exports.stringifyDocument = stringifyDocument;
 });
 
-// node_modules/yaml/dist/doc/Document.js
+// ../../node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS(function(exports) {
   var Alias = require_Alias();
   var Collection = require_Collection();
@@ -3388,7 +3388,7 @@ var require_Document = __commonJS(function(exports) {
   exports.Document = Document;
 });
 
-// node_modules/yaml/dist/errors.js
+// ../../node_modules/yaml/dist/errors.js
 var require_errors = __commonJS(function(exports) {
   class YAMLError extends Error {
     constructor(name, pos, code, message) {
@@ -3453,7 +3453,7 @@ ${pointer}
   exports.prettifyError = prettifyError;
 });
 
-// node_modules/yaml/dist/compose/resolve-props.js
+// ../../node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS(function(exports) {
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
@@ -3583,7 +3583,7 @@ var require_resolve_props = __commonJS(function(exports) {
   exports.resolveProps = resolveProps;
 });
 
-// node_modules/yaml/dist/compose/util-contains-newline.js
+// ../../node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS(function(exports) {
   function containsNewline(key) {
     if (!key)
@@ -3623,7 +3623,7 @@ var require_util_contains_newline = __commonJS(function(exports) {
   exports.containsNewline = containsNewline;
 });
 
-// node_modules/yaml/dist/compose/util-flow-indent-check.js
+// ../../node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS(function(exports) {
   var utilContainsNewline = require_util_contains_newline();
   function flowIndentCheck(indent, fc, onError) {
@@ -3638,7 +3638,7 @@ var require_util_flow_indent_check = __commonJS(function(exports) {
   exports.flowIndentCheck = flowIndentCheck;
 });
 
-// node_modules/yaml/dist/compose/util-map-includes.js
+// ../../node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS(function(exports) {
   var identity = require_identity();
   function mapIncludes(ctx, items, search) {
@@ -3651,7 +3651,7 @@ var require_util_map_includes = __commonJS(function(exports) {
   exports.mapIncludes = mapIncludes;
 });
 
-// node_modules/yaml/dist/compose/resolve-block-map.js
+// ../../node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS(function(exports) {
   var Pair = require_Pair();
   var YAMLMap = require_YAMLMap();
@@ -3758,7 +3758,7 @@ var require_resolve_block_map = __commonJS(function(exports) {
   exports.resolveBlockMap = resolveBlockMap;
 });
 
-// node_modules/yaml/dist/compose/resolve-block-seq.js
+// ../../node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS(function(exports) {
   var YAMLSeq = require_YAMLSeq();
   var resolveProps = require_resolve_props();
@@ -3806,7 +3806,7 @@ var require_resolve_block_seq = __commonJS(function(exports) {
   exports.resolveBlockSeq = resolveBlockSeq;
 });
 
-// node_modules/yaml/dist/compose/resolve-end.js
+// ../../node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS(function(exports) {
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
@@ -3846,7 +3846,7 @@ var require_resolve_end = __commonJS(function(exports) {
   exports.resolveEnd = resolveEnd;
 });
 
-// node_modules/yaml/dist/compose/resolve-flow-collection.js
+// ../../node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS(function(exports) {
   var identity = require_identity();
   var Pair = require_Pair();
@@ -4037,7 +4037,7 @@ var require_resolve_flow_collection = __commonJS(function(exports) {
   exports.resolveFlowCollection = resolveFlowCollection;
 });
 
-// node_modules/yaml/dist/compose/compose-collection.js
+// ../../node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS(function(exports) {
   var identity = require_identity();
   var Scalar = require_Scalar();
@@ -4099,7 +4099,7 @@ var require_compose_collection = __commonJS(function(exports) {
   exports.composeCollection = composeCollection;
 });
 
-// node_modules/yaml/dist/compose/resolve-block-scalar.js
+// ../../node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   function resolveBlockScalar(ctx, scalar, onError) {
@@ -4292,7 +4292,7 @@ var require_resolve_block_scalar = __commonJS(function(exports) {
   exports.resolveBlockScalar = resolveBlockScalar;
 });
 
-// node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// ../../node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS(function(exports) {
   var Scalar = require_Scalar();
   var resolveEnd = require_resolve_end();
@@ -4508,7 +4508,7 @@ var require_resolve_flow_scalar = __commonJS(function(exports) {
   exports.resolveFlowScalar = resolveFlowScalar;
 });
 
-// node_modules/yaml/dist/compose/compose-scalar.js
+// ../../node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS(function(exports) {
   var identity = require_identity();
   var Scalar = require_Scalar();
@@ -4586,7 +4586,7 @@ var require_compose_scalar = __commonJS(function(exports) {
   exports.composeScalar = composeScalar;
 });
 
-// node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// ../../node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS(function(exports) {
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
@@ -4613,7 +4613,7 @@ var require_util_empty_scalar_position = __commonJS(function(exports) {
   exports.emptyScalarPosition = emptyScalarPosition;
 });
 
-// node_modules/yaml/dist/compose/compose-node.js
+// ../../node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS(function(exports) {
   var Alias = require_Alias();
   var identity = require_identity();
@@ -4711,7 +4711,7 @@ var require_compose_node = __commonJS(function(exports) {
   exports.composeNode = composeNode;
 });
 
-// node_modules/yaml/dist/compose/compose-doc.js
+// ../../node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS(function(exports) {
   var Document = require_Document();
   var composeNode = require_compose_node();
@@ -4751,7 +4751,7 @@ var require_compose_doc = __commonJS(function(exports) {
   exports.composeDoc = composeDoc;
 });
 
-// node_modules/yaml/dist/compose/composer.js
+// ../../node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS(function(exports) {
   var node_process = __require("process");
   var directives = require_directives();
@@ -4940,7 +4940,7 @@ ${end.comment}` : end.comment;
   exports.Composer = Composer;
 });
 
-// node_modules/yaml/dist/parse/cst-scalar.js
+// ../../node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS(function(exports) {
   var resolveBlockScalar = require_resolve_block_scalar();
   var resolveFlowScalar = require_resolve_flow_scalar();
@@ -5130,7 +5130,7 @@ var require_cst_scalar = __commonJS(function(exports) {
   exports.setScalarValue = setScalarValue;
 });
 
-// node_modules/yaml/dist/parse/cst-stringify.js
+// ../../node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS(function(exports) {
   var stringify = (cst) => ("type" in cst) ? stringifyToken(cst) : stringifyItem(cst);
   function stringifyToken(token) {
@@ -5188,7 +5188,7 @@ var require_cst_stringify = __commonJS(function(exports) {
   exports.stringify = stringify;
 });
 
-// node_modules/yaml/dist/parse/cst-visit.js
+// ../../node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS(function(exports) {
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
@@ -5247,7 +5247,7 @@ var require_cst_visit = __commonJS(function(exports) {
   exports.visit = visit;
 });
 
-// node_modules/yaml/dist/parse/cst.js
+// ../../node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS(function(exports) {
   var cstScalar = require_cst_scalar();
   var cstStringify = require_cst_stringify();
@@ -5348,7 +5348,7 @@ var require_cst = __commonJS(function(exports) {
   exports.tokenType = tokenType;
 });
 
-// node_modules/yaml/dist/parse/lexer.js
+// ../../node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS(function(exports) {
   var cst = require_cst();
   function isEmpty(ch) {
@@ -5934,7 +5934,7 @@ var require_lexer = __commonJS(function(exports) {
   exports.Lexer = Lexer;
 });
 
-// node_modules/yaml/dist/parse/line-counter.js
+// ../../node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS(function(exports) {
   class LineCounter {
     constructor() {
@@ -5962,7 +5962,7 @@ var require_line_counter = __commonJS(function(exports) {
   exports.LineCounter = LineCounter;
 });
 
-// node_modules/yaml/dist/parse/parser.js
+// ../../node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS(function(exports) {
   var node_process = __require("process");
   var cst = require_cst();
@@ -6811,7 +6811,7 @@ var require_parser = __commonJS(function(exports) {
   exports.Parser = Parser;
 });
 
-// node_modules/yaml/dist/public-api.js
+// ../../node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS(function(exports) {
   var composer = require_composer();
   var Document = require_Document();
@@ -7113,10 +7113,34 @@ function installProject(root, spec, options = {}) {
   return { ...result, action };
 }
 
+// src/cli/cleo-runner.ts
+import { spawn } from "node:child_process";
+function cleoRunner(command = process.env.OCGOAL_CLEO_BIN ?? "cleo", timeoutMs = 15000) {
+  return (argv) => new Promise((resolve) => {
+    let stdout = "";
+    let settled = false;
+    const done = (exit) => {
+      if (settled)
+        return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ stdout, exit });
+    };
+    const child = spawn(command, argv, { stdio: ["ignore", "pipe", "ignore"] });
+    const timer = setTimeout(() => child.kill(), timeoutMs);
+    child.stdout?.setEncoding("utf8").on("data", (chunk) => {
+      if (stdout.length < 16 * 1024 * 1024)
+        stdout += chunk;
+    });
+    child.on("error", () => done(127));
+    child.on("close", (code) => done(typeof code === "number" ? code : 1));
+  });
+}
+
 // src/contract/parse.ts
 import { createHash } from "node:crypto";
 
-// node_modules/yaml/dist/index.js
+// ../../node_modules/yaml/dist/index.js
 var composer = require_composer();
 var Document = require_Document();
 var Schema = require_Schema();
@@ -7176,6 +7200,13 @@ var AUTONOMY_LEVEL_POLICY = {
   full: { on_stall: "continue", amend: ["timeout", "budget", "plan", "recover"] }
 };
 var CLEO_GATES = ["implemented", "testsPassed", "qaPassed"];
+var gateForCheck = (check) => {
+  if (check.kind === "command")
+    return /\btypecheck\b|\blint\b/.test(check.run) ? "qaPassed" : "testsPassed";
+  if (check.kind === "file" || check.kind === "contains" || check.kind === "absent")
+    return "implemented";
+  return;
+};
 
 // src/contract/parse.ts
 var VAGUE = [
@@ -7556,10 +7587,32 @@ function parseContract(text, options = {}) {
   if (rawPriority && !PRIORITIES.includes(rawPriority))
     err("priority", `priority must be one of low, medium, high (or omitted) — got "${rawPriority}"`);
   const cleoTasks = [];
+  let cleoSaga;
+  const cleoEpics = [];
   if (raw.cleo !== undefined) {
     if (!isRecord(raw.cleo))
       err("cleo", "cleo must be a mapping with a tasks list");
     else {
+      const sagaRaw = str(raw.cleo.saga);
+      if (sagaRaw && !/^[A-Z]{1,4}\d+$/.test(sagaRaw))
+        err("cleo.saga", `saga id must look like T123 (got "${sagaRaw}")`);
+      else if (sagaRaw)
+        cleoSaga = sagaRaw;
+      const epicsRaw = raw.cleo.epics;
+      if (epicsRaw !== undefined && !Array.isArray(epicsRaw))
+        err("cleo.epics", "epics must be a list of epic ids");
+      for (const [index, entry] of (Array.isArray(epicsRaw) ? epicsRaw : []).entries()) {
+        const epicId = str(entry);
+        if (!/^[A-Z]{1,4}\d+$/.test(epicId)) {
+          err(`cleo.epics[${index}]`, `epic id must look like T123 (got "${epicId}")`);
+          continue;
+        }
+        if (cleoEpics.includes(epicId)) {
+          err(`cleo.epics[${index}]`, `duplicate epic ${epicId}`);
+          continue;
+        }
+        cleoEpics.push(epicId);
+      }
       const tasksRaw = raw.cleo.tasks;
       if (tasksRaw !== undefined && !Array.isArray(tasksRaw))
         err("cleo.tasks", "tasks must be a list of task ids");
@@ -7600,6 +7653,20 @@ function parseContract(text, options = {}) {
       }
     }
   }
+  const linkedTaskIds = new Set(cleoTasks.map((t) => t.id));
+  for (const [section, list] of raw.cleo !== undefined ? [["criteria", criteria], ["invariants", invariants]] : [])
+    for (const [index, criterion] of list.entries()) {
+      const at = `${section}[${index}]`;
+      for (const ref of criterion.proves ?? []) {
+        const refTask = ref.split("#")[0];
+        if (!linkedTaskIds.has(refTask))
+          err(`${at}.proves`, `${ref} names ${refTask}, which cleo.tasks does not declare — add it to cleo.tasks or the bridge can never write that evidence`);
+        if (!gateForCheck(criterion.check))
+          warn(`${at}.proves`, `${ref} is bound to a ${criterion.check.kind} check, whose evidence proves no CLEO gate (diff passes when paths are UNCHANGED; a verifier/human verdict is not implemented/testsPassed evidence) — it will stay open`);
+      }
+      if (cleoTasks.length && !criterion.proves?.length && gateForCheck(criterion.check))
+        warn(`${at}.proves`, `declares no CLEO AC, so this criterion's evidence is not written to any of ${cleoTasks.map((t) => t.id).join(", ")} — add proves: ["T123#AC1"] if it should be`);
+    }
   const contract = {
     schema: SCHEMA,
     id,
@@ -7615,7 +7682,7 @@ function parseContract(text, options = {}) {
     criteria,
     invariants,
     ...workspace ? { workspace } : {},
-    ...cleoTasks.length ? { cleo: { tasks: cleoTasks } } : {},
+    ...cleoTasks.length || cleoSaga || cleoEpics.length ? { cleo: { ...cleoSaga ? { saga: cleoSaga } : {}, ...cleoEpics.length ? { epics: cleoEpics } : {}, tasks: cleoTasks } } : {},
     protect: strings(raw.protect),
     assumptions,
     plan,
@@ -7727,7 +7794,7 @@ function lockedContract(store, run) {
     return disk?.contract;
   }
 }
-function goalStatus(store, now = Date.now()) {
+function goalStatus(store, now = Date.now(), extras = {}) {
   const run = selectRun(store);
   if (!run)
     return NONE;
@@ -7760,11 +7827,236 @@ function goalStatus(store, now = Date.now()) {
     criteria,
     proven: states.filter((c) => c.status === "pass").length,
     total: states.length,
+    ...extras.cleo ? { cleo: extras.cleo } : {},
     budget: { ratio: budget.ratio, parts: budget.parts.map((p) => ({ name: p.name, used: p.used, limit: p.limit })) },
     verdict: run.verdict ? { passed: run.verdict.passed, lines: run.verdict.lines, turn: run.verdict.turn } : null,
     blocker: run.blocker ? { key: run.blocker.key, count: run.blocker.count, reason: run.blocker.reason } : null,
     updatedAt: run.updatedAt
   };
+}
+function statusRollupInput(store) {
+  const run = selectRun(store);
+  if (!run)
+    return;
+  const contract = lockedContract(store, run);
+  const cleo = contract?.cleo;
+  if (!cleo)
+    return;
+  const targets = { ...cleo.saga ? { saga: cleo.saga } : {}, epics: cleo.epics ?? [], tasks: cleo.tasks.map((task) => task.id) };
+  if (!targets.saga && !targets.epics.length && !targets.tasks.length)
+    return;
+  const declared = [...contract?.criteria ?? [], ...contract?.invariants ?? []];
+  const goal = declared.map((c) => ({
+    id: c.id,
+    statement: c.statement,
+    status: run.criteria[c.id]?.status ?? "unknown",
+    essential: c.essential,
+    proves: c.proves ?? []
+  }));
+  return { targets, goal };
+}
+
+// src/engine/cleo-bridge.ts
+function cleoRefusal(stdout) {
+  const text = stdout.trim();
+  const start = text.indexOf("{");
+  if (start !== -1) {
+    try {
+      const parsed = JSON.parse(text.slice(start));
+      const message = parsed?.error?.message;
+      if (typeof message === "string" && message.trim())
+        return message.trim();
+    } catch {}
+  }
+  return text.split(`
+`).slice(-3).join(" ").slice(0, 500) || "cleo refused with no message";
+}
+
+// src/engine/cleo-rollup.ts
+var GATE_LIST = CLEO_GATES;
+var emptyTotals = () => ({ tasks: 0, proven: 0, unproven: 0, closed: 0, acs: { total: 0, proven: 0, unproven: 0 } });
+var envelope = (stdout) => {
+  const start = stdout.indexOf("{");
+  if (start === -1)
+    return;
+  try {
+    const parsed = JSON.parse(stdout.slice(start));
+    return parsed?.success === false ? undefined : parsed;
+  } catch {
+    return;
+  }
+};
+var asRecord = (value) => typeof value === "object" && value !== null ? value : {};
+function taskProof(raw) {
+  const task = asRecord(raw);
+  const verification = asRecord(task.verification);
+  const gateMap = asRecord(verification.gates);
+  const gates = Object.fromEntries(GATE_LIST.map((gate) => [gate, gateMap[gate] === true]));
+  const unprovenGates = GATE_LIST.filter((gate) => !gates[gate]);
+  const evidence = asRecord(verification.evidence);
+  const atoms = GATE_LIST.flatMap((gate) => Array.isArray(asRecord(evidence[gate]).atoms) ? asRecord(evidence[gate]).atoms : []);
+  const satisfies = new Set(atoms.map((atom) => asRecord(atom)).filter((atom) => atom.kind === "satisfies").map((atom) => typeof atom.targetAcAlias === "string" ? atom.targetAcAlias : "").filter(Boolean));
+  const acceptance = Array.isArray(task.acceptance) ? task.acceptance : [];
+  const aliases = acceptance.map((_, index) => `AC${index + 1}`);
+  for (const alias of satisfies)
+    if (!aliases.includes(alias))
+      aliases.push(alias);
+  const unproven = aliases.filter((alias) => !satisfies.has(alias));
+  return {
+    id: typeof task.id === "string" ? task.id : "",
+    title: typeof task.title === "string" ? task.title : "",
+    status: typeof task.status === "string" ? task.status : "unknown",
+    proven: unprovenGates.length === 0 && GATE_LIST.length > 0,
+    gates,
+    unprovenGates,
+    evidenceAtoms: atoms.length,
+    acs: { total: aliases.length, proven: aliases.length - unproven.length, open: unproven }
+  };
+}
+function proofTotals(tasks) {
+  const totals = emptyTotals();
+  for (const task of tasks) {
+    totals.tasks += 1;
+    if (task.proven)
+      totals.proven += 1;
+    else
+      totals.unproven += 1;
+    if (task.status === "done")
+      totals.closed += 1;
+    totals.acs.total += task.acs.total;
+    totals.acs.proven += task.acs.proven;
+    totals.acs.unproven += task.acs.open.length;
+  }
+  return totals;
+}
+function reader(runCleo, unread) {
+  return async (argv) => {
+    try {
+      const { stdout, exit } = await runCleo(argv);
+      if (exit !== 0) {
+        unread.push(`cleo ${argv.join(" ")} → exit ${exit}: ${cleoRefusal(stdout)}`);
+        return;
+      }
+      const parsed = envelope(stdout);
+      if (!parsed)
+        unread.push(`cleo ${argv.join(" ")} returned no usable JSON`);
+      return parsed;
+    } catch (error) {
+      unread.push(`cleo ${argv.join(" ")} failed: ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+  };
+}
+var rows = (value) => Array.isArray(value) ? value : [];
+async function readRollup(targets, runCleo, goal = []) {
+  const unread = [];
+  const read = reader(runCleo, unread);
+  const memberIds = [];
+  let cleoSaga;
+  let sagaTitle;
+  let sagaStatus;
+  if (targets.saga) {
+    const members = await read(["saga", "members", targets.saga]);
+    for (const row of rows(members?.data?.members)) {
+      const id = asRecord(row).epicId;
+      if (typeof id === "string" && id)
+        memberIds.push(id);
+    }
+    const rollup = await read(["saga", "rollup", targets.saga]);
+    const data = asRecord(rollup?.data);
+    if (typeof data.total === "number")
+      cleoSaga = {
+        total: Number(data.total),
+        done: Number(data.done ?? 0),
+        active: Number(data.active ?? 0),
+        blocked: Number(data.blocked ?? 0),
+        pending: Number(data.pending ?? 0),
+        completionPct: Number(data.completionPct ?? 0)
+      };
+    const shown = await read(["show", targets.saga]);
+    const task = asRecord(shown?.data?.task);
+    if (typeof task.title === "string")
+      sagaTitle = task.title;
+    if (typeof task.status === "string")
+      sagaStatus = task.status;
+  }
+  const epics = [];
+  const seen = new Set;
+  const epicIds = targets.epics.length ? targets.epics : memberIds;
+  for (const epicId of epicIds) {
+    const shown = await read(["show", epicId]);
+    const epicTask = asRecord(shown?.data?.task);
+    const listed = await read(["list", "--parent", epicId, "--full", "--limit", "0"]);
+    const tasks = rows(listed?.data?.tasks).map(taskProof);
+    for (const task of tasks)
+      seen.add(task.id);
+    epics.push({
+      id: epicId,
+      ...typeof epicTask.title === "string" ? { title: epicTask.title } : {},
+      ...typeof epicTask.status === "string" ? { status: epicTask.status } : {},
+      tasks,
+      proof: proofTotals(tasks)
+    });
+  }
+  const missing = targets.tasks.filter((id) => !seen.has(id));
+  let loose = [];
+  if (missing.length) {
+    const shown = await read(["show", ...missing, "--full"]);
+    loose = rows(shown?.data?.tasks).map(taskProof);
+  }
+  const sagaProof = proofTotals(epics.flatMap((epic) => epic.tasks));
+  const totals = proofTotals([...epics.flatMap((epic) => epic.tasks), ...loose]);
+  return {
+    schemaVersion: 1,
+    source: "cleo-cli",
+    goal,
+    saga: targets.saga ? {
+      id: targets.saga,
+      ...sagaTitle ? { title: sagaTitle } : {},
+      ...sagaStatus ? { status: sagaStatus } : {},
+      ...cleoSaga ? { cleo: cleoSaga } : {},
+      members: epics,
+      proof: sagaProof
+    } : null,
+    epics,
+    tasks: loose,
+    totals,
+    unread
+  };
+}
+var mark = (proof) => proof.proven ? "✓" : proof.acs.proven > 0 || GATE_LIST.some((g) => proof.gates[g]) ? "◐" : "·";
+var openList = (task) => task.acs.open.length ? ` · open ${task.acs.open.join(", ")}` : "";
+var proofLine = (totals) => `${totals.proven}/${totals.tasks} tasks proven${totals.closed ? ` · ${totals.closed} closed` : ""} · AC ${totals.acs.proven}/${totals.acs.total}`;
+function cleoRollupReport(rollup) {
+  const out = ["CLEO rollup — read-only, derived from CLEO's own verification evidence"];
+  if (rollup.saga) {
+    const s = rollup.saga;
+    const cleo = s.cleo ? ` · CLEO ${s.cleo.done}/${s.cleo.total} epics done (${s.cleo.completionPct}%)` : "";
+    out.push(`saga ${s.id}${s.title ? ` ${s.title}` : ""} (${s.status ?? "unknown"})${cleo} · ${proofLine(s.proof)}`);
+  }
+  for (const epic of rollup.epics) {
+    out.push(`  epic ${epic.id}${epic.title ? ` ${epic.title}` : ""} (${epic.status ?? "unknown"}) · ${proofLine(epic.proof)}`);
+    for (const task of epic.tasks)
+      out.push(`    ${mark(task)} ${task.id} ${task.title} (${task.status}) · gates ${GATE_LIST.filter((g) => task.gates[g]).length}/${GATE_LIST.length} · AC ${task.acs.proven}/${task.acs.total}${openList(task)}`);
+  }
+  if (rollup.tasks.length) {
+    out.push("tasks outside a listed epic:");
+    for (const task of rollup.tasks)
+      out.push(`    ${mark(task)} ${task.id} ${task.title} (${task.status}) · gates ${GATE_LIST.filter((g) => task.gates[g]).length}/${GATE_LIST.length} · AC ${task.acs.proven}/${task.acs.total}${openList(task)}`);
+  }
+  out.push(`total: ${proofLine(rollup.totals)}`);
+  if (rollup.goal.length) {
+    out.push("goal criteria → CLEO ACs (from the contract's proves:, never by position):");
+    for (const criterion of rollup.goal)
+      out.push(`    ${criterion.status === "pass" ? "✓" : criterion.status === "fail" ? "✗" : "·"} ${criterion.id} ${criterion.statement}${criterion.proves.length ? ` → ${criterion.proves.join(", ")}` : " → (no CLEO AC)"}`);
+  }
+  if (rollup.unread.length) {
+    out.push("not read (reported verbatim, never guessed):");
+    for (const reason of rollup.unread)
+      out.push(`    ${reason}`);
+  }
+  return out.join(`
+`);
 }
 
 // src/util/git.ts
@@ -8694,7 +8986,7 @@ import { existsSync as existsSync5, readFileSync as readFileSync3 } from "node:f
 import { isAbsolute as isAbsolute3, join as join5, normalize as normalize2, relative as relative3 } from "node:path";
 
 // src/util/shell.ts
-import { spawn } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 var LIMIT = 64 * 1024;
 var clip = (out) => out.length > LIMIT ? `${out.slice(0, LIMIT / 4)}
 …[truncated ${out.length - LIMIT / 2} chars]…
@@ -8702,7 +8994,7 @@ ${out.slice(-LIMIT / 4)}` : out;
 async function runShell(command, cwd, timeoutSeconds = 300, extraEnv = {}) {
   const shell = process.env.SHELL && process.env.SHELL.startsWith("/") ? process.env.SHELL : "/bin/sh";
   const started = Date.now();
-  const child = spawn(shell, ["-lc", command], { cwd, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, ...extraEnv, CI: process.env.CI ?? "1" } });
+  const child = spawn2(shell, ["-lc", command], { cwd, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, ...extraEnv, CI: process.env.CI ?? "1" } });
   let stdout = "";
   let stderr = "";
   child.stdout.setEncoding("utf8").on("data", (chunk) => {
@@ -8923,6 +9215,7 @@ var store = new Store(root);
 var USAGE = [
   "usage: cleo-goal --version",
   "       cleo-goal status --json",
+  "       cleo-goal rollup [--json]",
   "       cleo-goal install --project [--spec <npm-or-git spec>] [--json] [--dry-run]",
   "       cleo-goal tick   (reads the harness Stop JSON on stdin; writes JSON on stdout)",
   "usage: ocg tick   (alias; same contract)",
@@ -8942,7 +9235,9 @@ if (sub === "status") {
   if (!argv.includes("--json"))
     usage();
   try {
-    process.stdout.write(`${JSON.stringify(goalStatus(store))}
+    const input = statusRollupInput(store);
+    const cleo = input ? await readRollup(input.targets, cleoRunner(), input.goal) : undefined;
+    process.stdout.write(`${JSON.stringify(goalStatus(store, Date.now(), cleo ? { cleo } : {}))}
 `);
     process.exit(0);
   } catch (error) {
@@ -8950,6 +9245,19 @@ if (sub === "status") {
 `);
     process.exit(1);
   }
+}
+if (sub === "rollup") {
+  const input = statusRollupInput(store);
+  if (!input) {
+    process.stdout.write(`No CLEO rollup: the live goal's contract has no cleo saga/epics/tasks.
+`);
+    process.exit(0);
+  }
+  const rollup = await readRollup(input.targets, cleoRunner(), input.goal);
+  process.stdout.write(argv.includes("--json") ? `${JSON.stringify(rollup)}
+` : `${cleoRollupReport(rollup)}
+`);
+  process.exit(0);
 }
 if (sub === "install") {
   const spec = flag("--spec") ?? `${PACKAGE_NAME}@${package_default.version}`;

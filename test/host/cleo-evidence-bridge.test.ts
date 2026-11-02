@@ -218,4 +218,124 @@ describe("the goal→CLEO evidence bridge (v0.5.0)", () => {
     expect(red[0]!.blocker).toContain("refusing to record testsPassed evidence on a red run")
     expect(sha256Hex("{}")).toHaveLength(64)
   })
+
+  // T171 — one evidence write per (task, gate), and no closure without proof.
+
+  test("a gate CLEO already proves (with its ACs mapped) is REUSED, never rewritten", async () => {
+    const plan = planEvidence({
+      task: "T171",
+      acs: [],
+      acsByGate: { implemented: ["AC1"], testsPassed: ["AC2"], qaPassed: ["AC3"] },
+      provenGates: ["implemented", "qaPassed"],
+      mappedAcs: ["AC1", "AC3"],
+      changeSet: { commit: "abc", files: ["src/a.ts", "test/a.test.ts"], testFiles: ["test/a.test.ts"] },
+      reportPath: "r.json",
+    })
+    expect(plan.reused).toEqual(["implemented", "qaPassed"])
+    expect(plan.steps.map((s) => s.gate)).toEqual(["testsPassed"])
+    const calls: string[][] = []
+    const run: CleoRun = async (argv) => {
+      calls.push(argv)
+      return { stdout: '{"success":true}', exit: 0 }
+    }
+    const outcome = await executePlan(plan, run)
+    expect(outcome.completed).toBe(true)
+    expect(outcome.reused).toEqual(["implemented", "qaPassed"])
+    // exactly one gate write for this task, then complete
+    expect(calls.map((c) => [c[0]!, c[3] ?? ""])).toEqual([["verify", "testsPassed"], ["complete", ""]])
+  })
+
+  test("a proven gate whose AC is NOT mapped is written again, so the satisfies link is not lost", () => {
+    const plan = planEvidence({
+      task: "T171",
+      acs: ["AC2"],
+      acsByGate: { testsPassed: ["AC2"] },
+      provenGates: ["testsPassed"],
+      mappedAcs: [],
+      changeSet: { commit: "abc", files: ["test/a.test.ts"], testFiles: ["test/a.test.ts"] },
+      reportPath: "r.json",
+    })
+    expect(plan.reused).toEqual([])
+    expect(plan.steps.map((s) => s.gate)).toEqual(["testsPassed"])
+    expect(plan.steps[0]!.argv.join(" ")).toContain("satisfies:T171#AC2")
+  })
+
+  test("the same AC cited by several criteria is written once", () => {
+    const map = acsByGateFromProves(
+      [
+        { check: { kind: "command", run: "bun test test/a.test.ts" }, proves: ["T171#AC2", "T171#AC2"] },
+        { check: { kind: "command", run: "bun test test/b.test.ts" }, proves: ["T171#AC2", "T171#AC3"] },
+      ],
+      "T171",
+    )
+    expect(map).toEqual({ testsPassed: ["AC2", "AC3"] })
+  })
+
+  test("the same evidence applied to several tasks is written once PER TASK, never deduped across them", async () => {
+    const calls: string[][] = []
+    const run: CleoRun = async (argv) => {
+      calls.push(argv)
+      return { stdout: '{"success":true}', exit: 0 }
+    }
+    const changeSet = { commit: "abc", files: ["src/a.ts"], testFiles: [] }
+    for (const task of ["T911", "T912"]) {
+      const plan = planEvidence({ task, acs: ["AC1"], acsByGate: { implemented: ["AC1"] }, changeSet })
+      const outcome = await executePlan(plan, run)
+      expect(outcome.completed).toBe(true)
+    }
+    const writes = calls.filter((c) => c[0] === "verify")
+    expect(writes).toHaveLength(2)
+    expect(writes[0]!.join(" ")).toContain("satisfies:T911#AC1")
+    expect(writes[1]!.join(" ")).toContain("satisfies:T912#AC1")
+  })
+
+  test("no evidence atom at all ⇒ the task is refused, `complete` never runs", async () => {
+    const plan = planEvidence({ task: "T171", acs: [] })
+    expect(plan.steps).toEqual([])
+    expect(plan.reused).toEqual([])
+    const calls: string[][] = []
+    const run: CleoRun = async (argv) => {
+      calls.push(argv)
+      return { stdout: '{"success":true}', exit: 0 }
+    }
+    const outcome = await executePlan(plan, run)
+    expect(outcome.completed).toBe(false)
+    expect(outcome.blocker).toContain("refusing to close a task without proof")
+    expect(calls).toEqual([])
+  })
+
+  test("runBridge reads CLEO's gate state from `done --plan` and does not duplicate a proven gate", async () => {
+    const calls: string[][] = []
+    const run: CleoRun = async (argv) => {
+      calls.push(argv)
+      if (argv[0] === "done")
+        return {
+          stdout: JSON.stringify({
+            data: {
+              gates: [
+                { gate: "implemented", required: true, passed: true },
+                { gate: "testsPassed", required: true, passed: false },
+                { gate: "qaPassed", required: true, passed: true },
+              ],
+              acMapping: [
+                { alias: "AC1", mapped: true },
+                { alias: "AC2", mapped: false },
+                { alias: "AC3", mapped: true },
+              ],
+              typedGates: [],
+            },
+          }),
+          exit: 0,
+        }
+      return { stdout: '{"success":true}', exit: 0 }
+    }
+    const git = gitOf({ "log --all --format=%H --grep T171": "abc", "show --name-only --format= abc": "src/a.ts\ntest/a.test.ts", "status --porcelain": "" })
+    const links = new Map([["T171", { id: "T171", acs: { implemented: ["AC1"], testsPassed: ["AC2"], qaPassed: ["AC3"] } }]])
+    const report = { reportPath: "r.json", reportSha256: sha256Hex("{}"), passed: true, total: 1, failed: 0 }
+    const outcomes = await runBridge({ tasks: ["T171"], links, runCleo: run, git, report: async () => report })
+    expect(outcomes[0]!.completed).toBe(true)
+    expect(outcomes[0]!.reused).toEqual(["implemented", "qaPassed"])
+    const writes = calls.filter((c) => c[0] === "verify")
+    expect(writes.map((c) => c[3])).toEqual(["testsPassed"])
+  })
 })

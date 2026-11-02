@@ -18,7 +18,7 @@
 // CLI, and it is the same code the real `/goal cleo sync` path executes.
 
 import { createHash } from "node:crypto"
-import type { CleoGate } from "../contract/types"
+import { gateForCheck, type CleoGate } from "../contract/types"
 
 export const CLEO_GATES: readonly CleoGate[] = ["implemented", "testsPassed", "qaPassed"]
 
@@ -30,6 +30,12 @@ export type CleoStep = { argv: string[]; gate?: CleoGate; acs: string[] }
 export type EvidencePlan = {
   task: string
   steps: CleoStep[]
+  /**
+   * T171 — gates whose evidence CLEO already holds, with every AC this plan
+   * would cite already mapped. They are NOT rewritten: one write per
+   * (task, gate), so a second sync cannot duplicate evidence.
+   */
+  reused: CleoGate[]
   /** ACs no evidence proves — left open and reported, never positionally bound. */
   openAcs: string[]
   /** Present when the task cannot even be attempted (no change-set, etc.). */
@@ -43,6 +49,8 @@ export type TaskOutcome = {
   steps: StepResult[]
   openAcs: string[]
   blocker?: string
+  /** T171 — gates CLEO already held; no duplicate write was attempted. */
+  reused?: CleoGate[]
   /** v0.5.1 - the scoped report this task's testsPassed evidence was bound to. */
   report?: { path: string; sha256: string }
 }
@@ -137,6 +145,13 @@ export function planEvidence(input: {
   /** True when the task's typed REQ gate has no cached pass yet. */
   runTyped?: boolean
   acsByGate?: Partial<Record<CleoGate, string[]>>
+  /**
+   * T171 — gates CLEO already reports as passed, and the AC aliases it already
+   * reports as mapped (from `cleo done --plan`). A gate whose every planned AC
+   * is already mapped is REUSED, never written again.
+   */
+  provenGates?: CleoGate[]
+  mappedAcs?: string[]
   changeSet?: ChangeSet
   reportPath?: string
 }): EvidencePlan {
@@ -145,6 +160,9 @@ export function planEvidence(input: {
   const declared = new Set(CLEO_GATES.flatMap((g) => input.acsByGate?.[g] ?? []))
   const openAcs = input.acs.filter((ac) => !declared.has(ac) && !typed.has(ac))
   const steps: CleoStep[] = []
+  const reused: CleoGate[] = []
+  const alreadyProven = new Set(input.provenGates ?? [])
+  const alreadyMapped = new Set(input.mappedAcs ?? [])
   let blocker: string | undefined
   // A typed REQ gate the write cannot link must be executed and cached first.
   if (input.runTyped) steps.push({ argv: ["verify", task, "--run"], acs: [] })
@@ -168,6 +186,13 @@ export function planEvidence(input: {
   for (const gate of CLEO_GATES) {
     const acs = input.acsByGate?.[gate] ?? []
     if (!acs.length) continue
+    // T171 — one evidence write per (task, gate). When CLEO already holds the
+    // gate's proof and every AC it would cite is already mapped, reusing is the
+    // honest action: a second identical write duplicates the same evidence.
+    if (alreadyProven.has(gate) && acs.every((ac) => alreadyMapped.has(ac))) {
+      reused.push(gate)
+      continue
+    }
     const evidence = evidenceOf(gate, acs)
     if (!evidence) {
       blocker ??= gate === "implemented" ? "no change-set (no commit or files) to record as implemented evidence" : "no scoped test report is available for the testsPassed gate"
@@ -175,23 +200,35 @@ export function planEvidence(input: {
     }
     steps.push({ argv: ["verify", task, "--gate", gate, "--evidence", evidence], gate, acs })
   }
-  return { task, steps, openAcs, ...(blocker ? { blocker } : {}) }
+  return { task, steps, reused, openAcs, ...(blocker ? { blocker } : {}) }
 }
 
 /** Run a plan: the verify steps, then `cleo complete` only if no AC is open. */
 export async function executePlan(plan: EvidencePlan, runCleo: CleoRun): Promise<TaskOutcome> {
   const steps: StepResult[] = []
-  if (plan.blocker) return { task: plan.task, completed: false, steps, openAcs: plan.openAcs, blocker: plan.blocker }
+  if (plan.blocker) return { task: plan.task, completed: false, steps, reused: plan.reused, openAcs: plan.openAcs, blocker: plan.blocker }
+  // T171 — no closure without evidence. A task with nothing to record (no gate
+  // write, no typed-gate run, no gate CLEO already proves) is refused rather
+  // than closed on the strength of a `cleo complete` alone.
+  if (!plan.steps.length && !plan.reused.length)
+    return {
+      task: plan.task,
+      completed: false,
+      steps,
+      reused: [],
+      openAcs: plan.openAcs,
+      blocker: "no evidence atom to record (no gate write, typed-gate run or already-proven gate) — refusing to close a task without proof",
+    }
   for (const step of plan.steps) {
     const { stdout, exit } = await runCleo(step.argv)
     steps.push({ argv: step.argv, exit, out: stdout })
-    if (exit !== 0) return { task: plan.task, completed: false, steps, openAcs: plan.openAcs, blocker: `cleo ${step.argv[0]} refused: ${cleoRefusal(stdout)}` }
+    if (exit !== 0) return { task: plan.task, completed: false, steps, reused: plan.reused, openAcs: plan.openAcs, blocker: `cleo ${step.argv[0]} refused: ${cleoRefusal(stdout)}` }
   }
   if (plan.openAcs.length)
-    return { task: plan.task, completed: false, steps, openAcs: plan.openAcs, blocker: `${plan.openAcs.length} acceptance criterion/criteria have no evidence from this goal (left open, not positionally bound): ${plan.openAcs.join(", ")}` }
+    return { task: plan.task, completed: false, steps, reused: plan.reused, openAcs: plan.openAcs, blocker: `${plan.openAcs.length} acceptance criterion/criteria have no evidence from this goal (left open, not positionally bound): ${plan.openAcs.join(", ")}` }
   const { stdout, exit } = await runCleo(["complete", plan.task])
   steps.push({ argv: ["complete", plan.task], exit, out: stdout })
-  return { task: plan.task, completed: exit === 0, steps, openAcs: [], ...(exit === 0 ? {} : { blocker: `cleo complete refused: ${cleoRefusal(stdout)}` }) }
+  return { task: plan.task, completed: exit === 0, steps, reused: plan.reused, openAcs: [], ...(exit === 0 ? {} : { blocker: `cleo complete refused: ${cleoRefusal(stdout)}` }) }
 }
 
 /**
@@ -246,18 +283,20 @@ export function acsByGateFromProves(
   criteria: ReadonlyArray<{ check: { kind: string; run?: string; [key: string]: unknown }; proves?: string[] }>,
   task: string,
 ): Partial<Record<CleoGate, string[]>> {
-  const gateFor = (check: { kind: string; run?: string }): CleoGate | undefined => {
-    if (check.kind === "command") return /\btypecheck\b|\blint\b/.test(String(check.run ?? "")) ? "qaPassed" : "testsPassed"
-    if (check.kind === "file" || check.kind === "contains" || check.kind === "absent") return "implemented"
-    return undefined
-  }
   const map: Partial<Record<CleoGate, string[]>> = {}
+  const seen: Record<string, Set<string>> = {}
   for (const criterion of criteria) {
-    const gate = gateFor(criterion.check)
+    const gate = gateForCheck(criterion.check as never)
     if (!gate) continue
     for (const ref of criterion.proves ?? []) {
       const [refTask, ac] = ref.split("#")
       if (refTask !== task || !ac) continue
+      // T171 — a criterion and a plan step may both cite the same AC; one
+      // `satisfies:` atom is enough. Never emit the same AC twice.
+      const seenForGate = seen[gate] ?? new Set<string>()
+      seen[gate] = seenForGate
+      if (seenForGate.has(ac)) continue
+      seenForGate.add(ac)
       map[gate] = [...(map[gate] ?? []), ac]
     }
   }
@@ -298,11 +337,16 @@ export async function runBridge(input: BridgeInputs): Promise<TaskOutcome[]> {
   const outcomes: TaskOutcome[] = []
   for (const task of input.tasks) {
     const planResponse = await input.runCleo(["done", task, "--plan"])
-    let acs: string[] = [], typedAcs: string[] = [], runTyped = false
+    let acs: string[] = [], typedAcs: string[] = [], runTyped = false, provenGates: CleoGate[] = [], mappedAcs: string[] = []
     try {
       const parsed = JSON.parse(planResponse.stdout.slice(planResponse.stdout.indexOf("{")))
       const mapping: Array<{ alias: string; mapped: boolean }> = parsed?.data?.acMapping ?? []
       acs = mapping.filter((a) => !a.mapped).map((a) => a.alias)
+      mappedAcs = mapping.filter((a) => a.mapped).map((a) => a.alias)
+      // T171 — CLEO's own gate state, read from the read-only plan. A gate it
+      // already proves is never rewritten (one evidence write per task+gate).
+      const gates: Array<{ gate: CleoGate; passed: boolean }> = parsed?.data?.gates ?? []
+      provenGates = gates.filter((g) => g.passed).map((g) => g.gate)
       const typed: Array<{ alias: string; status?: string }> = parsed?.data?.typedGates ?? []
       typedAcs = typed.map((g) => g.alias)
       runTyped = typed.some((g) => g.status !== "pass")
@@ -317,7 +361,10 @@ export async function runBridge(input: BridgeInputs): Promise<TaskOutcome[]> {
     if (report && !report.passed && declaredTests)
       outcomes.push({ task, completed: false, steps: [], openAcs: [], blocker: `the scoped report for ${task} did not pass (${report.failed}/${report.total} failed) — refusing to record testsPassed evidence on a red run` })
     else {
-      const outcome = await executePlan(planEvidence({ task, acs, typedAcs, runTyped, acsByGate: link?.acs, changeSet, reportPath: report?.reportPath }), input.runCleo)
+      const outcome = await executePlan(
+        planEvidence({ task, acs, typedAcs, runTyped, acsByGate: link?.acs, provenGates, mappedAcs, changeSet, reportPath: report?.reportPath }),
+        input.runCleo,
+      )
       if (report) outcome.report = { path: report.reportPath, sha256: report.reportSha256 }
       outcomes.push(outcome)
     }
@@ -332,7 +379,8 @@ export function bridgeReport(outcomes: TaskOutcome[]): string {
       .map((o) => {
         const head = o.completed ? `✓ ${o.task} completed through the CLEO CLI` : `✗ ${o.task} not completed`
         const ran = o.steps.map((s) => `  ran: cleo ${s.argv.join(" ")} → exit ${s.exit}`).join("\n")
-        return [head, ran, o.blocker ? `  blocker: ${o.blocker}` : ""].filter(Boolean).join("\n")
+        const reused = o.reused?.length ? `  reused: ${o.reused.join(", ")} (already proven; not written twice)` : ""
+        return [head, ran, reused, o.blocker ? `  blocker: ${o.blocker}` : ""].filter(Boolean).join("\n")
       })
       .join("\n") || "No linked CLEO tasks."
   )
