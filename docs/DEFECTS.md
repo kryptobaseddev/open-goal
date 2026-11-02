@@ -22,8 +22,8 @@ open.
 | D8 | `ocg tick` read the run store without a guard, so an I/O error crashed it | high | **fixed 0.7.1** |
 | D9 | An unknown `budget` key is silently dropped, and the turn backstop is reported as an exhausted budget | high | **fixed 0.9.3** |
 | D10 | A contract locked before a validator tightening bricks its run; resume, amendment and divergence recovery disagree | high | **fixed 0.9.4, hardened 0.9.8** |
-| D11 | A plugin hot-load does not reach pre-existing sessions; their goal tool surface is gone until a fresh engine/session | high | open |
-| D12 | A dying engine's final `run.json` write can undo an owner-side repair | high | open |
+| D11 | A plugin hot-load does not reach pre-existing sessions; their goal tool surface is gone until a fresh engine/session | high | fixed on main after 0.10.1 (T173, PR #19) |
+| D12 | A dying engine's final `run.json` write can undo an owner-side repair | high | fixed on main after 0.10.1 (T172, PR #17) |
 
 ---
 
@@ -330,8 +330,10 @@ D10 brick (resume, amendment and divergence now agree on the invalid-but-identic
 
 ## D11 — a hot-load does not reach pre-existing sessions
 
-**Severity** high. **Status** open. Tracked as CLEO **T173** ("Reload atomicity and disk-backed reads",
-still `pending`).
+**Severity** high. **Status fixed on main after 0.10.1.** Tracked as CLEO **T173** ("Reload atomicity and
+disk-backed reads", done 2026-11-02, PR #19). The fix: registration is one unit gated on recovery,
+reads fall back to disk when memory is empty or stale, and `/goal reload` reconciles a pre-existing session
+without a restart; `test/host/reload-atomicity.test.ts` covers a reload mid-session with a paused run.
 
 **Observed** 2026-10-28/29 from live repairs. After `@cleocode/goal@0.9.8` landed, the agent in
 `axiom-instrument-studio-tbl6run` lost its **entire goal tool surface**; only a fresh engine/session
@@ -352,8 +354,10 @@ into live sessions or provide one supported reconcile that does not require a se
 
 ## D12 — a dying engine's final write can undo a repair
 
-**Severity** high. **Status** open. Tracked as CLEO **T172** ("Stale-writer guard for run state", still
-`pending`).
+**Severity** high. **Status fixed on main after 0.10.1.** Tracked as CLEO **T172** ("Stale-writer guard for
+run state", done 2026-11-02, PR #17). The fix: a monotonic run revision plus writer identity, a refusal when
+disk is ahead (`stale`/`superseded`), one ledger receipt per refused generation, and
+`test/host/stale-writer.test.ts` reproducing the dying-engine write.
 
 **Observed** twice in live runs: `cbl514-scrutiny-ready` and `tbl-six-class-production-run`. An owner-side
 repair (the `budget.rationale` lock repair) was reverted when the dying engine's final `run.json` write
