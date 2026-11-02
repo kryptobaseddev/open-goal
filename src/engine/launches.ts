@@ -16,7 +16,7 @@ export const launchChoices = [
 ] as const
 
 export class LaunchStore extends OwnerReviewStore<LaunchRequest> {
-  constructor(file: string) { super(file, launchChoices) }
+  constructor(file: string, fallback: readonly string[] = []) { super(file, launchChoices, fallback) }
 
   /** Non-consenting admission pointer; actual persisted chat is checked later. */
   noteChatAdmission(id: string, messageID?: string): LaunchRequest | undefined {

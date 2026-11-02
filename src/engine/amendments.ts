@@ -36,7 +36,7 @@ export const recoveryChoices = [
 ] as const
 
 export class AmendmentStore extends OwnerReviewStore<AmendmentRequest> {
-  constructor(file: string) { super(file, amendmentChoices) }
+  constructor(file: string, fallback: readonly string[] = []) { super(file, amendmentChoices, fallback) }
   protected override reviewChoices(request: AmendmentRequest) { return request.recovery ? recoveryChoices : amendmentChoices }
   choicesFor(request: AmendmentRequest) { return this.reviewChoices(request) }
 

@@ -16,6 +16,7 @@ import { isHarnessIdentity } from "../engine/harness-identity"
 import { Store, type RunWriteOutcome } from "../engine/store"
 import { LEGACY_ARCHIVE_REL, LEGACY_GOALS_REL, resolveStoreRoots, storePathKind, type StoreRoots } from "../engine/store-root"
 import { executeStoreMigration, migrationPlanDigest, planStoreMigration, StoreMigrationError, type StoreMigrationPlan } from "../engine/store-migration"
+import { ownerStatePath, ownerStateReadPaths } from "../engine/owner-state"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
 import { LaunchStore, launchChoices, launchView, processAlive, type LaunchActivity, type LaunchRequest } from "../engine/launches"
 import { amendmentDiff, amendedState } from "../engine/amendment"
@@ -180,9 +181,11 @@ export class GoalApp {
     this.root = ctx.location.directory
     this.rootReal = canonical(this.root)
     this.store = new Store(this.root)
-    this.launches = new LaunchStore(join(this.root, ".opencode/goals/.owner-launches.json"))
-    this.amendmentReviews = new AmendmentStore(join(this.root, ".opencode/goals/.owner-amendments.json"))
-    this.decisions = new DecisionStore(join(this.root, ".opencode/goals/.owner-decisions.json"))
+    // T185: owner-state sidecars resolve through the same store the project's
+    // runs use; the other root stays a read source for a pre-flip record.
+    this.launches = new LaunchStore(ownerStatePath(this.root, this.store.roots, ".owner-launches.json"), ownerStateReadPaths(this.root, this.store.roots, ".owner-launches.json").slice(1))
+    this.amendmentReviews = new AmendmentStore(ownerStatePath(this.root, this.store.roots, ".owner-amendments.json"), ownerStateReadPaths(this.root, this.store.roots, ".owner-amendments.json").slice(1))
+    this.decisions = new DecisionStore(ownerStatePath(this.root, this.store.roots, ".owner-decisions.json"), ownerStateReadPaths(this.root, this.store.roots, ".owner-decisions.json").slice(1))
     this.registry = new Registry()
     this.options = { ...DEFAULTS, ...(ctx.options as Partial<Options>) }
   }
@@ -717,28 +720,36 @@ export class GoalApp {
   // T068: launch approvals persist across plugin/server restarts inside the
   // TTL — in-memory state died with the process, so a legitimately approved
   // launch refused after a restart (live: two restarts voided one). The
-  // sidecar lives beside the goal folders; a file there never matches a slug
-  // (directories with goal.yaml only).
+  // sidecar lives beside the project's owner-state records (T185: resolved
+  // through the store); a file there never matches a slug (directories with
+  // goal.yaml only).
   private get approvalsFile() {
-    return join(this.root, ".opencode", "goals", ".launch-approvals.json")
+    return ownerStatePath(this.root, this.store.roots, ".launch-approvals.json")
   }
   private readLaunchApprovals(): Record<string, LegacyLaunchApproval> {
-    try {
-      const parsed = JSON.parse(readFileSync(this.approvalsFile, "utf8"))
-      return typeof parsed === "object" && parsed ? (parsed as Record<string, LegacyLaunchApproval>) : {}
-    } catch {
-      return {}
+    const all: Record<string, LegacyLaunchApproval> = {}
+    // T185: a pre-flip approval is still honored; the resolved file wins.
+    for (const file of [...ownerStateReadPaths(this.root, this.store.roots, ".launch-approvals.json")].reverse()) {
+      try {
+        const parsed = JSON.parse(readFileSync(file, "utf8"))
+        if (typeof parsed === "object" && parsed) Object.assign(all, parsed as Record<string, LegacyLaunchApproval>)
+      } catch {
+        // absent or unreadable: no approval from this source
+      }
     }
+    return all
   }
   private writeLaunchApproval(sessionID: string, approval: LegacyLaunchApproval) {
     const all = this.readLaunchApprovals()
     all[sessionID] = approval
+    mkdirSync(dirname(this.approvalsFile), { recursive: true })
     writeFileSync(this.approvalsFile, JSON.stringify(all, null, 2))
   }
   private clearLaunchApproval(sessionID: string) {
     const all = this.readLaunchApprovals()
     if (!(sessionID in all)) return
     delete all[sessionID]
+    mkdirSync(dirname(this.approvalsFile), { recursive: true })
     writeFileSync(this.approvalsFile, JSON.stringify(all, null, 2))
   }
   /** The approval state for a session: fresh in memory, else fresh on disk, else none. */
@@ -2594,12 +2605,16 @@ export class GoalApp {
       this.noticeM(state.sessionID, M.continueStopped(`the contract generated from ${candidate.taskId} did not validate`))
       return false
     }
-    const dir = join(this.root, ".opencode", "goals", slug)
+    // T186: the successor lives in the SAME store as the run it continues, so a
+    // legacy run never mints a canonical folder behind the owner's back (and a
+    // canonical run does not fall back to the legacy root).
+    const dir = join(dirname(this.store.locate(state.slug)), slug)
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, "goal.yaml"), text)
     this.store.ledger(state.slug, { type: "continue-work", taskId: candidate.taskId, slug, title: candidate.title, lock: parsed.lock })
     this.noticeM(state.sessionID, M.continueWork(state.title, slug, candidate.taskId))
-    void this.transcript(state.sessionID, `◎ Goal complete — "${state.title}". Started the next ready CLEO item ${candidate.taskId} as "${slug}" in a new session; no owner decision was created. The new contract is .opencode/goals/${slug}/goal.yaml.`)
+    const written = relative(this.root, join(dir, "goal.yaml")).split("\\").join("/")
+    void this.transcript(state.sessionID, `◎ Goal complete — "${state.title}". Started the next ready CLEO item ${candidate.taskId} as "${slug}" in a new session; no owner decision was created. The new contract is ${written}.`)
     // startClean creates the session outside the serial queue and queues the
     // start behind this completion turn; called synchronously it would re-enter
     // the queue and deadlock.
@@ -4597,7 +4612,7 @@ export class GoalApp {
           // T075 exception: the ENGINE-initiated decision form (askDecisionForm's
           // prompt) is the owner's ask — the worker's own questions stay deferred.
           throw new Error("Goal mode defers questions to the owner during a run. Make the most reasonable reversible choice and note it as an assumption in goal_progress, or call goal_block if this truly needs the owner.")
-        const paths = targetPaths(event.tool, event.input)
+        const paths = targetPaths(event.tool, event.input, [this.store.roots.goalsRel, this.store.roots.legacy.goalsRel])
         for (const p of paths) {
           const rel = relative(this.root, resolve(this.root, p))
           if (rel === ".." || rel.startsWith("../")) continue
@@ -5150,44 +5165,47 @@ function makeUserMessage(messages: any[], text: string): any {
   return { role: "user", content: [{ type: "text", text }] }
 }
 
-function targetPaths(tool: string, input: any): string[] {
+function targetPaths(tool: string, input: any, goalsRel: readonly string[]): string[] {
   if (!input || typeof input !== "object") return []
   if ((tool === "edit" || tool === "write") && typeof input.path === "string") return [input.path]
   if (tool === "patch" && typeof input.patchText === "string") return [...input.patchText.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map((m) => m[1]!.trim())
-  if ((tool === "shell" || tool === "bash" || tool === "execute") && typeof input.command === "string") return shellWriteTargets(input.command)
+  if ((tool === "shell" || tool === "bash" || tool === "execute") && typeof input.command === "string") return shellWriteTargets(input.command, goalsRel)
   return []
 }
 
-/** T108: a shell command or script is another reachable write path into a live
- * goal folder. Reads must stay allowed, so only a write-shaped use of the path
- * counts: redirection, tee, in-place edit, move/copy/remove, a truncating
- * descriptor, or an inline interpreter that writes it. */
-export function shellWriteTargets(command: string): string[] {
-  const goals = /(?:\.opencode\/goals\/|\/\.opencode\/goals\/)/g
+/** T108/T185: a shell command or script is another reachable write path into a
+ *  live goal folder. Reads must stay allowed, so only a write-shaped use of the
+ *  path counts: redirection, tee, in-place edit, move/copy/remove, a truncating
+ *  descriptor, or an inline interpreter that writes it. `goalsRel` names every
+ *  store the guard covers — active and legacy — so one store is not writable
+ *  just because the project moved. */
+export function shellWriteTargets(command: string, goalsRel: readonly string[] = [LEGACY_GOALS_REL]): string[] {
   const found = new Set<string>()
-  for (const match of command.matchAll(goals)) {
-    const at = match.index! + match[0].length
-    const rest = command.slice(at)
-    const path = /\.opencode\/goals\/([^\s'";|&)>]+)/.exec(match[0] + rest)
-    const relative = path ? `.opencode/goals/${path[1]}` : undefined
-    if (!relative) continue
-    const escaped = relative.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    const writeish = [
-      new RegExp(`>>?\\s*['\"]?${escaped}`), // > path, >> path
-      new RegExp(`\\btee\\b[^|;&]*${escaped}`), // tee path
-      new RegExp(`\\bsed\\b[^|;&]*-i[^|;&]*${escaped}`), // sed -i path
-      new RegExp(`\\b(?:mv|cp|install|rm|truncate|touch|chmod|chown|ln|dd)\\b[^|;&]*${escaped}`), // move/remove/replace
-      new RegExp(`[|>]\\s*['\"]?${escaped}`),
-      new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*${escaped}[\s\S]*?(?:\\.write\\(|open\\([^)]*['\"][wa]|writeFile|appendFile|createWriteStream|>>?)`),
-      new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*?(?:\\.write\\(|open\\([^)]*['\"][wa]|writeFile|appendFile|createWriteStream)[\s\S]*${escaped}`),
-      // open('<path>', 'w') and friends put the write beside the path itself.
-      // A bare open('<path>') is a READ; only a write call or an explicit
-      // write mode counts (the sibling pattern below covers the mode).
-      new RegExp(`(?:writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|truncate)\\(\\s*['\"]${escaped}['\"]`),
-      new RegExp(`['\"]${escaped}['\"]\\s*,\\s*['\"][wa]`),
-      new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*?(?:writeFile|appendFile|createWriteStream|truncate|unlink|rename|copyFile)`),
-    ].some((pattern) => pattern.test(command))
-    if (writeish) found.add(relative)
+  for (const dir of new Set(goalsRel)) {
+    const marker = new RegExp(`${dir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\/`, "g")
+    for (const match of command.matchAll(marker)) {
+      const rest = command.slice(match.index! + match[0].length)
+      const tail = /^([^\s'";|&)>]+)/.exec(rest)?.[1]
+      const relative = tail ? `${dir}/${tail}` : undefined
+      if (!relative) continue
+      const escaped = relative.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      const writeish = [
+        new RegExp(`>>?\\s*['\"]?${escaped}`), // > path, >> path
+        new RegExp(`\\btee\\b[^|;&]*${escaped}`), // tee path
+        new RegExp(`\\bsed\\b[^|;&]*-i[^|;&]*${escaped}`), // sed -i path
+        new RegExp(`\\b(?:mv|cp|install|rm|truncate|touch|chmod|chown|ln|dd)\\b[^|;&]*${escaped}`), // move/remove/replace
+        new RegExp(`[|>]\\s*['\"]?${escaped}`),
+        new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*${escaped}[\s\S]*?(?:\\.write\\(|open\\([^)]*['\"][wa]|writeFile|appendFile|createWriteStream|>>?)`),
+        new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*?(?:\\.write\\(|open\\([^)]*['\"][wa]|writeFile|appendFile|createWriteStream)[\s\S]*${escaped}`),
+        // open('<path>', 'w') and friends put the write beside the path itself.
+        // A bare open('<path>') is a READ; only a write call or an explicit
+        // write mode counts (the sibling pattern below covers the mode).
+        new RegExp(`(?:writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|truncate)\\(\\s*['\"]${escaped}['\"]`),
+        new RegExp(`['\"]${escaped}['\"]\\s*,\\s*['\"][wa]`),
+        new RegExp(`\\b(?:python3?|node|bun|deno|ruby|perl|php)\\b[\s\S]*?(?:writeFile|appendFile|createWriteStream|truncate|unlink|rename|copyFile)`),
+      ].some((pattern) => pattern.test(command))
+      if (writeish) found.add(relative)
+    }
   }
   return [...found]
 }
