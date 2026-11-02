@@ -39,7 +39,7 @@ var GoalRpc = {
       output: anyObject
     },
     manage: {
-      input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 }, action: { type: "string", enum: ["pause", "resume", "verify", "attach", "abort", "archive"] }, target: targetObject }, required: ["sessionID", "action", "target"], additionalProperties: false },
+      input: { type: "object", properties: { sessionID: { type: "string", minLength: 1, maxLength: 256 }, action: { type: "string", enum: ["pause", "resume", "verify", "attach", "abort", "archive", "rebase"] }, target: targetObject, commit: { type: "string", minLength: 1, maxLength: 200 } }, required: ["sessionID", "action", "target"], additionalProperties: false },
       output: anyObject
     },
     act: {
@@ -47,7 +47,7 @@ var GoalRpc = {
         type: "object",
         properties: {
           sessionID: { type: "string", minLength: 1, maxLength: 256 },
-          action: { type: "string", enum: ["pause", "resume", "abort", "verify", "approve", "reject", "amend", "archive", "attach", "start", "start-next", "decompose"] },
+          action: { type: "string", enum: ["pause", "resume", "abort", "verify", "approve", "reject", "amend", "archive", "attach", "start", "start-next", "decompose", "rebase"] },
           arg: { type: "string", maxLength: 2000 },
           decisionId: { type: "string", minLength: 1, maxLength: 256 }
         },

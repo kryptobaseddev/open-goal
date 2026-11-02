@@ -63,7 +63,7 @@ const askedDecisionIds = new Set<string>()
       .finally(() => clearTimeout(timer))
   })
 import { ascendingId, runId as newRunId } from "../util/ids"
-import { fingerprint, gitDigest, headCommit, topLevel } from "../util/git"
+import { fingerprint, gitDigest, headCommit, resolveCommit, topLevel } from "../util/git"
 import { runHostCheck, verifyClaim, type VerifierVerdict } from "../verify/pipeline"
 import { captureEnvironment, compareEnvironment, environmentLine } from "../verify/environment"
 import { runShell } from "../util/shell"
@@ -690,8 +690,11 @@ export class GoalApp {
     // control + read + decision-answer commands stay immediate: pause/abort
     // are how you stop a runaway turn; approve/reject ARE the decision's
     // answers (deferring them behind the decision-form's own ask turn would
-    // be circular); status/list/help just read state
-    if (["", "status", "list", "help", "pause", "abort", "approve", "reject"].includes(sub)) return false
+    // be circular); status/list/help just read state. A baseline rebase is
+    // immediate for the same reason pause is: it is the owner's control over
+    // what the next verification measures, and holding it behind a busy turn
+    // would make the very claim that follows measure the old baseline.
+    if (["", "status", "list", "help", "pause", "abort", "approve", "reject", "rebase"].includes(sub)) return false
     // A direct OWNER command can resume this session's stopped run while
     // an unrelated inspection turn is still busy. ownerAct still validates
     // the exact state/lock/reviews and never admits a competing kickoff.
@@ -3524,7 +3527,7 @@ export class GoalApp {
 
   // ───────────────────────────── owner actions (command, RPC)
 
-  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose" | "revert", arg?: string, via: "form" | "dialog" = "dialog", decisionId?: string): Promise<{ ok: boolean; message: string }> {
+  async ownerAct(sessionID: string, action: "pause" | "resume" | "abort" | "verify" | "approve" | "reject" | "amend" | "archive" | "attach" | "start" | "start-next" | "decompose" | "revert" | "rebase", arg?: string, via: "form" | "dialog" = "dialog", decisionId?: string): Promise<{ ok: boolean; message: string }> {
     return this.serial(async () => {
       const pending = this.pendingDecisions.get(sessionID)
       const request = this.decisions.get(decisionId ?? pending?.id ?? "")
@@ -3739,6 +3742,45 @@ export class GoalApp {
         }
         case "revert":
           return this.revertPolicyChange(state)
+        case "rebase": {
+          // T183: the OWNER's mid-run baseline rebase. A merged oracle update
+          // (or any legitimate commit) moved the tree past the run's start
+          // commit, so `changedSince(base)` reported protected paths the worker
+          // never touched and the only workarounds were withdrawing the protect
+          // entry by amendment or restoring the old bytes. The rebase is
+          // additive: it moves ONLY state.base.commit. goal.yaml, its lock and
+          // the protect list are not read for writing or rewritten, and no
+          // evidence or criterion state is reset. The guard stays meaningful —
+          // anything changed after the new commit is still caught.
+          const root = this.executionRoot(contract)
+          const requested = (arg ?? "").trim() || "HEAD"
+          const commit = resolveCommit(root, requested)
+          if (!commit)
+            return { ok: false, message: `Cannot rebase the baseline to "${requested.slice(0, 60)}": it is not a commit in ${root === this.root ? "this project" : "the goal's workspace"}. Nothing changed.` }
+          const from = state.base.commit
+          if (from === commit) return { ok: true, message: `The baseline is already ${commit.slice(0, 12)}; nothing changed.` }
+          state.base = { ...state.base, commit }
+          // The receipt names both sides and the owner: the ledger is the
+          // audit trail, so the move is provable later without inferring it.
+          this.store.ledger(state.slug, {
+            type: "baseline-rebase",
+            by: "owner",
+            actorSessionID: sessionID,
+            runId: state.runId,
+            lock: state.lock,
+            from: from ?? null,
+            to: commit,
+            requested,
+            status: state.status,
+          })
+          this.persist(state)
+          this.noticeM(state.sessionID, M.baselineRebased(state.slug, from, commit))
+          await this.transcript(
+            state.sessionID,
+            `◎ owner rebased the run baseline ${from ? `${from.slice(0, 12)} → ` : "to "}${commit.slice(0, 12)}. Files already changed before this commit are no longer counted as your changes; anything you modify from now on is. The contract and its protected paths are unchanged.`,
+          )
+          return { ok: true, message: `Baseline rebased ${from ? `${from.slice(0, 12)} → ` : "to "}${commit.slice(0, 12)} for ${state.slug}. The contract, its lock and its protect list are unchanged; changes after this commit are still caught.` }
+        }
         case "archive": {
           // T032: demote, never delete — the folder moves to goals-archive/
           // with ledger and evidence intact; the registry keeps answering yes.
@@ -4084,6 +4126,7 @@ export class GoalApp {
       case "archive":
       case "attach":
       case "revert":
+      case "rebase":
       case "decompose": {
         const result = await this.ownerAct(sessionID, sub as any, arg)
         return say(result.message, result.ok ? "success" : "error")
@@ -4221,8 +4264,15 @@ export class GoalApp {
     })
   }
 
-  private async manageGoal(sessionID: string, action: ManageAction, target: GoalTarget, forceReview = false) {
+  private async manageGoal(sessionID: string, action: ManageAction, target: GoalTarget, forceReview = false, commit?: string) {
     return this.serial(async () => {
+      // T183: the baseline rebase is an OWNER act. The worker's goal_manage
+      // tool reaches here with forceReview; a worker must never move the
+      // verification baseline — after an INTEGRITY failure it could otherwise
+      // launder its own claim by asking for a rebase. Only the owner's own
+      // command/TUI surface reaches the act below.
+      if (action === "rebase" && forceReview)
+        return { ok: false, actionExecuted: false, message: "A baseline rebase is an owner-only act: a worker tool call or agent-supplied text cannot authorize moving the run's baseline. The owner runs /goal rebase <commit> (default HEAD) in Composer. Nothing changed." }
       if (!/^[a-f0-9]{64}$/.test(target.lock)) return { ok: false, message: "Invalid target lock; nothing executed." }
       try {
         const actor: any = await this.ctx.session.get({ sessionID } as any)
@@ -4327,7 +4377,7 @@ export class GoalApp {
         const decisionId = this.pendingDecisions.get(sessionID)?.id
         return { ok: true, pending: true, decisionId, message: `Native ${action} confirmation offered for ${selected.slug}; no operation executed yet.` }
       }
-      const result = await this.ownerActLocked(sessionID, action, action === "attach" ? selected.slug : undefined, undefined, selected)
+      const result = await this.ownerActLocked(sessionID, action, action === "attach" ? selected.slug : action === "rebase" ? commit : undefined, undefined, selected)
       this.store.ledger(selected.slug, { type: "manager-action", actorSessionID: sessionID, targetRunId: selected.runId, action, ok: result.ok, message: result.message })
       return result
     })
@@ -4465,7 +4515,7 @@ export class GoalApp {
           try { return { ok: true, message: await this.reviewDecision(input.sessionID, input.decisionId) } }
           catch (error) { return { ok: false, message: String(error instanceof Error ? error.message : error), actionExecuted: false } }
         },
-        manage: async (input: { sessionID: string; action: ManageAction; target: GoalTarget }) => this.manageGoal(input.sessionID, input.action, input.target),
+        manage: async (input: { sessionID: string; action: ManageAction; target: GoalTarget; commit?: string }) => this.manageGoal(input.sessionID, input.action, input.target, false, input.commit),
         act: async (input: { sessionID: string; action: any; arg?: string; decisionId?: string }) => this.ownerAct(input.sessionID, input.action, input.arg, "dialog", input.decisionId),
       })
       this.rpc = registration
@@ -4511,12 +4561,12 @@ export class GoalApp {
     }
 
     const tools = [
-      tool("manage", "Request a supported lifecycle operation on the EXACT selected project goal. Use goal_inventory for target key/runId/lock/sessionID. A current, explicit owner resume/continue message can authorize one resume of that same session/run/lock; the host reads and consumes the original message, never worker-supplied consent. Otherwise a native owner decision is prepared. Cannot waive criteria, approve evidence or execute arbitrary owner operations.", { properties: { action: { type: "string", enum: ["pause", "resume", "verify", "attach", "abort", "archive"] }, target: GoalRpc.methods.manage.input.properties.target }, required: ["action", "target"] }, async (args, context) => {
+      tool("manage", "Request a supported lifecycle operation on the EXACT selected project goal. Use goal_inventory for target key/runId/lock/sessionID. A current, explicit owner resume/continue message can authorize one resume of that same session/run/lock; the host reads and consumes the original message, never worker-supplied consent. Otherwise a native owner decision is prepared. A baseline rebase (action \"rebase\", optional commit, default HEAD) is OWNER-ONLY and a worker call is refused — the owner runs /goal rebase. Cannot waive criteria, approve evidence or execute arbitrary owner operations.", { properties: { action: { type: "string", enum: ["pause", "resume", "verify", "attach", "abort", "archive", "rebase"] }, target: GoalRpc.methods.manage.input.properties.target, commit: { type: "string", maxLength: 200, description: "rebase only: the commit the run's baseline moves to (default HEAD)" } }, required: ["action", "target"] }, async (args, context) => {
         // After reload this instance may have missed execution.started. A
         // model tool call proves the turn is still busy; resume must not
         // enqueue a competing kickoff alongside this owner-approved work.
         this.factsOf(context.sessionID).busy = true
-        return this.manageGoal(context.sessionID, args.action, args.target, true)
+        return this.manageGoal(context.sessionID, args.action, args.target, true, args.commit ? String(args.commit) : undefined)
       }),
       tool("inventory", "Read every goal contract in THIS project: drafts, live/stopped/complete runs and archives, with real session/agent/progress/priority and existing contract metadata. Goal contracts are not CLEO tasks; never infer a goal parent from a task ID. Unknown/missing metadata is reported honestly; this performs no lifecycle operation.", { properties: {} }, async () => ({ goals: await this.inventory() })),
       tool("review", "Re-present this session's pending engine decision in a native owner form after dismissal/commentary. Optional decisionId selects the exact review; this never approves, resumes or executes an operation. Expired reviews need a new review; changed target generations are refused.", { properties: { decisionId: { type: "string", minLength: 1, maxLength: 256 } } }, async (args, context) => this.reviewDecision(context.sessionID, args.decisionId ? String(args.decisionId) : undefined)),

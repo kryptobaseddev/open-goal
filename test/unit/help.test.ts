@@ -14,6 +14,7 @@ describe("goal help (T025)", () => {
       "/goal new <what you want done>",
       "/goal start <slug> [acknowledge-supersede]",
       "/goal amend [confirm]",
+      "/goal rebase [<commit>]",
       "/goal archive",
       "/goal approve <C#>",
       "/goal validate <slug>",
