@@ -23,6 +23,7 @@ import { budgetUse, setStatus, TERMINAL as TERMINAL_STATUSES, type RunState } fr
 import { continuationTail, decide, type LoopLimits, type LoopSignals } from "./loop"
 import { recordTurn } from "./tick-record"
 import { tickAdapter, type HarnessAdapter, type HarnessName } from "./harness"
+import { resolveStoreRoots } from "./store-root"
 import type { RunWriteOutcome } from "./store"
 import type { VerifyOutcome } from "../verify/pipeline"
 
@@ -133,8 +134,17 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
     return false
   }
   // Outside a goal project there is nothing to tick at all - print nothing.
-  if (!existsSync(join(deps.root, ".opencode", "goals"))) {
-    log.push("no .opencode/goals directory; nothing to tick")
+  // T150: the active store is canonical by default; a project that has not
+  // migrated yet still lives in the legacy store, so either one counts.
+  let storeRoots: ReturnType<typeof resolveStoreRoots>
+  try {
+    storeRoots = resolveStoreRoots(deps.root)
+  } catch (error) {
+    log.push(`the goal-store configuration cannot be resolved (${why(error)}); holding`)
+    return { stdout: HOLD, log, harness }
+  }
+  if (!existsSync(storeRoots.goals) && !existsSync(storeRoots.legacy.goals)) {
+    log.push("no .opencode/goals or .cleo/goals directory; nothing to tick")
     return { stdout: "", log, harness }
   }
   const { live, unreadable } = liveRun(deps.store, log)

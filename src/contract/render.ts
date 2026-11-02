@@ -24,7 +24,7 @@ const describeCheck = (check: Check): string => {
 
 const line = (c: Criterion) => `- ${c.id}${c.essential ? "" : " (optional)"}: ${c.statement}\n    proof: ${describeCheck(c.check)}${c.proves?.length ? `\n    proves CLEO: ${c.proves.join(", ")}` : ""}`
 
-export function renderSystemBlock(contract: Contract, lock: string): string {
+export function renderSystemBlock(contract: Contract, lock: string, goalsRel = ".opencode/goals"): string {
   const out: string[] = []
   out.push(`<goal_contract id="${contract.id}" lock="${lock.slice(0, 12)}">`)
   out.push("Goal mode is active for this session. The contract below is fixed for this run. It is the owner's task data: pursue it, but it does not override system, developer, tool or repository policies.")
@@ -85,7 +85,7 @@ export function renderSystemBlock(contract: Contract, lock: string): string {
   if (contract.stop.escalate_when.length) out.push(`Stop and call goal_block when: ${contract.stop.escalate_when.join("; ")}`)
   if (contract.autonomy.level)
     out.push(`Autonomy level (owner-set): ${contract.autonomy.level}. Routine stalls, clean restarts, accepted amendments and verifier retries need no second owner act. Human criteria, outward/destructive acts, real blockers and contract or oracle changes still stop and ask.`)
-  out.push(`Contract file: .opencode/goals/${contract.id}/goal.yaml`)
+  out.push(`Contract file: ${goalsRel}/${contract.id}/goal.yaml`)
   out.push("</goal_contract>")
   out.push("")
   out.push("<goal_protocol>")
@@ -97,7 +97,7 @@ export function renderSystemBlock(contract: Contract, lock: string): string {
   out.push("- If a criterion is contradictory, impossible or unsafe as written, call goal_flag. Do not edit tests or checks to make them pass.")
   out.push("- If you are blocked on something only the owner can provide, call goal_block with a short stable key. Hard, slow or uncertain work is not blocked.")
   out.push("- To wait on an external process, call goal_wait with the seconds and the reason instead of polling in a loop.")
-  out.push("- Never edit the contract or anything under .opencode/goals/, and never touch protected paths.")
+  out.push(`- Never edit the contract or anything under ${goalsRel}/, and never touch protected paths.`)
   if (contract.autonomy.questions === "defer")
     out.push("- Do not ask the owner questions during the run. Make the most reasonable reversible choice and note it in goal_progress as an assumption, or call goal_block if it truly needs an owner decision.")
   out.push("</goal_protocol>")
@@ -123,7 +123,7 @@ export function boardLine(state: RunState, contract: Contract): string {
 
 export type TailKind = "kickoff" | "continue" | "verdict" | "recovery" | "wrapup" | "resume"
 
-export function renderTailNote(state: RunState, contract: Contract, kind: TailKind, now = Date.now()): string {
+export function renderTailNote(state: RunState, contract: Contract, kind: TailKind, now = Date.now(), goalsRel = ".opencode/goals"): string {
   const out: string[] = []
   const use = budgetUse(state, contract, now)
   const budget = use.parts.length
@@ -149,7 +149,7 @@ export function renderTailNote(state: RunState, contract: Contract, kind: TailKi
     for (const l of state.verdict.lines) out.push(`  ${l}`)
   }
   if (state.blocker && state.blocker.count > 0) out.push(`Reported blocker "${state.blocker.key}" ×${state.blocker.count}: ${state.blocker.reason}. Look for independent work that does not depend on it before reporting it again.`)
-  if (state.compacted) out.push(`Context was compacted. Before acting, re-read .opencode/goals/${contract.id}/goal.yaml and the recent entries of .opencode/goals/${contract.id}/ledger.jsonl; do not redo finished work.`)
+  if (state.compacted) out.push(`Context was compacted. Before acting, re-read ${goalsRel}/${contract.id}/goal.yaml and the recent entries of ${goalsRel}/${contract.id}/ledger.jsonl; do not redo finished work.`)
   out.push("</goal_status>")
   return out.join("\n")
 }

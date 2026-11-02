@@ -14,6 +14,7 @@ import { GoalRpc, type GoalSummary, type GoalTarget, type GoalView, type ManageA
 import { account, budgetUse, initialRun, isActive, isTerminal, modelCan, ownerCan, setStatus, type Handoff, type PendingKind, type RunState, type Status } from "../engine/state"
 import { isHarnessIdentity } from "../engine/harness-identity"
 import { Store, type RunWriteOutcome } from "../engine/store"
+import { storePathKind } from "../engine/store-root"
 import { Registry, byPriorityThenRecency } from "../engine/registry"
 import { LaunchStore, launchChoices, launchView, processAlive, type LaunchActivity, type LaunchRequest } from "../engine/launches"
 import { amendmentDiff, amendedState } from "../engine/amendment"
@@ -524,8 +525,8 @@ export class GoalApp {
     const start = this.store.recent(slug, 5000).filter((e) => e.type === "start" && typeof e.runId === "string" && typeof e.sessionID === "string" && typeof e.lock === "string").at(-1)
     if (!start) return undefined
     const runId = String(start.runId), sessionID = String(start.sessionID), lock = String(start.lock)
-    const snapshot = join(this.store.dir(slug), "evidence", runId, `contract-${lock}.yaml`)
-    const plain = join(this.store.dir(slug), "evidence", runId, "contract.yaml")
+    const snapshot = join(this.store.locate(slug), "evidence", runId, `contract-${lock}.yaml`)
+    const plain = join(this.store.locate(slug), "evidence", runId, "contract.yaml")
     const source = existsSync(snapshot) ? snapshot : existsSync(plain) ? plain : undefined
     if (!source) return undefined
     const parsed = parseContract(readFileSync(source, "utf8"), { slug })
@@ -591,8 +592,8 @@ export class GoalApp {
       this.loaded.set(state.slug, { contract: locked.contract, lock: locked.lock, text: locked.text })
       return locked.contract
     }
-    const currentSnapshot = join(this.store.dir(state.slug), "evidence", state.runId, `contract-${state.lock}.yaml`)
-    const snapshot = existsSync(currentSnapshot) ? currentSnapshot : join(this.store.dir(state.slug), "evidence", state.runId, "contract.yaml")
+    const currentSnapshot = join(this.store.locate(state.slug), "evidence", state.runId, `contract-${state.lock}.yaml`)
+    const snapshot = existsSync(currentSnapshot) ? currentSnapshot : join(this.store.locate(state.slug), "evidence", state.runId, "contract.yaml")
     if (existsSync(snapshot)) {
       const raw = readFileSync(snapshot, "utf8")
       const parsed = parseContract(raw, { slug: state.slug })
@@ -2241,7 +2242,7 @@ export class GoalApp {
       // already knows, so the new session does not have to rediscover it.
       if (options.handoff) this.writeHandoff(state, contract, options.handoff, exec, rehearsal)
       this.store.evidence(slug, state.runId, "contract", { lock, text })
-      await Bun.write(join(this.store.dir(slug), "evidence", state.runId, "contract.yaml"), text)
+      await Bun.write(join(this.store.locate(slug), "evidence", state.runId, "contract.yaml"), text)
       this.runs.set(sessionID, state)
       this.store.ledger(slug, { type: "start", runId: state.runId, sessionID, source, lock, commit: state.base.commit, ...(state.harness ? { harness: state.harness } : {}), ...(options.decisionId ? { decisionId: options.decisionId } : {}) })
       // T027 / v0.5.0: record the CLEO linkage and health (CLI-only). A project
@@ -2679,8 +2680,8 @@ export class GoalApp {
         },
         evidence: [`.opencode/goals/${state.slug}/evidence/${state.runId}/`],
       })
-      writeFileSync(join(this.store.dir(state.slug), "handoff.md"), `${doc.markdown}\n`)
-      writeFileSync(join(this.store.dir(state.slug), "handoff.json"), `${JSON.stringify({ schema: doc.schema, generatedAt: doc.generatedAt, ...doc.data }, null, 2)}\n`)
+      writeFileSync(join(this.store.locate(state.slug), "handoff.md"), `${doc.markdown}\n`)
+      writeFileSync(join(this.store.locate(state.slug), "handoff.json"), `${JSON.stringify({ schema: doc.schema, generatedAt: doc.generatedAt, ...doc.data }, null, 2)}\n`)
       state.handoff = { ...handoff, file: "handoff.md" }
       this.store.ledger(state.slug, { type: "handoff-written", file: "handoff.md", prior: prior?.slug ?? null })
     } catch (error) {
@@ -2702,7 +2703,7 @@ export class GoalApp {
     }
     if (state.status !== "running") setStatus(state, "running")
     state.activity = { kind: "turn", since: Date.now(), detail: kind }
-    let note = renderTailNote(state, contract, kind as TailKind)
+    let note = renderTailNote(state, contract, kind as TailKind, Date.now(), this.store.roots.goalsRel)
     // The seam: the continuation this path sends is the OpenCode adapter's
     // session-prompt surface. The text is the same as before; the seam owns the
     // mechanism, so a harness without one can say so instead of inventing it.
@@ -2713,7 +2714,7 @@ export class GoalApp {
     // content for turn 1 only, so the system block stays byte-stable.
     if (kind === "kickoff" && state.handoff?.file) {
       try {
-        const digest = handoffDigest(readFileSync(join(this.store.dir(state.slug), state.handoff.file), "utf8"))
+        const digest = handoffDigest(readFileSync(join(this.store.locate(state.slug), state.handoff.file), "utf8"))
         note = `<goal_handoff>\n${digest}\n</goal_handoff>\n\n${note}`
       } catch { /* the handoff is optional context; never block the kickoff */ }
     }
@@ -4361,7 +4362,7 @@ export class GoalApp {
         if (!state || isTerminal(state.status) || state.status === "aborted") return
         const contract = this.contractOf(state)
         if (!contract) return
-        event.system.push({ type: "text", text: renderSystemBlock(contract, state.lock) })
+        event.system.push({ type: "text", text: renderSystemBlock(contract, state.lock, this.store.roots.goalsRel) })
         const note = this.notes.get(event.sessionID)
         if (!note || !isActive(state.status)) return
         // Just before the turn's own prompt, so the note keeps one position for
@@ -4380,7 +4381,7 @@ export class GoalApp {
         const state = this.stateFor(event.sessionID)
         const contract = state && this.contractOf(state)
         if (!state || !contract || isTerminal(state.status)) return
-        event.system.push({ type: "text", text: `${renderSystemBlock(contract, state.lock)}\n\nPreserve in the summary: the goal "${contract.title}" is ${state.status}; progress so far: ${state.progress?.note ?? "none recorded"}; next: ${state.progress?.next ?? "continue the plan"}.` })
+        event.system.push({ type: "text", text: `${renderSystemBlock(contract, state.lock, this.store.roots.goalsRel)}\n\nPreserve in the summary: the goal "${contract.title}" is ${state.status}; progress so far: ${state.progress?.note ?? "none recorded"}; next: ${state.progress?.next ?? "continue the plan"}.` })
       }),
     )
     this.registrations.push(
@@ -4396,13 +4397,16 @@ export class GoalApp {
         for (const p of paths) {
           const rel = relative(this.root, resolve(this.root, p))
           if (rel === ".." || rel.startsWith("../")) continue
-          // T037: the goal folder stays untouchable for the whole life of the
-          // run — including stopped states (paused/needs_review/budget_limited),
-          // the unguarded amendment window the council flagged. Terminal runs
-          // release the folder so the next contract can be written.
-          const ownedRunPath = live.some((s) => rel === `.opencode/goals/${s.slug}` || rel.startsWith(`.opencode/goals/${s.slug}/`))
-          const ownerReceipt = /^\.opencode\/goals\/\.(?:owner-|launch-approvals)/.test(rel)
-          if (rel.startsWith(".opencode/goals-archive/") || ownerReceipt || ownedRunPath || state && !isTerminal(state.status) && rel.startsWith(".opencode/goals/"))
+          // T037/T150: the goal folder stays untouchable for the whole life of
+          // the run — including stopped states — in BOTH stores during the
+          // transition. The classifier names which root a path belongs to.
+          const kind = storePathKind(this.store.roots, rel)
+          const ownedRunPath = live.some((s) => {
+            const dirRel = relative(this.root, this.store.locate(s.slug))
+            return rel === dirRel || rel.startsWith(`${dirRel}/`)
+          })
+          const ownerReceipt = (kind === "active" || kind === "legacy") && /(^|\/)\.(?:owner-|launch-approvals)/.test(rel)
+          if (kind === "active-archive" || kind === "legacy-archive" || ownerReceipt || ownedRunPath || (state && !isTerminal(state.status) && (kind === "active" || kind === "legacy")))
             throw new Error("The goal contract and run state are owned by the owner and the host. Do not edit a live goal folder, owner consent records or archived history. Run state changes go through goal_progress, goal_wait, goal_block, goal_flag, goal_claim, goal_manage or goal_recover_divergence; a contract change goes through goal_propose_amendment for native owner acceptance.")
           // A goal-less manager session may propose a diff, but it is not a
           // loophole for editing another session's protected oracle.

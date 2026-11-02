@@ -6906,11 +6906,11 @@ var require_public_api = __commonJS(function(exports) {
 });
 
 // cli/ocg.ts
-import { readFileSync as readFileSync4 } from "node:fs";
+import { readFileSync as readFileSync6 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
-  version: "0.11.0",
+  version: "0.12.0",
   description: "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   type: "module",
   license: "MIT",
@@ -8252,17 +8252,42 @@ function globToRegExp(glob) {
 var matchesAny = (file, globs) => globs.some((g) => globToRegExp(g.replace(/^\.\//, "")).test(file));
 
 // src/engine/store.ts
-import { appendFileSync, closeSync as closeSync2, existsSync as existsSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync2, readdirSync as readdirSync2, renameSync as renameSync2, unlinkSync, writeFileSync, writeSync as writeSync2 } from "node:fs";
-import { join as join3 } from "node:path";
+import { appendFileSync, closeSync as closeSync2, existsSync as existsSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync3, readdirSync as readdirSync2, renameSync as renameSync2, unlinkSync, writeFileSync, writeSync as writeSync2 } from "node:fs";
+import { dirname as dirname2, join as join3 } from "node:path";
 
 // src/engine/store-root.ts
-import { existsSync as existsSync2, readdirSync, realpathSync as realpathSync2, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync, realpathSync as realpathSync2, statSync as statSync2 } from "node:fs";
 import { dirname, isAbsolute as isAbsolute2, join as join2, normalize, relative as relative2, resolve as resolve2, sep as sep2 } from "node:path";
 var STORE_PROTOCOL_VERSION = 1;
 var LEGACY_GOALS_REL = ".opencode/goals";
 var LEGACY_ARCHIVE_REL = ".opencode/goals-archive";
 var CANONICAL_GOALS_REL = ".cleo/goals";
-var DEFAULT_RESOLVED_LAYOUT = "legacy-opencode";
+var CANONICAL_ARCHIVE_REL = ".cleo/goals-archive";
+var DEFAULT_RESOLVED_LAYOUT = "cleo";
+var STORE_CONFIG_REL = ".cleo/goal-store.json";
+function readStoreConfig(root) {
+  const path = join2(root, STORE_CONFIG_REL);
+  if (!existsSync2(path))
+    return;
+  let raw;
+  try {
+    raw = JSON.parse(readFileSync2(path, "utf8"));
+  } catch {
+    throw new StoreRootError(`${STORE_CONFIG_REL} is not valid JSON`);
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    throw new StoreRootError(`${STORE_CONFIG_REL} must be a JSON object`);
+  const record = raw;
+  for (const key of Object.keys(record)) {
+    if (key !== "goalsDir" && key !== "archiveDir")
+      throw new StoreRootError(`${STORE_CONFIG_REL} has an unknown key "${key}"; allowed: goalsDir, archiveDir`);
+    if (typeof record[key] !== "string")
+      throw new StoreRootError(`${STORE_CONFIG_REL}.${key} must be a string`);
+  }
+  const goalsDir = record.goalsDir;
+  const archiveDir = record.archiveDir;
+  return { ...goalsDir !== undefined ? { goalsDir } : {}, ...archiveDir !== undefined ? { archiveDir } : {} };
+}
 
 class StoreRootError extends Error {
 }
@@ -8297,7 +8322,7 @@ function configuredRel(value) {
 function assertClearOfLegacy(rel) {
   for (const legacy of [LEGACY_GOALS_REL, LEGACY_ARCHIVE_REL]) {
     if (rel === legacy)
-      throw new StoreRootError(`${rel} is the legacy store; it is already the default and cannot be selected as an override`);
+      continue;
     if (insideRel(rel, legacy))
       throw new StoreRootError(`the configured goal-store root ${rel} is inside the legacy store ${legacy}`);
     if (insideRel(legacy, rel))
@@ -8337,11 +8362,22 @@ function resolveStoreRoots(root, options = {}) {
     archiveRel: LEGACY_ARCHIVE_REL
   };
   const base = { protocolVersion: STORE_PROTOCOL_VERSION, root: absoluteRoot, legacy };
-  if (options.goalsDir === undefined && options.archiveDir === undefined)
-    return { ...base, layout: DEFAULT_RESOLVED_LAYOUT, goals: legacy.goals, archive: legacy.archive, goalsRel: legacy.goalsRel, archiveRel: legacy.archiveRel, explicit: false };
-  const goalsRel = configuredRel(options.goalsDir ?? CANONICAL_GOALS_REL);
+  const fromFile = options.goalsDir === undefined && options.archiveDir === undefined ? readStoreConfig(absoluteRoot) : undefined;
+  const goalsOption = options.goalsDir ?? fromFile?.goalsDir;
+  const archiveOption = options.archiveDir ?? fromFile?.archiveDir;
+  if (goalsOption === undefined && archiveOption === undefined)
+    return {
+      ...base,
+      layout: DEFAULT_RESOLVED_LAYOUT,
+      goals: join2(absoluteRoot, CANONICAL_GOALS_REL),
+      archive: join2(absoluteRoot, CANONICAL_ARCHIVE_REL),
+      goalsRel: CANONICAL_GOALS_REL,
+      archiveRel: CANONICAL_ARCHIVE_REL,
+      explicit: false
+    };
+  const goalsRel = configuredRel(goalsOption ?? CANONICAL_GOALS_REL);
   assertClearOfLegacy(goalsRel);
-  const archiveRel = options.archiveDir === undefined ? archiveBeside(goalsRel) : configuredRel(options.archiveDir);
+  const archiveRel = archiveOption === undefined ? archiveBeside(goalsRel) : configuredRel(archiveOption);
   assertClearOfLegacy(archiveRel);
   if (insideRel(archiveRel, goalsRel) || insideRel(goalsRel, archiveRel))
     throw new StoreRootError(`the goal store ${goalsRel} and its archive ${archiveRel} may not contain one another`);
@@ -8402,38 +8438,55 @@ class Store {
   dir(slug) {
     return join3(this.goalsDir, slug);
   }
+  locate(slug, options = {}) {
+    const base = options.archived ? this.archiveDir : this.goalsDir;
+    const legacyBase = options.archived ? this.roots.legacy.archive : this.roots.legacy.goals;
+    const active = join3(base, slug);
+    if (base === legacyBase)
+      return active;
+    if (existsSync3(join3(active, "goal.yaml")) || existsSync3(join3(active, "run.json")))
+      return active;
+    const legacy = join3(legacyBase, slug);
+    if (existsSync3(join3(legacy, "goal.yaml")) || existsSync3(join3(legacy, "run.json")))
+      return legacy;
+    return active;
+  }
   contractPath(slug) {
-    return join3(this.dir(slug), "goal.yaml");
+    return join3(this.locate(slug), "goal.yaml");
+  }
+  folderSlugs(dir) {
+    if (!existsSync3(dir))
+      return [];
+    return readdirSync2(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync3(join3(dir, d.name, "goal.yaml"))).map((d) => d.name);
   }
   slugs() {
-    if (!existsSync3(this.goalsDir))
-      return [];
-    return readdirSync2(this.goalsDir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync3(join3(this.goalsDir, d.name, "goal.yaml"))).map((d) => d.name).sort();
+    return [...new Set([...this.folderSlugs(this.goalsDir), ...this.folderSlugs(this.roots.legacy.goals)])].sort();
   }
   archivedSlugs() {
-    if (!existsSync3(this.archiveDir))
-      return [];
-    return readdirSync2(this.archiveDir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync3(join3(this.archiveDir, d.name, "goal.yaml"))).map((d) => d.name).sort();
+    return [...new Set([...this.folderSlugs(this.archiveDir), ...this.folderSlugs(this.roots.legacy.archive)])].sort();
   }
   archivedPath(slug) {
-    return join3(this.archiveDir, slug);
+    return this.locate(slug, { archived: true });
   }
   archive(slug) {
-    mkdirSync2(this.archiveDir, { recursive: true });
-    renameSync2(this.dir(slug), this.archivedPath(slug));
+    const from = this.locate(slug);
+    const legacySource = from === join3(this.roots.legacy.goals, slug) && this.roots.legacy.goals !== this.goalsDir;
+    const to = legacySource ? join3(this.roots.legacy.archive, slug) : join3(this.archiveDir, slug);
+    mkdirSync2(dirname2(to), { recursive: true });
+    renameSync2(from, to);
   }
   readContract(slug, options = {}) {
     const path = options.archived ? join3(this.archivedPath(slug), "goal.yaml") : this.contractPath(slug);
     if (!existsSync3(path))
       return;
-    const text = readFileSync2(path, "utf8");
+    const text = readFileSync3(path, "utf8");
     return { ...parseContract(text, { slug }), text };
   }
   readRunRaw(slug, options = {}) {
-    const path = join3(options.archived ? this.archivedPath(slug) : this.dir(slug), "run.json");
+    const path = join3(options.archived ? this.archivedPath(slug) : this.locate(slug), "run.json");
     if (!existsSync3(path))
       return;
-    const text = readFileSync2(path, "utf8");
+    const text = readFileSync3(path, "utf8");
     return { text, duplicates: duplicateJsonKeys(text) };
   }
   readRun(slug, options = {}) {
@@ -8443,7 +8496,7 @@ class Store {
     return parseRunText(raw.text);
   }
   keepCorruptRun(slug, text, at = Date.now()) {
-    const dir = this.dir(slug);
+    const dir = this.locate(slug);
     mkdirSync2(dir, { recursive: true });
     const path = join3(dir, `run.json.corrupt-${at}.json`);
     writeFileSync(path, text, { mode: 384 });
@@ -8464,7 +8517,7 @@ class Store {
     const next = Math.max(state.revision ?? 0, disk?.revision ?? 0, corrupt) + 1;
     const now = Date.now();
     const writtenBy = { pid: process.pid, startedAt: this.writerStartedAt, sessionID: state.sessionID };
-    const dir = this.dir(slug);
+    const dir = this.locate(slug);
     mkdirSync2(dir, { recursive: true });
     const path = join3(dir, "run.json");
     const tmp = `${path}.${process.pid}.${now}.tmp`;
@@ -8511,7 +8564,7 @@ class Store {
     return { written: false, journalled, reason, mine, disk };
   }
   writeContractSnapshot(slug, runId, lock, text) {
-    const dir = join3(this.dir(slug), "evidence", runId);
+    const dir = join3(this.locate(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
     const path = join3(dir, `contract-${lock}.yaml`);
     if (existsSync3(path))
@@ -8563,7 +8616,7 @@ class Store {
   }
   restoreLocked(slug, runId, lock, discarded) {
     const locked = this.lockedSnapshot(slug, runId, lock);
-    const dir = join3(this.dir(slug), "evidence", runId);
+    const dir = join3(this.locate(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
     const kept = join3(dir, `divergent-${discarded.lock}-${Date.now()}.yaml`);
     this.writeAtomic(kept, discarded.text);
@@ -8577,9 +8630,9 @@ class Store {
     return this.lockedSnapshot(slug, runId, lock);
   }
   lockedSnapshot(slug, runId, lock) {
-    const keyed = join3(this.dir(slug), "evidence", runId, `contract-${lock}.yaml`);
-    const first = join3(this.dir(slug), "evidence", runId, "contract.yaml");
-    const text = readFileSync2(existsSync3(keyed) ? keyed : first, "utf8");
+    const keyed = join3(this.locate(slug), "evidence", runId, `contract-${lock}.yaml`);
+    const first = join3(this.locate(slug), "evidence", runId, "contract.yaml");
+    const text = readFileSync3(existsSync3(keyed) ? keyed : first, "utf8");
     if (parseContract(text, { slug }).lock !== lock)
       throw new Error("Prior locked amendment snapshot is unavailable");
     return text;
@@ -8596,10 +8649,10 @@ class Store {
     renameSync2(tmp, path);
   }
   recent(slug, n) {
-    const path = join3(this.dir(slug), "ledger.jsonl");
+    const path = join3(this.locate(slug), "ledger.jsonl");
     if (!existsSync3(path))
       return [];
-    const lines = readFileSync2(path, "utf8").trimEnd().split(`
+    const lines = readFileSync3(path, "utf8").trimEnd().split(`
 `);
     const out = [];
     for (const line of lines.slice(-n)) {
@@ -8610,16 +8663,16 @@ class Store {
     return out;
   }
   ledger(slug, event, options = {}) {
-    const dir = options.archived ? this.archivedPath(slug) : this.dir(slug);
+    const dir = options.archived ? this.archivedPath(slug) : this.locate(slug);
     mkdirSync2(dir, { recursive: true });
     appendFileSync(join3(dir, "ledger.jsonl"), `${JSON.stringify({ t: Date.now(), ...event })}
 `, { mode: 384 });
   }
   readLedger(slug, limit = 50) {
-    const path = join3(this.dir(slug), "ledger.jsonl");
+    const path = join3(this.locate(slug), "ledger.jsonl");
     if (!existsSync3(path))
       return [];
-    return readFileSync2(path, "utf8").split(`
+    return readFileSync3(path, "utf8").split(`
 `).filter(Boolean).slice(-limit).flatMap((line) => {
       try {
         return [JSON.parse(line)];
@@ -8629,7 +8682,7 @@ class Store {
     });
   }
   evidence(slug, runId, name, data) {
-    const dir = join3(this.dir(slug), "evidence", runId);
+    const dir = join3(this.locate(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
     const file = join3(dir, `${name}.json`);
     const fd = openSync2(file, "w", 384);
@@ -8700,7 +8753,6 @@ function duplicateJsonKeys(text) {
 
 // src/engine/tick.ts
 import { existsSync as existsSync4 } from "node:fs";
-import { join as join4 } from "node:path";
 
 // src/contract/render.ts
 var pct = (used, limit) => `${Math.round(used / limit * 100)}%`;
@@ -8716,7 +8768,7 @@ function boardLine(state, contract) {
     return `${mark} ${c.id}${s?.by ? ` (${s.by})` : ""}`;
   }).join("  ");
 }
-function renderTailNote(state, contract, kind, now = Date.now()) {
+function renderTailNote(state, contract, kind, now = Date.now(), goalsRel = ".opencode/goals") {
   const out = [];
   const use = budgetUse(state, contract, now);
   const budget = use.parts.length ? use.parts.map((p) => `${p.name} ${p.name === "wall" ? `${fmtMs(p.used)}/${fmtMs(p.limit)}` : p.name === "tokens" ? `${fmtTokens(p.used)}/${fmtTokens(p.limit)}` : p.name === "cost" ? `$${p.used.toFixed(2)}/$${p.limit}` : `${p.used}/${p.limit}`}`).join(" · ") : "no budget set";
@@ -8746,7 +8798,7 @@ function renderTailNote(state, contract, kind, now = Date.now()) {
   if (state.blocker && state.blocker.count > 0)
     out.push(`Reported blocker "${state.blocker.key}" ×${state.blocker.count}: ${state.blocker.reason}. Look for independent work that does not depend on it before reporting it again.`);
   if (state.compacted)
-    out.push(`Context was compacted. Before acting, re-read .opencode/goals/${contract.id}/goal.yaml and the recent entries of .opencode/goals/${contract.id}/ledger.jsonl; do not redo finished work.`);
+    out.push(`Context was compacted. Before acting, re-read ${goalsRel}/${contract.id}/goal.yaml and the recent entries of ${goalsRel}/${contract.id}/ledger.jsonl; do not redo finished work.`);
   out.push("</goal_status>");
   return out.join(`
 `);
@@ -8966,8 +9018,15 @@ async function tick(deps) {
       log.push(`refused to overwrite a newer run.json for ${state.slug}: this tick holds generation ${outcome.mine.revision}, disk is generation ${outcome.disk.revision} (${outcome.reason}); the disk bytes were left untouched and a stale-write receipt was journalled`);
     return false;
   };
-  if (!existsSync4(join4(deps.root, ".opencode", "goals"))) {
-    log.push("no .opencode/goals directory; nothing to tick");
+  let storeRoots;
+  try {
+    storeRoots = resolveStoreRoots(deps.root);
+  } catch (error) {
+    log.push(`the goal-store configuration cannot be resolved (${why(error)}); holding`);
+    return { stdout: HOLD, log, harness };
+  }
+  if (!existsSync4(storeRoots.goals) && !existsSync4(storeRoots.legacy.goals)) {
+    log.push("no .opencode/goals or .cleo/goals directory; nothing to tick");
     return { stdout: "", log, harness };
   }
   const { live, unreadable } = liveRun(deps.store, log);
@@ -9083,8 +9142,8 @@ async function tick(deps) {
 }
 
 // src/verify/pipeline.ts
-import { existsSync as existsSync5, readFileSync as readFileSync3 } from "node:fs";
-import { isAbsolute as isAbsolute3, join as join5, normalize as normalize2, relative as relative3 } from "node:path";
+import { existsSync as existsSync5, readFileSync as readFileSync4 } from "node:fs";
+import { isAbsolute as isAbsolute3, join as join4, normalize as normalize2, relative as relative3 } from "node:path";
 
 // src/util/shell.ts
 import { spawn as spawn2 } from "node:child_process";
@@ -9127,7 +9186,7 @@ var tail = (text, lines = 12, chars = 1200) => {
 
 // src/verify/pipeline.ts
 var inside3 = (root, path) => {
-  const full = normalize2(isAbsolute3(path) ? path : join5(root, path));
+  const full = normalize2(isAbsolute3(path) ? path : join4(root, path));
   const rel = relative3(root, full);
   return rel && !rel.startsWith("..") && !isAbsolute3(rel) ? full : rel === "" ? full : undefined;
 };
@@ -9160,7 +9219,7 @@ ${result.stderr}` : ""))}`, raw: runs };
       const path = inside3(root, check.path);
       if (!path || !existsSync5(path))
         return { pass: false, detail: `${check.path} not found` };
-      const text = readFileSync3(path, "utf8");
+      const text = readFileSync4(path, "utf8");
       const ok = check.text ? text.includes(check.text) : new RegExp(check.regex, "m").test(text);
       return { pass: ok, detail: ok ? `${check.path} contains the expected ${check.text ? "text" : "pattern"}` : `${check.path} lacks ${check.text ? `"${check.text}"` : `/${check.regex}/`}` };
     }
@@ -9224,7 +9283,7 @@ function checkQuotes(root, verdict) {
       return { ok: false, why: `cited file ${item.path} does not exist` };
     if (!item.quote || collapse(item.quote).length < 8)
       return { ok: false, why: `quote from ${item.path} is too short to check` };
-    const raw = readFileSync3(path, "utf8");
+    const raw = readFileSync4(path, "utf8");
     const hit = (hay, needle) => collapse(hay).includes(collapse(needle));
     if (!hit(raw, item.quote) && !hit(decodeEntities(raw), decodeEntities(item.quote)))
       return { ok: false, why: `quoted text not found in ${item.path} (raw or entity-decoded)` };
@@ -9304,6 +9363,139 @@ async function verifyClaim(contract, state, deps) {
   return { passed, needsHuman, results, integrity, lines };
 }
 
+// src/engine/store-migration.ts
+import { createHash as createHash3 } from "node:crypto";
+import { cpSync, existsSync as existsSync6, mkdirSync as mkdirSync3, readdirSync as readdirSync3, readFileSync as readFileSync5, rmSync, statSync as statSync3 } from "node:fs";
+import { dirname as dirname3, join as join5 } from "node:path";
+class StoreMigrationError extends Error {
+}
+var sha256 = (text) => createHash3("sha256").update(text).digest("hex");
+function walkGoalDir(dir) {
+  const entries = [];
+  const symlinks = [];
+  const visit = (abs, rel) => {
+    for (const entry of readdirSync3(abs, { withFileTypes: true })) {
+      const childAbs = join5(abs, entry.name);
+      const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isSymbolicLink()) {
+        symlinks.push(childRel);
+        continue;
+      }
+      if (entry.isDirectory()) {
+        visit(childAbs, childRel);
+        continue;
+      }
+      if (!entry.isFile())
+        continue;
+      const bytes = statSync3(childAbs).size;
+      entries.push({ rel: childRel, bytes, sha256: sha256(readFileSync5(childAbs)) });
+    }
+  };
+  visit(dir, "");
+  entries.sort((a, b) => a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0);
+  const digest = sha256(entries.map((e) => `${e.rel}\x00${e.bytes}\x00${e.sha256}
+`).join(""));
+  return { files: entries.length, bytes: entries.reduce((sum, e) => sum + e.bytes, 0), digest, symlinks };
+}
+var overlaps = (a, b) => insideRel(a, b) || insideRel(b, a);
+function assertDisjoint(source, target) {
+  if (source.goalsRel === target.goalsRel && source.archiveRel === target.archiveRel)
+    throw new StoreMigrationError(`the source and target store are the same (${source.goalsRel}); nothing to migrate`);
+  const pairs = [
+    [source.goalsRel, target.goalsRel],
+    [source.goalsRel, target.archiveRel],
+    [source.archiveRel, target.goalsRel],
+    [source.archiveRel, target.archiveRel]
+  ];
+  for (const [a, b] of pairs)
+    if (overlaps(a, b))
+      throw new StoreMigrationError(`${a} and ${b} overlap; a migration must move between disjoint stores`);
+}
+function planStoreMigration(store, target) {
+  assertDisjoint(store.roots, target);
+  const goals = [];
+  const conflicts = [];
+  const warnings = [];
+  for (const archived of [false, true]) {
+    const slugs = archived ? store.archivedSlugs() : store.slugs();
+    for (const slug of slugs) {
+      const from = archived ? store.archivedPath(slug) : store.dir(slug);
+      const to = archived ? join5(target.archive, slug) : join5(target.goals, slug);
+      const walk = walkGoalDir(from);
+      if (walk.symlinks.length)
+        warnings.push(`${archived ? "archive" : "live"}:${slug} contains ${walk.symlinks.length} symlink(s) (${walk.symlinks.slice(0, 3).join(", ")}); the move must rename the folder rather than copy through them`);
+      const run = archived ? store.readRun(slug, { archived: true }) : store.readRun(slug);
+      const hasRunFile = existsSync6(join5(from, "run.json"));
+      const status = run?.status ?? (hasRunFile ? "unknown" : "draft");
+      const entry = {
+        slug,
+        archived,
+        status,
+        ...run ? { runId: run.runId, lock: run.lock } : {},
+        files: walk.files,
+        bytes: walk.bytes,
+        digest: walk.digest,
+        from,
+        to,
+        migratable: true
+      };
+      if (hasRunFile && !run) {
+        entry.migratable = false;
+        entry.reason = "run.json is unreadable; preserve it and inspect before moving";
+      } else if (run && !isTerminal(run.status)) {
+        entry.migratable = false;
+        entry.reason = `run is ${run.status}; finish, stop or abort it before moving its history`;
+      }
+      if (existsSync6(to)) {
+        const existing = walkGoalDir(to);
+        entry.migratable = false;
+        const reason = existing.digest === walk.digest ? "already present at the target with identical bytes; nothing to move" : "the target already holds this slug with different bytes";
+        entry.reason = reason;
+        conflicts.push({ slug, archived, reason });
+      }
+      goals.push(entry);
+    }
+  }
+  return {
+    schemaVersion: 1,
+    dryRun: true,
+    writes: 0,
+    source: { layout: store.roots.layout, goals: store.roots.goalsRel, archive: store.roots.archiveRel },
+    target: { layout: target.layout, goals: target.goalsRel, archive: target.archiveRel },
+    goals,
+    conflicts,
+    warnings,
+    totals: { goals: goals.length, bytes: goals.reduce((sum, g) => sum + g.bytes, 0), migratable: goals.filter((g) => g.migratable).length }
+  };
+}
+function executeStoreMigration(store, target, options = {}) {
+  if (options.confirm !== true)
+    throw new StoreMigrationError("a move requires explicit confirmation ({ confirm: true }); run the dry run first");
+  const plan = planStoreMigration(store, target);
+  const moved = [];
+  const skipped = plan.goals.filter((goal) => !goal.migratable).map((goal) => ({ slug: goal.slug, archived: goal.archived, reason: goal.reason ?? "not migratable" }));
+  for (const goal of plan.goals.filter((entry) => entry.migratable)) {
+    mkdirSync3(dirname3(goal.to), { recursive: true });
+    cpSync(goal.from, goal.to, { recursive: true, force: false, errorOnExist: true, preserveTimestamps: true });
+    const copied = walkGoalDir(goal.to);
+    if (copied.digest !== goal.digest || copied.files !== goal.files) {
+      rmSync(goal.to, { recursive: true, force: true });
+      throw new StoreMigrationError(`the move of ${goal.slug} did not preserve bytes (${copied.digest} vs ${goal.digest}); the target copy was removed and the source is untouched`);
+    }
+    moved.push({ slug: goal.slug, archived: goal.archived, from: goal.from, to: goal.to, files: copied.files, bytes: copied.bytes, digest: copied.digest });
+  }
+  return {
+    schemaVersion: 1,
+    dryRun: false,
+    writes: moved.length,
+    source: plan.source,
+    target: plan.target,
+    moved,
+    skipped,
+    legacyRetained: true
+  };
+}
+
 // cli/ocg.ts
 var argv = process.argv.slice(2);
 var sub = argv[0];
@@ -9318,6 +9510,7 @@ var USAGE = [
   "       cleo-goal status --json",
   "       cleo-goal rollup [--json]",
   "       cleo-goal install --project [--spec <npm-or-git spec>] [--json] [--dry-run]",
+  "       cleo-goal migrate [--confirm]   (dry run by default; copies legacy goals into the active store)",
   "       cleo-goal tick   (reads the harness Stop JSON on stdin; writes JSON on stdout)",
   "usage: ocg tick   (alias; same contract)",
   "       cleo-goal claim --summary <text> [--evidence C1=<note> ...]"
@@ -9359,6 +9552,19 @@ if (sub === "rollup") {
 ` : `${cleoRollupReport(rollup)}
 `);
   process.exit(0);
+}
+if (sub === "migrate") {
+  try {
+    const source = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }));
+    const target = resolveStoreRoots(root);
+    const result = argv.includes("--confirm") ? executeStoreMigration(source, target, { confirm: true }) : planStoreMigration(source, target);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}
+`);
+    process.exit(0);
+  } catch (error) {
+    console.error(`ocg migrate: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 }
 if (sub === "install") {
   const spec = flag("--spec") ?? `${PACKAGE_NAME}@${package_default.version}`;
@@ -9429,7 +9635,7 @@ var result = await tick({
   payload,
   readTranscript: (path) => {
     try {
-      return readFileSync4(path, "utf8");
+      return readFileSync6(path, "utf8");
     } catch {
       return;
     }

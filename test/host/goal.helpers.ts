@@ -92,12 +92,30 @@ export async function newSession(host: Awaited<ReturnType<typeof goalHost>>) {
   return session.id as string
 }
 
+/** T150: a run lives in the active store or, for a pre-flip goal, the legacy
+ *  one. Tests read whichever holds the bytes instead of assuming a layout. */
+const goalBases = (slug: string) => [`.cleo/goals/${slug}`, `.opencode/goals/${slug}`]
+
 export async function run(host: Awaited<ReturnType<typeof goalHost>>, slug = "demo") {
-  return JSON.parse(await host.readProject(`.opencode/goals/${slug}/run.json`))
+  for (const base of goalBases(slug)) {
+    try {
+      return JSON.parse(await host.readProject(`${base}/run.json`))
+    } catch {
+      // try the other store
+    }
+  }
+  throw new Error(`no run.json for ${slug} in .cleo/goals or .opencode/goals`)
 }
 
 export async function ledger(host: Awaited<ReturnType<typeof goalHost>>, slug = "demo") {
-  return (await host.readProject(`.opencode/goals/${slug}/ledger.jsonl`)).trim().split("\n").map((l) => JSON.parse(l))
+  for (const base of goalBases(slug)) {
+    try {
+      return (await host.readProject(`${base}/ledger.jsonl`)).trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
+    } catch {
+      // try the other store
+    }
+  }
+  throw new Error(`no ledger.jsonl for ${slug} in .cleo/goals or .opencode/goals`)
 }
 
 export async function waitStatus(host: Awaited<ReturnType<typeof goalHost>>, statuses: string[], timeoutMs = 60000, slug = "demo") {

@@ -26,6 +26,8 @@ import { fingerprint } from "../src/util/git"
 import { Store } from "../src/engine/store"
 import { tick } from "../src/engine/tick"
 import { verifyClaim } from "../src/verify/pipeline"
+import { executeStoreMigration, planStoreMigration } from "../src/engine/store-migration"
+import { LEGACY_GOALS_REL, resolveStoreRoots } from "../src/engine/store-root"
 
 const argv = process.argv.slice(2)
 const sub = argv[0]
@@ -40,6 +42,7 @@ const USAGE = [
   "       cleo-goal status --json",
   "       cleo-goal rollup [--json]",
   "       cleo-goal install --project [--spec <npm-or-git spec>] [--json] [--dry-run]",
+  "       cleo-goal migrate [--confirm]   (dry run by default; copies legacy goals into the active store)",
   "       cleo-goal tick   (reads the harness Stop JSON on stdin; writes JSON on stdout)",
   "usage: ocg tick   (alias; same contract)",
   "       cleo-goal claim --summary <text> [--evidence C1=<note> ...]",
@@ -80,6 +83,23 @@ if (sub === "rollup") {
   const rollup = await readRollup(input.targets, cleoRunner(), input.goal)
   process.stdout.write(argv.includes("--json") ? `${JSON.stringify(rollup)}\n` : `${cleoRollupReport(rollup)}\n`)
   process.exit(0)
+}
+
+if (sub === "migrate") {
+  // The dry run prints the plan and writes nothing; --confirm copies every
+  // migratable legacy goal into the active store and keeps the legacy copy.
+  try {
+    const source = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
+    const target = resolveStoreRoots(root)
+    const result = argv.includes("--confirm")
+      ? executeStoreMigration(source, target, { confirm: true })
+      : planStoreMigration(source, target)
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+    process.exit(0)
+  } catch (error) {
+    console.error(`ocg migrate: ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(1)
+  }
 }
 
 if (sub === "install") {

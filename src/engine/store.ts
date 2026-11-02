@@ -3,7 +3,7 @@
 // a project setting resolved once in store-root.ts; today, with nothing
 // configured, it is still `.opencode/goals`, so existing projects are untouched.
 import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync, writeSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { parseContract, type ParseResult } from "../contract/parse"
 import type { RunState, RunWriter } from "./state"
 import type { AmendmentRequest } from "./amendments"
@@ -82,35 +82,57 @@ export class Store {
     return join(this.goalsDir, slug)
   }
 
+  /**
+   * T150: the folder an existing goal actually lives in — the active store or,
+   * for a pre-flip run, the readable legacy store. Reads and run-state writes
+   * follow the bytes they belong to, so resuming a legacy run never silently
+   * copies it into the new store; a brand-new slug resolves to the active store.
+   */
+  locate(slug: string, options: { archived?: boolean } = {}): string {
+    const base = options.archived ? this.archiveDir : this.goalsDir
+    const legacyBase = options.archived ? this.roots.legacy.archive : this.roots.legacy.goals
+    const active = join(base, slug)
+    if (base === legacyBase) return active
+    if (existsSync(join(active, "goal.yaml")) || existsSync(join(active, "run.json"))) return active
+    const legacy = join(legacyBase, slug)
+    if (existsSync(join(legacy, "goal.yaml")) || existsSync(join(legacy, "run.json"))) return legacy
+    return active
+  }
+
   contractPath(slug: string) {
-    return join(this.dir(slug), "goal.yaml")
+    return join(this.locate(slug), "goal.yaml")
+  }
+
+  /** Folder names under one goals directory (a folder needs a goal.yaml). */
+  private folderSlugs(dir: string): string[] {
+    if (!existsSync(dir)) return []
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && existsSync(join(dir, d.name, "goal.yaml")))
+      .map((d) => d.name)
   }
 
   slugs(): string[] {
-    if (!existsSync(this.goalsDir)) return []
-    return readdirSync(this.goalsDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && existsSync(join(this.goalsDir, d.name, "goal.yaml")))
-      .map((d) => d.name)
-      .sort()
+    return [...new Set([...this.folderSlugs(this.goalsDir), ...this.folderSlugs(this.roots.legacy.goals)])].sort()
   }
 
   /** T032: the archive tier sits beside goals/ — demoted, never deleted. */
   archivedSlugs(): string[] {
-    if (!existsSync(this.archiveDir)) return []
-    return readdirSync(this.archiveDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && existsSync(join(this.archiveDir, d.name, "goal.yaml")))
-      .map((d) => d.name)
-      .sort()
+    return [...new Set([...this.folderSlugs(this.archiveDir), ...this.folderSlugs(this.roots.legacy.archive)])].sort()
   }
 
   archivedPath(slug: string) {
-    return join(this.archiveDir, slug)
+    return this.locate(slug, { archived: true })
   }
 
-  /** Move a goal folder into the archive tier (ledger and evidence travel along). */
+  /** Move a goal folder into the archive tier that sits beside its own store
+   *  (ledger and evidence travel along). A legacy run archives beside the
+   *  legacy store, so its history stays together. */
   archive(slug: string) {
-    mkdirSync(this.archiveDir, { recursive: true })
-    renameSync(this.dir(slug), this.archivedPath(slug))
+    const from = this.locate(slug)
+    const legacySource = from === join(this.roots.legacy.goals, slug) && this.roots.legacy.goals !== this.goalsDir
+    const to = legacySource ? join(this.roots.legacy.archive, slug) : join(this.archiveDir, slug)
+    mkdirSync(dirname(to), { recursive: true })
+    renameSync(from, to)
   }
 
   readContract(slug: string, options: { archived?: boolean } = {}): (ParseResult & { text: string }) | undefined {
@@ -125,7 +147,7 @@ export class Store {
    * "updatedAt", "tokens", "tools", "lastUsageEmit") would otherwise become the
    * run's state without anyone writing it on purpose. */
   readRunRaw(slug: string, options: { archived?: boolean } = {}): { text: string; duplicates: string[] } | undefined {
-    const path = join(options.archived ? this.archivedPath(slug) : this.dir(slug), "run.json")
+    const path = join(options.archived ? this.archivedPath(slug) : this.locate(slug), "run.json")
     if (!existsSync(path)) return undefined
     const text = readFileSync(path, "utf8")
     return { text, duplicates: duplicateJsonKeys(text) }
@@ -139,7 +161,7 @@ export class Store {
 
   /** Keep the exact bytes a corrupt run.json had, beside the run. */
   keepCorruptRun(slug: string, text: string, at = Date.now()): string {
-    const dir = this.dir(slug)
+    const dir = this.locate(slug)
     mkdirSync(dir, { recursive: true })
     const path = join(dir, `run.json.corrupt-${at}.json`)
     writeFileSync(path, text, { mode: 0o600 })
@@ -184,7 +206,7 @@ export class Store {
     const next = Math.max(state.revision ?? 0, disk?.revision ?? 0, corrupt) + 1
     const now = Date.now()
     const writtenBy: RunWriter = { pid: process.pid, startedAt: this.writerStartedAt, sessionID: state.sessionID }
-    const dir = this.dir(slug)
+    const dir = this.locate(slug)
     mkdirSync(dir, { recursive: true })
     const path = join(dir, "run.json")
     const tmp = `${path}.${process.pid}.${now}.tmp`
@@ -227,7 +249,7 @@ export class Store {
   }
 
   writeContractSnapshot(slug: string, runId: string, lock: string, text: string) {
-    const dir = join(this.dir(slug), "evidence", runId)
+    const dir = join(this.locate(slug), "evidence", runId)
     mkdirSync(dir, { recursive: true })
     const path = join(dir, `contract-${lock}.yaml`)
     if (existsSync(path)) return
@@ -273,7 +295,7 @@ export class Store {
    * evidence, then write the locked generation's exact bytes back. */
   restoreLocked(slug: string, runId: string, lock: string, discarded: { text: string; lock: string }): string {
     const locked = this.lockedSnapshot(slug, runId, lock)
-    const dir = join(this.dir(slug), "evidence", runId)
+    const dir = join(this.locate(slug), "evidence", runId)
     mkdirSync(dir, { recursive: true })
     const kept = join(dir, `divergent-${discarded.lock}-${Date.now()}.yaml`)
     this.writeAtomic(kept, discarded.text)
@@ -286,8 +308,8 @@ export class Store {
   lockedText(slug: string, runId: string, lock: string): string { return this.lockedSnapshot(slug, runId, lock) }
 
   private lockedSnapshot(slug: string, runId: string, lock: string): string {
-    const keyed = join(this.dir(slug), "evidence", runId, `contract-${lock}.yaml`)
-    const first = join(this.dir(slug), "evidence", runId, "contract.yaml")
+    const keyed = join(this.locate(slug), "evidence", runId, `contract-${lock}.yaml`)
+    const first = join(this.locate(slug), "evidence", runId, "contract.yaml")
     const text = readFileSync(existsSync(keyed) ? keyed : first, "utf8")
     if (parseContract(text, { slug }).lock !== lock) throw new Error("Prior locked amendment snapshot is unavailable")
     return text
@@ -302,7 +324,7 @@ export class Store {
 
   /** The last n ledger events, oldest first; tolerant of a torn final line. */
   recent(slug: string, n: number): LedgerEvent[] {
-    const path = join(this.dir(slug), "ledger.jsonl")
+    const path = join(this.locate(slug), "ledger.jsonl")
     if (!existsSync(path)) return []
     const lines = readFileSync(path, "utf8").trimEnd().split("\n")
     const out: LedgerEvent[] = []
@@ -317,13 +339,13 @@ export class Store {
   }
 
   ledger(slug: string, event: Omit<LedgerEvent, "t"> & { t?: number }, options: { archived?: boolean } = {}) {
-    const dir = options.archived ? this.archivedPath(slug) : this.dir(slug)
+    const dir = options.archived ? this.archivedPath(slug) : this.locate(slug)
     mkdirSync(dir, { recursive: true })
     appendFileSync(join(dir, "ledger.jsonl"), `${JSON.stringify({ t: Date.now(), ...event })}\n`, { mode: 0o600 })
   }
 
   readLedger(slug: string, limit = 50): LedgerEvent[] {
-    const path = join(this.dir(slug), "ledger.jsonl")
+    const path = join(this.locate(slug), "ledger.jsonl")
     if (!existsSync(path)) return []
     return readFileSync(path, "utf8")
       .split("\n")
@@ -339,7 +361,7 @@ export class Store {
   }
 
   evidence(slug: string, runId: string, name: string, data: unknown): string {
-    const dir = join(this.dir(slug), "evidence", runId)
+    const dir = join(this.locate(slug), "evidence", runId)
     mkdirSync(dir, { recursive: true })
     const file = join(dir, `${name}.json`)
     const fd = openSync(file, "w", 0o600)
