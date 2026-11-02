@@ -115,7 +115,7 @@ export function boardLine(state: RunState, contract: Contract): string {
   return [...contract.criteria, ...contract.invariants]
     .map((c) => {
       const s = state.criteria[c.id]
-      const mark = s?.status === "pass" ? "✓" : s?.status === "fail" ? "✗" : s?.status === "claimed" ? "◐" : "·"
+      const mark = s?.status === "pass" ? "✓" : s?.status === "fail" ? "✗" : s?.status === "claimed" ? "◐" : s?.status === "stale" ? "⚠" : s?.status === "disputed" ? "⚖" : "·"
       return `${mark} ${c.id}${s?.by ? ` (${s.by})` : ""}`
     })
     .join("  ")

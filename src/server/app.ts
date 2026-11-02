@@ -67,6 +67,7 @@ const askedDecisionIds = new Set<string>()
 import { ascendingId, runId as newRunId } from "../util/ids"
 import { fingerprint, gitDigest, headCommit, resolveCommit, topLevel } from "../util/git"
 import { runHostCheck, verifyClaim, type VerifierVerdict } from "../verify/pipeline"
+import { demotionReason } from "../verify/evidence"
 import { captureEnvironment, compareEnvironment, environmentLine } from "../verify/environment"
 import { runShell } from "../util/shell"
 import { captureArtifactHashes, type RuntimeProvenance } from "../verify/artifact"
@@ -3290,15 +3291,49 @@ export class GoalApp {
     })
     state.environment = environment
     const now = Date.now()
+    // T178: the demotion happened inside verifyClaim (the state is the same
+    // object). Name it in the ledger whether or not this round re-proved it, so
+    // the history shows the old pass was retired instead of silently replaced.
+    const demoted = new Map((outcome.demotions ?? []).map((d) => [d.criterion, d] as const))
+    for (const d of outcome.demotions ?? []) this.store.ledger(state.slug, { type: "criterion-stale", criterion: d.criterion, path: d.path, was: d.was, now: d.now, turn: state.turn })
     for (const r of outcome.results) {
       const prev = state.criteria[r.id] ?? { status: "unknown" as const, rejections: 0 }
       const claimed = source === "claim" && !r.pass && r.by !== "human"
-      state.criteria[r.id] = { status: r.pass ? "pass" : r.by === "human" ? prev.status : "fail", by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: r.pass ? 0 : prev.rejections + (claimed ? 1 : 0) }
+      const stale = demoted.get(r.id)
+      // T179: a disagreement between the two honest machines is its own state.
+      // T178: a demoted proof whose fresh verdict did not re-prove stays stale —
+      // never a `fail` that hides the real reason, and never the old `pass`.
+      const status = r.pass ? "pass" : r.by === "human" ? prev.status : r.by === "disputed" ? "disputed" : stale ? "stale" : "fail"
+      const detail =
+        r.by === "disputed" && r.dispute
+          ? `${r.detail}; host passed: ${r.dispute.host.split("\n")[0]}`
+          : stale && !r.pass
+            ? `${demotionReason(stale)}; this round: ${r.detail}`
+            : r.detail
+      state.criteria[r.id] = {
+        status,
+        by: r.by,
+        at: now,
+        detail: detail.slice(0, 600),
+        rejections: r.pass ? 0 : prev.rejections + (claimed ? 1 : 0),
+        ...(r.evidence ? { evidence: r.evidence } : !r.pass && prev.evidence ? { evidence: prev.evidence } : {}),
+      }
     }
     this.store.evidence(state.slug, state.runId, `verify-turn-${state.turn}-${now}`, { source, claim: state.claim ?? null, outcome: { ...outcome, results: outcome.results.map((r) => ({ ...r, raw: undefined })) } })
     state.verdict = { at: now, turn: state.turn, passed: outcome.passed, lines: outcome.lines }
     state.claim = undefined
     this.store.ledger(state.slug, { type: "verdict", passed: outcome.passed, lines: outcome.lines.slice(0, 10) })
+
+    // T179: a disputed criterion is a question for the owner, not a verdict the
+    // worker can fix. Stop the loop and present the exact disagreement.
+    const disputed = outcome.results.filter((r) => r.by === "disputed" && this.required(contract).has(r.id)).map((r) => r.id)
+    if (disputed.length) {
+      setStatus(state, "needs_review", `host and verifier disagree on ${disputed.join(", ")}`)
+      this.store.ledger(state.slug, { type: "disputed", criteria: disputed, turn: state.turn })
+      this.decide(state.sessionID, state.slug, "needs_review", M.disputed(disputed), { criteria: disputed })
+      await this.summarize(state, contract)
+      return this.persist(state)
+    }
 
     if (outcome.passed) {
       setStatus(state, "complete", "all required criteria verified")
@@ -4271,7 +4306,7 @@ export class GoalApp {
     const v = this.view(state)
     if (!v) return `${state.slug}: ${state.status}`
     const proven = v.criteria.filter((c) => c.status === "pass").length
-    return [`◎ ${v.title} — ${v.status}${v.reason ? ` (${v.reason})` : ""}`, `criteria ${proven}/${v.criteria.length} · turn ${v.turn}`, ...v.criteria.map((c) => `${c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : "·"} ${c.id} ${c.statement}`), ...(rollup ? ["", cleoRollupSummary(rollup)] : [])].join("\n")
+    return [`◎ ${v.title} — ${v.status}${v.reason ? ` (${v.reason})` : ""}`, `criteria ${proven}/${v.criteria.length} · turn ${v.turn}`, ...v.criteria.map((c) => `${c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : c.status === "stale" ? "⚠" : c.status === "disputed" ? "⚖" : "·"} ${c.id} ${c.statement}`), ...(rollup ? ["", cleoRollupSummary(rollup)] : [])].join("\n")
   }
 
   private listText(): string {

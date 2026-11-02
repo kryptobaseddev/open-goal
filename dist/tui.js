@@ -206,7 +206,7 @@ function statusText(view, now) {
   const st = statusOf(view.status);
   const lines = [`${view.title} \u2014 ${st.icon} ${st.label}${view.reason ? ` (${view.reason})` : ""}`, `Outcome: ${view.outcome}`, usageLine(view, now), ""];
   for (const c of view.criteria)
-    lines.push(`${c.status === "pass" ? "\u2713" : c.status === "fail" ? "\u2717" : c.status === "claimed" ? "\u25D0" : "\xB7"} ${c.id}${c.invariant ? " (invariant)" : ""} ${c.statement}${c.detail && c.status !== "pass" ? `
+    lines.push(`${c.status === "pass" ? "\u2713" : c.status === "fail" ? "\u2717" : c.status === "claimed" ? "\u25D0" : c.status === "stale" ? "\u26A0" : c.status === "disputed" ? "\u2696" : "\xB7"} ${c.id}${c.invariant ? " (invariant)" : ""} ${c.statement}${c.detail && c.status !== "pass" ? `
     ${c.detail.split(`
 `)[0]}` : ""}`);
   if (view.steps.length) {
@@ -288,10 +288,11 @@ function cardCompactLines(view, now, width = 40) {
   lines.push({ text: fit(view.title, width), tone: "base", bold: true, tab: "now" });
   const total = view.criteria.length;
   lines.push({ text: `criteria ${bar(provenCount(view), total)} ${provenCount(view)}/${total}`, tone: provenCount(view) === total && total ? "success" : "muted" });
-  const focus = [...view.criteria].sort((a, b) => a.status === "fail" ? -1 : b.status === "fail" ? 1 : a.status === "pass" ? 1 : b.status === "pass" ? -1 : 0).slice(0, 3);
+  const needsEyes = (s) => s === "fail" || s === "disputed" || s === "stale";
+  const focus = [...view.criteria].sort((a, b) => needsEyes(a.status) ? -1 : needsEyes(b.status) ? 1 : a.status === "pass" ? 1 : b.status === "pass" ? -1 : 0).slice(0, 3);
   for (const c of focus) {
-    const mark = c.status === "pass" ? "\u2713" : c.status === "fail" ? "\u2717" : "\xB7";
-    const tone = c.status === "pass" ? "success" : c.status === "fail" ? "error" : "muted";
+    const mark = c.status === "pass" ? "\u2713" : c.status === "fail" ? "\u2717" : c.status === "stale" ? "\u26A0" : c.status === "disputed" ? "\u2696" : "\xB7";
+    const tone = c.status === "pass" ? "success" : c.status === "fail" || c.status === "disputed" ? "error" : c.status === "stale" ? "warning" : "muted";
     lines.push({ text: fit(`${mark} ${c.id} ${c.statement}`, width), tone, tab: "progress" });
   }
   if (view.steps.length) {
@@ -443,7 +444,7 @@ function dashboardLines(view, tab, now, width = 46, goals = []) {
     }
   } else if (tab === "progress") {
     const groups = [
-      ["Failed", view.criteria.filter((c) => c.status === "fail"), "error"],
+      ["Failed", view.criteria.filter((c) => c.status === "fail" || c.status === "disputed"), "error"],
       ["In progress", view.criteria.filter((c) => c.status !== "pass" && c.status !== "fail"), "muted"],
       ["Proven", view.criteria.filter((c) => c.status === "pass"), "success"]
     ];

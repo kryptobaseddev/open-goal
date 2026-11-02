@@ -36,6 +36,7 @@ const samples: Record<string, () => EngineMessage> = {
   complete: () => M.complete("Ship the widget", 0),
   needsSignOff: () => M.needsSignOff(["C4", "C7"]),
   needsReview: () => M.needsReview("C15 rejected 3 times"),
+  disputed: () => M.disputed(["C1", "C4"]),
   claimRejected: () => M.claimRejected("C15 FAILED [host] output lacks \"0.3.0\""),
   attached: () => M.attached("Ship the widget", "paused"),
   archived: () => M.archived("Ship the widget", "ship-the-widget"),

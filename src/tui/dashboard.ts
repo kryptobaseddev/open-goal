@@ -48,10 +48,11 @@ export function cardCompactLines(view: GoalView, now: number, width = 40): Line[
   const total = view.criteria.length
   lines.push({ text: `criteria ${bar(provenCount(view), total)} ${provenCount(view)}/${total}`, tone: provenCount(view) === total && total ? "success" : "muted" })
   // the three criteria that need eyes: failing first, then unproven, then proven
-  const focus = [...view.criteria].sort((a, b) => (a.status === "fail" ? -1 : b.status === "fail" ? 1 : a.status === "pass" ? 1 : b.status === "pass" ? -1 : 0)).slice(0, 3)
+  const needsEyes = (s: string) => s === "fail" || s === "disputed" || s === "stale"
+  const focus = [...view.criteria].sort((a, b) => (needsEyes(a.status) ? -1 : needsEyes(b.status) ? 1 : a.status === "pass" ? 1 : b.status === "pass" ? -1 : 0)).slice(0, 3)
   for (const c of focus) {
-    const mark = c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : "·"
-    const tone: Tone = c.status === "pass" ? "success" : c.status === "fail" ? "error" : "muted"
+    const mark = c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : c.status === "stale" ? "⚠" : c.status === "disputed" ? "⚖" : "·"
+    const tone: Tone = c.status === "pass" ? "success" : c.status === "fail" || c.status === "disputed" ? "error" : c.status === "stale" ? "warning" : "muted"
     lines.push({ text: fit(`${mark} ${c.id} ${c.statement}`, width), tone, tab: "progress" })
   }
   if (view.steps.length) {
@@ -100,10 +101,10 @@ export function cardExpandedLines(view: GoalView, now: number, width = 46): Line
   lines.push({ text: `criteria ${bar(provenCount(view), view.criteria.length)} ${provenCount(view)}/${view.criteria.length}`, tone: provenCount(view) === view.criteria.length && view.criteria.length ? "success" : "muted", tab: "progress" })
   // every criterion, failing first — the compact card's 3-row focus set
   // fully expanded here
-  const ordered = [...view.criteria].sort((a, b) => (a.status === "fail" ? -1 : b.status === "fail" ? 1 : 0))
+  const ordered = [...view.criteria].sort((a, b) => (a.status === "fail" || a.status === "disputed" ? -1 : b.status === "fail" || b.status === "disputed" ? 1 : a.status === "stale" ? -1 : b.status === "stale" ? 1 : 0))
   for (const c of ordered) {
-    const mark = c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : c.status === "claimed" ? "◐" : "·"
-    const tone: Tone = c.status === "pass" ? "success" : c.status === "fail" ? "error" : "muted"
+    const mark = c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : c.status === "claimed" ? "◐" : c.status === "stale" ? "⚠" : c.status === "disputed" ? "⚖" : "·"
+    const tone: Tone = c.status === "pass" ? "success" : c.status === "fail" || c.status === "disputed" ? "error" : c.status === "stale" ? "warning" : "muted"
     emit(`${mark} ${c.invariant ? "I" : "C"} ${c.id} — ${c.statement}`, tone, { tab: "progress" })
     if (c.detail && c.status !== "pass") emit(`  ${c.detail}`, tone)
   }
@@ -273,7 +274,7 @@ export function dashboardLines(view: GoalView, tab: DashboardTab, now: number, w
     }
   } else if (tab === "progress") {
     const groups: Array<[string, typeof view.criteria, Tone]> = [
-      ["Failed", view.criteria.filter((c) => c.status === "fail"), "error"],
+      ["Failed", view.criteria.filter((c) => c.status === "fail" || c.status === "disputed"), "error"],
       ["In progress", view.criteria.filter((c) => c.status !== "pass" && c.status !== "fail"), "muted"],
       ["Proven", view.criteria.filter((c) => c.status === "pass"), "success"],
     ]

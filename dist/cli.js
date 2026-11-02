@@ -6906,7 +6906,7 @@ var require_public_api = __commonJS(function(exports) {
 });
 
 // cli/ocg.ts
-import { readFileSync as readFileSync7 } from "node:fs";
+import { readFileSync as readFileSync8 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
@@ -8994,7 +8994,7 @@ var fmtTokens = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Ma
 function boardLine(state, contract) {
   return [...contract.criteria, ...contract.invariants].map((c) => {
     const s = state.criteria[c.id];
-    const mark = s?.status === "pass" ? "✓" : s?.status === "fail" ? "✗" : s?.status === "claimed" ? "◐" : "·";
+    const mark = s?.status === "pass" ? "✓" : s?.status === "fail" ? "✗" : s?.status === "claimed" ? "◐" : s?.status === "stale" ? "⚠" : s?.status === "disputed" ? "⚖" : "·";
     return `${mark} ${c.id}${s?.by ? ` (${s.by})` : ""}`;
   }).join("  ");
 }
@@ -9333,10 +9333,23 @@ async function tick(deps) {
       if (!write(live))
         return { stdout: HOLD, log, harness };
       const outcome = await deps.verify(live, contract, read.text);
-      for (const r of outcome.results)
-        live.criteria[r.id] = { status: r.pass ? "pass" : "fail", by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: live.criteria[r.id]?.rejections ?? 0 };
+      const demoted = new Set((outcome.demotions ?? []).map((d) => d.criterion));
+      for (const r of outcome.results) {
+        const prev = live.criteria[r.id];
+        const status = r.pass ? "pass" : r.by === "disputed" ? "disputed" : demoted.has(r.id) ? "stale" : "fail";
+        live.criteria[r.id] = { status, by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: prev?.rejections ?? 0, ...r.evidence ? { evidence: r.evidence } : !r.pass && prev?.evidence ? { evidence: prev.evidence } : {} };
+      }
       live.verdict = { passed: outcome.passed, lines: outcome.lines.slice(0, 20), at: now, turn: live.turn };
       deps.store.evidence(live.slug, live.runId, `verify-tick-${live.turn}`, outcome);
+      const disputed = outcome.results.filter((r) => r.by === "disputed").map((r) => r.id);
+      if (disputed.length) {
+        setStatus(live, "needs_review", `host and verifier disagree on ${disputed.join(", ")}`);
+        deps.store.ledger(live.slug, { type: "disputed", criteria: disputed, turn: live.turn });
+        if (!write(live))
+          return { stdout: HOLD, log, harness };
+        log.push(`goal ${live.slug} needs an owner decision: host and verifier disagree on ${disputed.join(", ")}`);
+        return { stdout: HOLD, log, harness };
+      }
       if (outcome.passed) {
         setStatus(live, "complete", "all required criteria verified");
         deps.store.ledger(live.slug, { type: "complete", turn: live.turn });
@@ -9372,8 +9385,7 @@ async function tick(deps) {
 }
 
 // src/verify/pipeline.ts
-import { existsSync as existsSync6, readFileSync as readFileSync5 } from "node:fs";
-import { isAbsolute as isAbsolute3, join as join5, normalize as normalize2, relative as relative3 } from "node:path";
+import { existsSync as existsSync7, readFileSync as readFileSync6 } from "node:fs";
 
 // src/util/shell.ts
 import { spawn as spawn2 } from "node:child_process";
@@ -9414,12 +9426,63 @@ var tail = (text, lines = 12, chars = 1200) => {
   return t.length > chars ? `…${t.slice(-chars)}` : t;
 };
 
-// src/verify/pipeline.ts
-var inside3 = (root, path) => {
+// src/verify/evidence.ts
+import { createHash as createHash3 } from "node:crypto";
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "node:fs";
+import { isAbsolute as isAbsolute3, join as join5, normalize as normalize2, relative as relative3 } from "node:path";
+function inside3(root, path) {
   const full = normalize2(isAbsolute3(path) ? path : join5(root, path));
   const rel = relative3(root, full);
   return rel && !rel.startsWith("..") && !isAbsolute3(rel) ? full : rel === "" ? full : undefined;
-};
+}
+var digestOf = (bytes) => createHash3("sha256").update(bytes).digest("hex");
+var UNREADABLE = "unreadable";
+function captureFileDigests(root, paths) {
+  const out = {};
+  for (const path of paths) {
+    if (path in out)
+      continue;
+    const full = inside3(root, path);
+    if (!full || !existsSync6(full)) {
+      out[path] = UNREADABLE;
+      continue;
+    }
+    try {
+      out[path] = digestOf(readFileSync5(full));
+    } catch {
+      out[path] = UNREADABLE;
+    }
+  }
+  return out;
+}
+var shortDigest = (digest) => digest.length === 64 ? digest.slice(0, 12) : digest;
+var boundFiles = (state) => state?.evidence?.files ? Object.entries(state.evidence.files) : [];
+function bindingNote(files) {
+  const entries = Object.entries(files);
+  return entries.length ? ` · bound sha256 ${entries.map(([path, digest]) => `${path}=${shortDigest(digest)}`).join(", ")}` : "";
+}
+function demotionReason(binding) {
+  return `cited file ${binding.path} changed since this criterion was proven (sha256 ${shortDigest(binding.was)} → ${shortDigest(binding.now)}); the old pass no longer binds those bytes`;
+}
+function staleBindings(root, criteria, verifierIDs) {
+  const out = [];
+  for (const [id, state] of Object.entries(criteria)) {
+    if (!verifierIDs.has(id))
+      continue;
+    if (state.status !== "pass")
+      continue;
+    if (state.by !== "verifier" && state.by !== "verifier-fallback")
+      continue;
+    for (const [path, was] of boundFiles(state)) {
+      const now = captureFileDigests(root, [path])[path];
+      if (now !== was)
+        out.push({ criterion: id, path, was, now });
+    }
+  }
+  return out;
+}
+
+// src/verify/pipeline.ts
 async function runHostCheck(check, root, base, shell = runShell) {
   switch (check.kind) {
     case "command": {
@@ -9441,15 +9504,15 @@ ${result.stderr}` : ""))}`, raw: runs };
       const path = inside3(root, check.path);
       if (!path)
         return { pass: false, detail: `${check.path} is outside the project` };
-      const exists = existsSync6(path);
+      const exists = existsSync7(path);
       const want = check.exists !== false;
       return { pass: exists === want, detail: `${check.path} ${exists ? "exists" : "does not exist"}` };
     }
     case "contains": {
       const path = inside3(root, check.path);
-      if (!path || !existsSync6(path))
+      if (!path || !existsSync7(path))
         return { pass: false, detail: `${check.path} not found` };
-      const text = readFileSync5(path, "utf8");
+      const text = readFileSync6(path, "utf8");
       const ok = check.text ? text.includes(check.text) : new RegExp(check.regex, "m").test(text);
       return { pass: ok, detail: ok ? `${check.path} contains the expected ${check.text ? "text" : "pattern"}` : `${check.path} lacks ${check.text ? `"${check.text}"` : `/${check.regex}/`}` };
     }
@@ -9510,11 +9573,11 @@ function checkQuotes(root, verdict) {
     return { ok: false, why: "verifier cited no evidence" };
   for (const item of verdict.evidence) {
     const path = inside3(root, item.path);
-    if (!path || !existsSync6(path))
+    if (!path || !existsSync7(path))
       return { ok: false, why: `cited file ${item.path} does not exist` };
     if (!item.quote || collapse(item.quote).length < 8)
       return { ok: false, why: `quote from ${item.path} is too short to check` };
-    const raw = readFileSync5(path, "utf8");
+    const raw = readFileSync6(path, "utf8");
     const hit = (hay, needle) => collapse(hay).includes(collapse(needle));
     if (!hit(raw, item.quote) && !hit(decodeEntities(raw), decodeEntities(item.quote)))
       return { ok: false, why: `quoted text not found in ${item.path} (raw or entity-decoded)` };
@@ -9532,6 +9595,19 @@ async function verifyClaim(contract, state, deps) {
       integrity.push(`protected paths were modified: ${touched.slice(0, 10).join(", ")}. Restore them; do not change the oracle to make it pass.`);
   }
   const results = [];
+  const verifierIDs = new Set(contract.criteria.filter((c) => c.check.kind === "verifier").map((c) => c.id));
+  const demotions = staleBindings(root, state.criteria, verifierIDs);
+  for (const binding of demotions) {
+    const prior = state.criteria[binding.criterion];
+    if (!prior)
+      continue;
+    state.criteria[binding.criterion] = {
+      ...prior,
+      status: "stale",
+      at: Date.now(),
+      detail: demotionReason(binding).slice(0, 600)
+    };
+  }
   const ownerFinal = (id) => state.criteria[id]?.status === "pass" && state.criteria[id]?.by === "human";
   const checkable = [...contract.criteria, ...contract.invariants].filter((c) => isHostCheck(c.check));
   for (const [index, c] of checkable.entries()) {
@@ -9561,8 +9637,29 @@ async function verifyClaim(contract, state, deps) {
         const v = run.verdicts.find((x) => x.id === c.id);
         const checked = v ? checkQuotes(root, v) : { ok: false, why: run.error ? `verifier failed: ${run.error}` : "verifier returned no verdict" };
         const prior = results.findIndex((r) => r.id === c.id);
-        const entry = { id: c.id, pass: checked.ok, by: run.by === "verifier-fallback" ? "verifier-fallback" : "verifier", detail: checked.ok ? `proven with ${v.evidence.length} quote(s)${run.by === "verifier-fallback" ? " (parsed fallback verdict)" : ""}` : checked.why ?? "not proven", raw: v };
+        const by = run.by === "verifier-fallback" ? "verifier-fallback" : "verifier";
+        const evidence = checked.ok && v ? { files: captureFileDigests(root, v.evidence.map((e) => e.path)), at: Date.now() } : undefined;
+        const entry = {
+          id: c.id,
+          pass: checked.ok,
+          by,
+          detail: checked.ok ? `proven with ${v.evidence.length} quote(s)${run.by === "verifier-fallback" ? " (parsed fallback verdict)" : ""}${bindingNote(evidence.files)}` : checked.why ?? "not proven",
+          ...evidence ? { evidence } : {},
+          raw: v
+        };
         if (prior >= 0) {
+          const hostSide = results[prior];
+          if (v && (v.verdict === "not_proven" || v.verdict === "contradicted")) {
+            results[prior] = {
+              id: c.id,
+              pass: false,
+              by: "disputed",
+              detail: `host passed but the verifier says ${v.verdict}${v.reason ? `: ${v.reason}` : ""}`,
+              dispute: { host: hostSide.detail, verifier: entry.detail, verdict: v.verdict, ...v.reason ? { reason: v.reason } : {} },
+              raw: v
+            };
+            continue;
+          }
           if (!checked.ok)
             results[prior] = { ...entry, detail: `host passed but verifier disagrees: ${entry.detail}` };
         } else
@@ -9577,14 +9674,38 @@ async function verifyClaim(contract, state, deps) {
   }
   const required = new Set([...contract.criteria.filter((c) => c.essential).map((c) => c.id), ...contract.invariants.map((c) => c.id)]);
   const failed = results.filter((r) => required.has(r.id) && !r.pass && r.by !== "human");
-  const passed = integrity.length === 0 && failed.length === 0 && needsHuman.filter((id) => required.has(id)).length === 0;
+  const disputed = results.filter((r) => r.by === "disputed" && required.has(r.id)).map((r) => r.id);
+  const reProven = new Set(results.filter((r) => r.pass).map((r) => r.id));
+  const staleOpen = demotions.filter((d) => !reProven.has(d.criterion));
+  const passed = integrity.length === 0 && failed.length === 0 && needsHuman.filter((id) => required.has(id)).length === 0 && disputed.length === 0 && staleOpen.length === 0;
   const lines = [];
   for (const line of deps.environment ?? [])
     lines.push(line);
   for (const i of integrity)
     lines.push(`INTEGRITY: ${i}`);
   for (const r of results) {
-    if (r.pass)
+    if (r.by !== "disputed" || !r.dispute)
+      continue;
+    const c = [...contract.criteria, ...contract.invariants].find((x) => x.id === r.id);
+    const host = r.dispute.host.replace(/\n/g, `
+      `);
+    const verifier = r.dispute.verifier.replace(/\n/g, `
+      `);
+    lines.push(`${r.id} DISPUTED ${required.has(r.id) ? "" : "(optional) "}[host × verifier] ${c?.statement ?? ""}
+    host passed: ${host}
+    verifier said ${r.dispute.verdict}${r.dispute.reason ? `: ${r.dispute.reason}` : ""}: ${verifier}`);
+  }
+  const named = new Set;
+  for (const binding of staleOpen) {
+    if (named.has(binding.criterion))
+      continue;
+    named.add(binding.criterion);
+    const c = [...contract.criteria, ...contract.invariants].find((x) => x.id === binding.criterion);
+    lines.push(`${binding.criterion} STALE ${required.has(binding.criterion) ? "" : "(optional) "}[verifier] ${c?.statement ?? ""}
+    ${demotionReason(binding)}. Re-prove it against the current bytes.`);
+  }
+  for (const r of results) {
+    if (r.pass || r.by === "disputed")
       continue;
     const c = [...contract.criteria, ...contract.invariants].find((x) => x.id === r.id);
     lines.push(`${r.id} ${required.has(r.id) ? "FAILED" : "not met (optional)"} [${r.by}] ${c?.statement ?? ""}
@@ -9593,16 +9714,16 @@ async function verifyClaim(contract, state, deps) {
   }
   if (!lines.length)
     lines.push("All required criteria passed.");
-  return { passed, needsHuman, results, integrity, lines };
+  return { passed, needsHuman, results, integrity, lines, demotions, disputed };
 }
 
 // src/engine/store-migration.ts
-import { createHash as createHash3 } from "node:crypto";
-import { cpSync, existsSync as existsSync7, mkdirSync as mkdirSync3, readdirSync as readdirSync3, readFileSync as readFileSync6, rmSync, statSync as statSync3 } from "node:fs";
+import { createHash as createHash4 } from "node:crypto";
+import { cpSync, existsSync as existsSync8, mkdirSync as mkdirSync3, readdirSync as readdirSync3, readFileSync as readFileSync7, rmSync, statSync as statSync3 } from "node:fs";
 import { dirname as dirname3, join as join6 } from "node:path";
 class StoreMigrationError extends Error {
 }
-var sha256 = (text) => createHash3("sha256").update(text).digest("hex");
+var sha256 = (text) => createHash4("sha256").update(text).digest("hex");
 function walkGoalDir(dir) {
   const entries = [];
   const symlinks = [];
@@ -9621,7 +9742,7 @@ function walkGoalDir(dir) {
       if (!entry.isFile())
         continue;
       const bytes = statSync3(childAbs).size;
-      entries.push({ rel: childRel, bytes, sha256: sha256(readFileSync6(childAbs)) });
+      entries.push({ rel: childRel, bytes, sha256: sha256(readFileSync7(childAbs)) });
     }
   };
   visit(dir, "");
@@ -9658,7 +9779,7 @@ function planStoreMigration(store, target) {
       if (walk.symlinks.length)
         warnings.push(`${archived ? "archive" : "live"}:${slug} contains ${walk.symlinks.length} symlink(s) (${walk.symlinks.slice(0, 3).join(", ")}); the move must rename the folder rather than copy through them`);
       const run = archived ? store.readRun(slug, { archived: true }) : store.readRun(slug);
-      const hasRunFile = existsSync7(join6(from, "run.json"));
+      const hasRunFile = existsSync8(join6(from, "run.json"));
       const status = run?.status ?? (hasRunFile ? "unknown" : "draft");
       const entry = {
         slug,
@@ -9679,7 +9800,7 @@ function planStoreMigration(store, target) {
         entry.migratable = false;
         entry.reason = `run is ${run.status}; finish, stop or abort it before moving its history`;
       }
-      if (existsSync7(to)) {
+      if (existsSync8(to)) {
         const existing = walkGoalDir(to);
         entry.migratable = false;
         const reason = existing.digest === walk.digest ? "already present at the target with identical bytes; nothing to move" : "the target already holds this slug with different bytes";
@@ -9868,7 +9989,7 @@ var result = await tick({
   payload,
   readTranscript: (path) => {
     try {
-      return readFileSync7(path, "utf8");
+      return readFileSync8(path, "utf8");
     } catch {
       return;
     }

@@ -2,15 +2,32 @@
 // host-run checks → independent verifier (with quotes the host re-reads) →
 // owner sign-off for human criteria.
 import { existsSync, readFileSync } from "node:fs"
-import { isAbsolute, join, normalize, relative } from "node:path"
 import type { Check, Contract, Criterion } from "../contract/types"
 import { isHostCheck } from "../contract/types"
 import { lockOf } from "../contract/parse"
 import type { RunState } from "../engine/state"
 import { changedSince, isRepo, matchesAny, storeExcludePaths } from "../util/git"
 import { runShell, tail, type ShellResult } from "../util/shell"
+import { bindingNote, captureFileDigests, demotionReason, inside, staleBindings, type StaleBinding } from "./evidence"
 
-export type CheckResult = { id: string; pass: boolean; by: "host" | "verifier" | "verifier-fallback" | "human"; detail: string; raw?: unknown }
+/**
+ * T179: both sides of a host/verifier disagreement, kept verbatim. The old
+ * code replaced the host result with a verifier fail, so the verdict could not
+ * say what the host had actually observed.
+ */
+export type Dispute = { host: string; verifier: string; verdict: "not_proven" | "contradicted"; reason?: string }
+
+export type CheckResult = {
+  id: string
+  pass: boolean
+  by: "host" | "verifier" | "verifier-fallback" | "human" | "disputed"
+  detail: string
+  raw?: unknown
+  /** T178: sha256 of every file the verdict cited, captured when it was proven. */
+  evidence?: { files: Record<string, string>; at?: number }
+  /** T179: present only when the host passed and the verifier did not. */
+  dispute?: Dispute
+}
 
 export type VerifierVerdict = { id: string; verdict: "proven" | "not_proven" | "contradicted"; reason?: string; evidence: Array<{ path: string; quote: string }> }
 export type VerifierRun = (input: { contract: Contract; state: RunState; criteria: Criterion[]; host: CheckResult[] }) => Promise<{ verdicts: VerifierVerdict[]; by?: "verifier" | "verifier-fallback"; error?: string }>
@@ -21,12 +38,10 @@ export type VerifyOutcome = {
   results: CheckResult[]
   integrity: string[]
   lines: string[]
-}
-
-const inside = (root: string, path: string) => {
-  const full = normalize(isAbsolute(path) ? path : join(root, path))
-  const rel = relative(root, full)
-  return rel && !rel.startsWith("..") && !isAbsolute(rel) ? full : rel === "" ? full : undefined
+  /** T178: previously proven criteria whose cited bytes moved this round. */
+  demotions?: StaleBinding[]
+  /** T179: required criteria the host and verifier disagree about. */
+  disputed?: string[]
 }
 
 export async function runHostCheck(check: Check, root: string, base: string | undefined, shell = runShell): Promise<{ pass: boolean; detail: string; raw?: unknown }> {
@@ -137,6 +152,23 @@ export async function verifyClaim(contract: Contract, state: RunState, deps: { r
   }
 
   const results: CheckResult[] = []
+  // T178: a verifier proof is bound to the bytes it quoted. Before anything
+  // re-runs, name every previously proven criterion whose cited files moved —
+  // and demote it in the state so the old pass cannot stand for bytes nobody
+  // checked. A host check is exempt: it runs again below and re-establishes its
+  // own result, so it is never bound to verifier evidence.
+  const verifierIDs = new Set(contract.criteria.filter((c) => c.check.kind === "verifier").map((c) => c.id))
+  const demotions = staleBindings(root, state.criteria, verifierIDs)
+  for (const binding of demotions) {
+    const prior = state.criteria[binding.criterion]
+    if (!prior) continue
+    state.criteria[binding.criterion] = {
+      ...prior,
+      status: "stale",
+      at: Date.now(),
+      detail: demotionReason(binding).slice(0, 600),
+    }
+  }
   // T057: an owner-approved criterion is final against HOST re-checks too —
   // a stale check (the live C15 needle case) must never stomp an explicit
   // sign-off. The owner outranks every automated re-verification.
@@ -173,8 +205,35 @@ export async function verifyClaim(contract: Contract, state: RunState, deps: { r
         const v = run.verdicts.find((x) => x.id === c.id)
         const checked = v ? checkQuotes(root, v) : { ok: false, why: run.error ? `verifier failed: ${run.error}` : "verifier returned no verdict" }
         const prior = results.findIndex((r) => r.id === c.id)
-        const entry: CheckResult = { id: c.id, pass: checked.ok, by: run.by === "verifier-fallback" ? "verifier-fallback" : "verifier", detail: checked.ok ? `proven with ${v!.evidence.length} quote(s)${run.by === "verifier-fallback" ? " (parsed fallback verdict)" : ""}` : checked.why ?? "not proven", raw: v }
+        const by: CheckResult["by"] = run.by === "verifier-fallback" ? "verifier-fallback" : "verifier"
+        // T178: a proven verdict is bound to the exact bytes the host just
+        // re-read. The digests ride in the result so the state can hold them.
+        const evidence = checked.ok && v ? { files: captureFileDigests(root, v.evidence.map((e) => e.path)), at: Date.now() } : undefined
+        const entry: CheckResult = {
+          id: c.id,
+          pass: checked.ok,
+          by,
+          detail: checked.ok ? `proven with ${v!.evidence.length} quote(s)${run.by === "verifier-fallback" ? " (parsed fallback verdict)" : ""}${bindingNote(evidence!.files)}` : checked.why ?? "not proven",
+          ...(evidence ? { evidence } : {}),
+          raw: v,
+        }
         if (prior >= 0) {
+          const hostSide = results[prior]!
+          // T179: the host ran its check and passed; the verifier then said the
+          // criterion is not proven. That is a disagreement between two honest
+          // machines — record both sides as `disputed` and let the owner decide,
+          // instead of folding it into a plain verifier fail.
+          if (v && (v.verdict === "not_proven" || v.verdict === "contradicted")) {
+            results[prior] = {
+              id: c.id,
+              pass: false,
+              by: "disputed",
+              detail: `host passed but the verifier says ${v.verdict}${v.reason ? `: ${v.reason}` : ""}`,
+              dispute: { host: hostSide.detail, verifier: entry.detail, verdict: v.verdict, ...(v.reason ? { reason: v.reason } : {}) },
+              raw: v,
+            }
+            continue
+          }
           // strict mode: the verifier must agree with the passing host check
           if (!checked.ok) results[prior] = { ...entry, detail: `host passed but verifier disagrees: ${entry.detail}` }
         } else results.push(entry)
@@ -190,7 +249,13 @@ export async function verifyClaim(contract: Contract, state: RunState, deps: { r
 
   const required = new Set([...contract.criteria.filter((c) => c.essential).map((c) => c.id), ...contract.invariants.map((c) => c.id)])
   const failed = results.filter((r) => required.has(r.id) && !r.pass && r.by !== "human")
-  const passed = integrity.length === 0 && failed.length === 0 && needsHuman.filter((id) => required.has(id)).length === 0
+  // T179: a host/verifier disagreement is not a plain fail — it is a question
+  // for the owner. `passed` still cannot be true while one is open.
+  const disputed = results.filter((r) => r.by === "disputed" && required.has(r.id)).map((r) => r.id)
+  // T178: a demoted criterion only blocks when this round did not re-prove it.
+  const reProven = new Set(results.filter((r) => r.pass).map((r) => r.id))
+  const staleOpen = demotions.filter((d) => !reProven.has(d.criterion))
+  const passed = integrity.length === 0 && failed.length === 0 && needsHuman.filter((id) => required.has(id)).length === 0 && disputed.length === 0 && staleOpen.length === 0
 
   const lines: string[] = []
   // The environment is not a criterion: it is context a human needs to judge a
@@ -198,11 +263,29 @@ export async function verifyClaim(contract: Contract, state: RunState, deps: { r
   // of silently standing behind a "pass" stamped on the previous tree.
   for (const line of deps.environment ?? []) lines.push(line)
   for (const i of integrity) lines.push(`INTEGRITY: ${i}`)
+  // T179: name BOTH sides of every disagreement before the ordinary failures.
   for (const r of results) {
-    if (r.pass) continue
+    if (r.by !== "disputed" || !r.dispute) continue
+    const c = [...contract.criteria, ...contract.invariants].find((x) => x.id === r.id)
+    const host = r.dispute.host.replace(/\n/g, "\n      ")
+    const verifier = r.dispute.verifier.replace(/\n/g, "\n      ")
+    lines.push(
+      `${r.id} DISPUTED ${required.has(r.id) ? "" : "(optional) "}[host × verifier] ${c?.statement ?? ""}\n    host passed: ${host}\n    verifier said ${r.dispute.verdict}${r.dispute.reason ? `: ${r.dispute.reason}` : ""}: ${verifier}`,
+    )
+  }
+  // T178: the old proof is gone by name, not silently carried forward.
+  const named = new Set<string>()
+  for (const binding of staleOpen) {
+    if (named.has(binding.criterion)) continue
+    named.add(binding.criterion)
+    const c = [...contract.criteria, ...contract.invariants].find((x) => x.id === binding.criterion)
+    lines.push(`${binding.criterion} STALE ${required.has(binding.criterion) ? "" : "(optional) "}[verifier] ${c?.statement ?? ""}\n    ${demotionReason(binding)}. Re-prove it against the current bytes.`)
+  }
+  for (const r of results) {
+    if (r.pass || r.by === "disputed") continue
     const c = [...contract.criteria, ...contract.invariants].find((x) => x.id === r.id)
     lines.push(`${r.id} ${required.has(r.id) ? "FAILED" : "not met (optional)"} [${r.by}] ${c?.statement ?? ""}\n    ${r.detail.replace(/\n/g, "\n    ")}`)
   }
   if (!lines.length) lines.push("All required criteria passed.")
-  return { passed, needsHuman, results, integrity, lines }
+  return { passed, needsHuman, results, integrity, lines, demotions, disputed }
 }

@@ -227,9 +227,24 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
       deps.store.ledger(live.slug, { type: "verify-start", source: "claim", turn: live.turn })
       if (!write(live)) return { stdout: HOLD, log, harness }
       const outcome = await deps.verify(live, contract, read.text)
-      for (const r of outcome.results) live.criteria[r.id] = { status: r.pass ? "pass" : "fail", by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: live.criteria[r.id]?.rejections ?? 0 }
+      const demoted = new Set((outcome.demotions ?? []).map((d) => d.criterion))
+      for (const r of outcome.results) {
+        const prev = live.criteria[r.id]
+        const status = r.pass ? "pass" : r.by === "disputed" ? "disputed" : demoted.has(r.id) ? "stale" : "fail"
+        live.criteria[r.id] = { status, by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: prev?.rejections ?? 0, ...(r.evidence ? { evidence: r.evidence } : !r.pass && prev?.evidence ? { evidence: prev.evidence } : {}) }
+      }
       live.verdict = { passed: outcome.passed, lines: outcome.lines.slice(0, 20), at: now, turn: live.turn }
       deps.store.evidence(live.slug, live.runId, `verify-tick-${live.turn}`, outcome)
+      // T179: no verifier child here, but a disputed outcome (from a verify that
+      // did run one) still stops for the owner instead of folding into a fail.
+      const disputed = outcome.results.filter((r) => r.by === "disputed").map((r) => r.id)
+      if (disputed.length) {
+        setStatus(live, "needs_review", `host and verifier disagree on ${disputed.join(", ")}`)
+        deps.store.ledger(live.slug, { type: "disputed", criteria: disputed, turn: live.turn })
+        if (!write(live)) return { stdout: HOLD, log, harness }
+        log.push(`goal ${live.slug} needs an owner decision: host and verifier disagree on ${disputed.join(", ")}`)
+        return { stdout: HOLD, log, harness }
+      }
       if (outcome.passed) {
         setStatus(live, "complete", "all required criteria verified")
         deps.store.ledger(live.slug, { type: "complete", turn: live.turn })

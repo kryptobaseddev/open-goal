@@ -3,7 +3,7 @@
 // a field change here is a schemaVersion bump.
 import { parseContract } from "../contract/parse"
 import type { Contract } from "../contract/types"
-import { budgetUse, isTerminal, type RunState, type Status } from "../engine/state"
+import { budgetUse, isTerminal, type CriterionStatus, type RunState, type Status } from "../engine/state"
 import type { HarnessIdentity } from "../engine/harness-identity"
 import { aggregate, workstreamRows } from "../engine/workstreams"
 import type { Store } from "../engine/store"
@@ -14,7 +14,7 @@ export const STATUS_SCHEMA_VERSION = 1
 export type StatusCriterion = {
   id: string
   statement: string
-  status: "unknown" | "pass" | "fail" | "claimed"
+  status: CriterionStatus
   essential: boolean
   invariant: boolean
   by: string | null
