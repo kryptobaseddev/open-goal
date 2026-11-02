@@ -132,3 +132,8 @@ Named honestly rather than left to be discovered:
   leaves a legacy run byte-identical and readable.
 - `test/host/store-migration.test.ts` — confirmation is required; the confirmed
   move preserves every byte, keeps the legacy copy, and skips a live run.
+- `test/host/migrate-bin.test.ts` — the real `ocg migrate` process: the dry run
+  prints the plan and leaves the tree byte-identical, `--confirm` copies
+  migratable goals and keeps the legacy tree identical, the moved project still
+  reports its live legacy run, and a broken `goal-store.json` exits 1 writing
+  nothing.
