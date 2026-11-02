@@ -23,6 +23,7 @@ import { budgetUse, setStatus, TERMINAL as TERMINAL_STATUSES, type RunState } fr
 import { continuationTail, decide, type LoopLimits, type LoopSignals } from "./loop"
 import { recordTurn } from "./tick-record"
 import { tickAdapter, type HarnessAdapter, type HarnessName } from "./harness"
+import type { RunWriteOutcome } from "./store"
 import type { VerifyOutcome } from "../verify/pipeline"
 
 /** The plugin's own defaults, so a tick agrees with the adapter unless overridden. */
@@ -35,7 +36,8 @@ export const REASON_CAP = 4_000
 export type TickStore = {
   slugs: () => string[]
   readRun: (slug: string) => RunState | undefined
-  writeRun: (state: RunState) => void
+  /** T172: a refusal (newer on-disk generation) is reported, never swallowed. */
+  writeRun: (state: RunState) => RunWriteOutcome | void
   readContract: (slug: string) => { contract?: Contract; text: string } | undefined
   ledger: (slug: string, event: Record<string, unknown> & { type: string }) => void
   evidence: (slug: string, runId: string, name: string, data: unknown) => string
@@ -120,6 +122,16 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
     if (surface.kind !== "stop-block") throw new Error(`${adapter.name} cannot continue a session through the Stop dispatcher`)
     return surface.payload
   }
+  // T172: the tick must never overwrite a run row it has not observed. A
+  // refusal is a stated stop, not a silent no-op: the store journals the
+  // receipt and this line carries the same fact to the dispatcher's log.
+  const write = (state: RunState): boolean => {
+    const outcome = deps.store.writeRun(state)
+    if (!outcome || outcome.written) return true
+    if (outcome.journalled)
+      log.push(`refused to overwrite a newer run.json for ${state.slug}: this tick holds generation ${outcome.mine.revision}, disk is generation ${outcome.disk.revision} (${outcome.reason}); the disk bytes were left untouched and a stale-write receipt was journalled`)
+    return false
+  }
   // Outside a goal project there is nothing to tick at all - print nothing.
   if (!existsSync(join(deps.root, ".opencode", "goals"))) {
     log.push("no .opencode/goals directory; nothing to tick")
@@ -172,7 +184,7 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
     progress: record.progress,
     noProgress: live.counters.noProgress,
   })
-  deps.store.writeRun(live)
+  if (!write(live)) return { stdout: HOLD, log, harness }
   log.push(`recorded turn ${record.turn} for ${live.slug} (${record.progress ? "progress" : "no progress"}${record.claimHonoured ? ", claim honoured" : ""})`)
   for (const gap of record.couldNotSee) log.push(`could not see ${gap}`)
 
@@ -203,7 +215,7 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
       live.claim = undefined
       setStatus(live, "verifying", "tick verification")
       deps.store.ledger(live.slug, { type: "verify-start", source: "claim", turn: live.turn })
-      deps.store.writeRun(live)
+      if (!write(live)) return { stdout: HOLD, log, harness }
       const outcome = await deps.verify(live, contract, read.text)
       for (const r of outcome.results) live.criteria[r.id] = { status: r.pass ? "pass" : "fail", by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: live.criteria[r.id]?.rejections ?? 0 }
       live.verdict = { passed: outcome.passed, lines: outcome.lines.slice(0, 20), at: now, turn: live.turn }
@@ -211,27 +223,28 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
       if (outcome.passed) {
         setStatus(live, "complete", "all required criteria verified")
         deps.store.ledger(live.slug, { type: "complete", turn: live.turn })
-        deps.store.writeRun(live)
+        // A completion this tick could not record is not reported as complete.
+        if (!write(live)) return { stdout: HOLD, log, harness }
         log.push(`goal ${live.slug} complete: ${outcome.lines[0] ?? "all required criteria verified"}`)
         return { stdout: "", log, harness } // no live goal remains; the harness session may end
       }
       // Not proven: keep the run going and hand the agent the verdict.
       setStatus(live, "running")
-      deps.store.writeRun(live)
+      if (!write(live)) return { stdout: HOLD, log, harness }
       log.push(`goal ${live.slug} did not pass verification: ${outcome.lines.slice(0, 2).join(" ").slice(0, 200)}`)
       return { stdout: block("verdict", renderTailNote(live, contract, "verdict", now).slice(0, REASON_CAP)), log, harness }
     }
     case "admit":
     case "schedule": {
       const tail = continuationTail(action)!
-      deps.store.writeRun(live)
+      if (!write(live)) return { stdout: HOLD, log, harness }
       const reason = renderTailNote(live, contract, tail, now).slice(0, REASON_CAP)
       log.push(`goal ${live.slug}: decision ${action.kind}; continuing with the ${tail} continuation (${reason.length} chars)`)
       return { stdout: block(tail, reason), log, harness }
     }
     default: {
       if (action.kind === "stop") setStatus(live, action.status, action.reason)
-      deps.store.writeRun(live)
+      if (!write(live)) return { stdout: HOLD, log, harness }
       log.push(`goal ${live.slug}: decision ${action.kind}${action.kind === "stop" ? ` (${action.code})` : ""}; holding the session`)
       return { stdout: HOLD, log, harness }
     }

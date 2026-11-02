@@ -7833,7 +7833,7 @@ function globToRegExp(glob) {
 var matchesAny = (file, globs) => globs.some((g) => globToRegExp(g.replace(/^\.\//, "")).test(file));
 
 // src/engine/store.ts
-import { appendFileSync, closeSync as closeSync2, existsSync as existsSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync2, readdirSync as readdirSync2, renameSync as renameSync2, writeFileSync, writeSync as writeSync2 } from "node:fs";
+import { appendFileSync, closeSync as closeSync2, existsSync as existsSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync2, readdirSync as readdirSync2, renameSync as renameSync2, unlinkSync, writeFileSync, writeSync as writeSync2 } from "node:fs";
 import { join as join3 } from "node:path";
 
 // src/engine/store-root.ts
@@ -7940,16 +7940,45 @@ function resolveStoreRoots(root, options = {}) {
 }
 
 // src/engine/store.ts
+var runGeneration = (state) => ({
+  revision: state.revision ?? 0,
+  runId: state.runId,
+  lock: state.lock,
+  status: state.status,
+  updatedAt: state.updatedAt,
+  ...state.writtenAt !== undefined ? { writtenAt: state.writtenAt } : {},
+  ...state.writtenBy ? { writtenBy: state.writtenBy } : {}
+});
+function revisionsInText(text) {
+  let max = 0;
+  for (const match of text.matchAll(/"revision"\s*:\s*(\d+)/g))
+    max = Math.max(max, Number(match[1]));
+  return Number.isFinite(max) ? max : 0;
+}
+function parseRunText(text) {
+  try {
+    const value = JSON.parse(text);
+    return value?.version === 1 ? value : undefined;
+  } catch {
+    return;
+  }
+}
+
 class Store {
   root;
   goalsDir;
   archiveDir;
   roots;
-  constructor(root, roots = resolveStoreRoots(root)) {
+  writerStartedAt = Date.now() - Math.round(process.uptime() * 1000);
+  refused = new Set;
+  logLine;
+  constructor(root, roots = resolveStoreRoots(root), options = {}) {
     this.root = root;
     this.roots = roots;
     this.goalsDir = roots.goals;
     this.archiveDir = roots.archive;
+    this.logLine = options.log ?? ((line) => process.stderr.write(`${line}
+`));
   }
   dir(slug) {
     return join3(this.goalsDir, slug);
@@ -7992,12 +8021,7 @@ class Store {
     const raw = this.readRunRaw(slug, options);
     if (!raw || raw.duplicates.length)
       return;
-    try {
-      const value = JSON.parse(raw.text);
-      return value?.version === 1 ? value : undefined;
-    } catch {
-      return;
-    }
+    return parseRunText(raw.text);
   }
   keepCorruptRun(slug, text, at = Date.now()) {
     const dir = this.dir(slug);
@@ -8006,20 +8030,66 @@ class Store {
     writeFileSync(path, text, { mode: 384 });
     return path;
   }
-  writeRun(state) {
-    const dir = this.dir(state.slug);
+  writeRun(state, options = {}) {
+    const slug = state.slug;
+    const raw = this.readRunRaw(slug);
+    const disk = raw && !raw.duplicates.length ? parseRunText(raw.text) : undefined;
+    const mine = runGeneration(state);
+    if (disk && !options.replace) {
+      if (disk.runId !== state.runId)
+        return this.refuseStale(state, mine, runGeneration(disk), "superseded");
+      if ((disk.revision ?? 0) > (state.revision ?? 0))
+        return this.refuseStale(state, mine, runGeneration(disk), "stale");
+    }
+    const corrupt = raw && !disk ? revisionsInText(raw.text) : 0;
+    const next = Math.max(state.revision ?? 0, disk?.revision ?? 0, corrupt) + 1;
+    const now = Date.now();
+    const writtenBy = { pid: process.pid, startedAt: this.writerStartedAt, sessionID: state.sessionID };
+    const dir = this.dir(slug);
     mkdirSync2(dir, { recursive: true });
     const path = join3(dir, "run.json");
-    const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+    const tmp = `${path}.${process.pid}.${now}.tmp`;
     const fd = openSync2(tmp, "w", 384);
     try {
-      writeSync2(fd, `${JSON.stringify(state, null, 2)}
+      writeSync2(fd, `${JSON.stringify({ ...state, revision: next, writtenAt: now, writtenBy }, null, 2)}
 `);
       fsyncSync2(fd);
     } finally {
       closeSync2(fd);
     }
+    const again = this.readRun(slug);
+    if (again && !options.replace && (again.runId !== state.runId || (again.revision ?? 0) > (state.revision ?? 0))) {
+      try {
+        unlinkSync(tmp);
+      } catch {}
+      return this.refuseStale(state, mine, runGeneration(again), again.runId !== state.runId ? "superseded" : "stale");
+    }
     renameSync2(tmp, path);
+    state.revision = next;
+    state.writtenAt = now;
+    state.writtenBy = writtenBy;
+    return { written: true, revision: next };
+  }
+  refuseStale(state, mine, disk, reason) {
+    const key = `${state.slug}|${mine.runId}|${mine.revision}|${disk.runId}|${disk.revision}|${disk.writtenAt ?? 0}|${disk.writtenBy?.pid ?? "-"}`;
+    const journalled = !this.refused.has(key);
+    if (journalled) {
+      this.refused.add(key);
+      this.ledger(state.slug, {
+        type: "stale-write",
+        slug: state.slug,
+        runId: state.runId,
+        reason,
+        pid: process.pid,
+        writerStartedAt: this.writerStartedAt,
+        sessionID: state.sessionID,
+        mine,
+        disk,
+        action: "disk-left-untouched"
+      });
+      this.logLine(`open-goal: refused a ${reason} run.json write for "${state.slug}" (pid ${process.pid}, session ${state.sessionID}): this writer holds generation ${mine.revision} (lock ${mine.lock.slice(0, 12)}), disk is generation ${disk.revision} (lock ${disk.lock.slice(0, 12)}, writer pid ${disk.writtenBy?.pid ?? "unknown"}). The disk bytes were left untouched.`);
+    }
+    return { written: false, journalled, reason, mine, disk };
   }
   writeContractSnapshot(slug, runId, lock, text) {
     const dir = join3(this.dir(slug), "evidence", runId);
@@ -8045,12 +8115,16 @@ class Store {
     if (request.commit.state.lock !== request.nextLock || request.commit.state.runId !== state.runId)
       throw new Error("Invalid host write-ahead state");
     const result = state.lock === request.nextLock ? state : request.commit.state;
+    result.revision = Math.max(result.revision ?? 0, state.revision ?? 0);
     this.writeContractSnapshot(request.slug, request.runId, request.lock, read.lock === request.lock ? read.text : this.lockedSnapshot(request.slug, request.runId, request.lock));
     this.writeContractSnapshot(request.slug, request.runId, request.nextLock, request.nextText);
     if (read.lock !== request.nextLock)
       this.writeAtomic(this.contractPath(request.slug), request.nextText);
-    if (state.lock !== request.nextLock)
-      this.writeRun(result);
+    if (state.lock !== request.nextLock) {
+      const write = this.writeRun(result);
+      if (!write.written)
+        throw new Error(`The run row on disk is a newer generation (${write.disk.revision}) than this accepted amendment (${write.mine.revision}); the accepted generation was not written over it`);
+    }
     const generation = result.amendments.filter((a) => a.status === "accepted").length;
     this.evidence(request.slug, request.runId, `amendment-${generation}-${request.id}`, {
       decisionId: request.id,
@@ -8465,6 +8539,14 @@ async function tick(deps) {
       throw new Error(`${adapter.name} cannot continue a session through the Stop dispatcher`);
     return surface.payload;
   };
+  const write = (state) => {
+    const outcome = deps.store.writeRun(state);
+    if (!outcome || outcome.written)
+      return true;
+    if (outcome.journalled)
+      log.push(`refused to overwrite a newer run.json for ${state.slug}: this tick holds generation ${outcome.mine.revision}, disk is generation ${outcome.disk.revision} (${outcome.reason}); the disk bytes were left untouched and a stale-write receipt was journalled`);
+    return false;
+  };
   if (!existsSync4(join4(deps.root, ".opencode", "goals"))) {
     log.push("no .opencode/goals directory; nothing to tick");
     return { stdout: "", log, harness };
@@ -8511,7 +8593,8 @@ async function tick(deps) {
     progress: record.progress,
     noProgress: live.counters.noProgress
   });
-  deps.store.writeRun(live);
+  if (!write(live))
+    return { stdout: HOLD, log, harness };
   log.push(`recorded turn ${record.turn} for ${live.slug} (${record.progress ? "progress" : "no progress"}${record.claimHonoured ? ", claim honoured" : ""})`);
   for (const gap of record.couldNotSee)
     log.push(`could not see ${gap}`);
@@ -8539,7 +8622,8 @@ async function tick(deps) {
       live.claim = undefined;
       setStatus(live, "verifying", "tick verification");
       deps.store.ledger(live.slug, { type: "verify-start", source: "claim", turn: live.turn });
-      deps.store.writeRun(live);
+      if (!write(live))
+        return { stdout: HOLD, log, harness };
       const outcome = await deps.verify(live, contract, read.text);
       for (const r of outcome.results)
         live.criteria[r.id] = { status: r.pass ? "pass" : "fail", by: r.by, at: now, detail: r.detail.slice(0, 600), rejections: live.criteria[r.id]?.rejections ?? 0 };
@@ -8548,19 +8632,22 @@ async function tick(deps) {
       if (outcome.passed) {
         setStatus(live, "complete", "all required criteria verified");
         deps.store.ledger(live.slug, { type: "complete", turn: live.turn });
-        deps.store.writeRun(live);
+        if (!write(live))
+          return { stdout: HOLD, log, harness };
         log.push(`goal ${live.slug} complete: ${outcome.lines[0] ?? "all required criteria verified"}`);
         return { stdout: "", log, harness };
       }
       setStatus(live, "running");
-      deps.store.writeRun(live);
+      if (!write(live))
+        return { stdout: HOLD, log, harness };
       log.push(`goal ${live.slug} did not pass verification: ${outcome.lines.slice(0, 2).join(" ").slice(0, 200)}`);
       return { stdout: block("verdict", renderTailNote(live, contract, "verdict", now).slice(0, REASON_CAP)), log, harness };
     }
     case "admit":
     case "schedule": {
       const tail = continuationTail(action);
-      deps.store.writeRun(live);
+      if (!write(live))
+        return { stdout: HOLD, log, harness };
       const reason = renderTailNote(live, contract, tail, now).slice(0, REASON_CAP);
       log.push(`goal ${live.slug}: decision ${action.kind}; continuing with the ${tail} continuation (${reason.length} chars)`);
       return { stdout: block(tail, reason), log, harness };
@@ -8568,7 +8655,8 @@ async function tick(deps) {
     default: {
       if (action.kind === "stop")
         setStatus(live, action.status, action.reason);
-      deps.store.writeRun(live);
+      if (!write(live))
+        return { stdout: HOLD, log, harness };
       log.push(`goal ${live.slug}: decision ${action.kind}${action.kind === "stop" ? ` (${action.code})` : ""}; holding the session`);
       return { stdout: HOLD, log, harness };
     }

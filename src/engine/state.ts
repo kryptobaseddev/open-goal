@@ -32,6 +32,11 @@ export type CriterionState = {
 }
 
 export type PendingKind = "kickoff" | "continue" | "verdict" | "recovery" | "wrapup" | "resume"
+
+/** T172: the exact process that produced a run.json generation. The start wall
+ * clock makes a reused PID a different writer. */
+export type RunWriter = { pid: number; startedAt: number; sessionID: string }
+
 export type Handoff = { fromSessionID: string; toSessionID: string; agent?: string; model?: { providerID: string; id: string; variant?: string }; fallback?: string; /** v0.8.0: the generated handoff document, relative to the goal folder. */ file?: string }
 
 export type RunState = {
@@ -49,6 +54,18 @@ export type RunState = {
   sessionID: string
   runId: string
   lock: string
+  /**
+   * T172: monotonic generation of this run row. Every accepted host write
+   * stamps the next value; a writer may only replace the row when the disk
+   * generation it just read is not ahead of the one its snapshot carries.
+   * Optional and additive — a run written before this field existed reads as
+   * generation 0 and still parses as `version: 1`.
+   */
+  revision?: number
+  /** T172: the process that wrote the bytes this snapshot carries. */
+  writtenBy?: RunWriter
+  /** T172: wall clock of the accepted write that produced these bytes. */
+  writtenAt?: number
   status: Status
   reason?: string
   createdAt: number
@@ -101,6 +118,7 @@ export function initialRun(contract: Contract, args: { sessionID: string; runId:
     sessionID: args.sessionID,
     runId: args.runId,
     lock: args.lock,
+    revision: 0,
     status: "running",
     createdAt: now,
     updatedAt: now,

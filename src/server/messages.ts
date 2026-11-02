@@ -91,6 +91,8 @@ export const M = {
     msg("goal.stall.reported", "warning", `No visible change for ${turns} turns, but the agent kept working: the run continues under the owner-set on_stall policy and this stall is recorded.`, [status, resume]),
   runStateRepaired: (slug: string, kept: string) =>
     msg("goal.runstate.repaired", "warning", `run.json for ${slug} was malformed or carried duplicate keys; it was rebuilt from the run's own ledger and evidence. The raw bytes are kept at ${kept}.`, [status, resume]),
+  staleWrite: (slug: string, mine: number, disk: number) =>
+    msg("goal.runstate.stale-write", "warning", `A run.json write for ${slug} was REFUSED and the disk left untouched: the disk holds generation ${disk}, newer than the generation this process last observed (${mine}) — for example an owner repair. A stale-write receipt naming both generations was journalled; the newer bytes win.`, [status, { label: "Reload this location", run: "read goal_status, then reload the location so the engine adopts the newer run state before writing again" }]),
   amended: (generation: number, summary: string) =>
     msg("goal.amended", "success", `Goal amended (generation ${generation}): ${summary}. The contract re-locked; the next turn renders the new text.`, [verify, status]),
   pausedAdmissionError: (reason: string) =>

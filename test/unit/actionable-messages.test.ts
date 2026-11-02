@@ -19,6 +19,7 @@ const samples: Record<string, () => EngineMessage> = {
   policyApplied: () => M.policyApplied("amendment", "timeout", "criteria changed [C2]", "demo"),
   stallReported: () => M.stallReported(3),
   runStateRepaired: () => M.runStateRepaired("demo", ".opencode/goals/demo/run.json.corrupt-1.json"),
+  staleWrite: () => M.staleWrite("demo", 4, 7),
   divergenceChanged: () => M.divergenceChanged(),
   divergenceAdopted: () => M.divergenceAdopted("demo"),
   divergenceRestored: () => M.divergenceRestored("demo"),
