@@ -220,6 +220,7 @@ Full field reference: `references/goal-schema.md`. Question bank and recommendat
 | Hand-editing a live `goal.yaml` to "optimize" it | `goal_propose_amendment` on the exact run/lock; the owner accepts the diff |
 | Effort instead of proof ("keep improving X") | An end state plus a check that can fail |
 | A check the worker can edit | Put the oracle under `protect` |
+| A stop rule phrased as the inverse ("SHALL NOT continue past X") | Phrase it positively — "SHALL continue past X" — and list the rule that stops the run. Stop rules are phrased positively; the validator emits a warning (never an error) when a rule reads as the inverse, so the contradiction is visible at review. |
 | No non-goal | At least one, so the loop does not fill the vacuum |
 | Inventing a budget or turn cap | Leave it out unless the owner wants one |
 | A `command` check spread over indented lines | One line — folded scalars keep newlines before indented lines; rehearse the stored command before claiming |

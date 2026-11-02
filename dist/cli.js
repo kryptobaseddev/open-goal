@@ -7578,6 +7578,15 @@ function parseContract(text, options = {}) {
   const scopeRaw = isRecord(raw.scope) ? raw.scope : {};
   const stopRaw = isRecord(raw.stop) ? raw.stop : {};
   const executionRaw = isRecord(raw.execution) ? raw.execution : {};
+  const inverseStop = /\b(?:shall|must|will)\s+not\s+(?:continue|proceed|keep\s+going|go\s+on)\b|\b(?:do\s+not|don['’]t)\s+continue\b/i;
+  const stopWhen = str(stopRaw.when).trim();
+  if (stopWhen && inverseStop.test(stopWhen))
+    warn("stop.when", `stop rule reads as the inverse of continuing: "${stopWhen.slice(0, 160)}" — phrase it positively ("SHALL continue past X") and list what stops the run`);
+  for (const [index, entry] of (Array.isArray(stopRaw.escalate_when) ? stopRaw.escalate_when : []).entries()) {
+    const rule = str(entry).trim();
+    if (rule && inverseStop.test(rule))
+      warn(`stop.escalate_when[${index}]`, `escalation rule reads as the inverse of continuing: "${rule.slice(0, 160)}" — phrase it positively ("SHALL continue past X") and list what stops the run`);
+  }
   if (issues.some((i) => i.level === "error"))
     return { issues, lock };
   const supersedes = str(raw.supersedes);

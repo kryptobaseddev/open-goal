@@ -16,14 +16,16 @@ open.
 | D2 | A restart pauses the run and demands an owner click | high | **fixed 0.8.0** |
 | D3 | Accepting an amendment does not resume; a second prompt is forced | high | **fixed 0.8.0** |
 | D4 | A superseded/interrupted decision re-surfaces long after the fact | medium | **fixed 0.8.0, hardened 0.8.1** |
-| D5 | Completion offers `start-next` as a prompt, and can fire after a new run already started | medium | **partial** |
+| D5 | Completion offers `start-next` as a prompt, and can fire after a new run already started | medium | **fixed on main after 0.11.0** (defect-hardening) |
 | D6 | An unknown `expect` key in a check is silently dropped, weakening the criterion | high | **fixed 0.8.0** |
-| D7 | A contract can encode the inverse of the owner's intent and still validate | medium | open |
+| D7 | A contract can encode the inverse of the owner's intent and still validate | medium | **fixed on main after 0.11.0** (defect-hardening) |
 | D8 | `ocg tick` read the run store without a guard, so an I/O error crashed it | high | **fixed 0.7.1** |
 | D9 | An unknown `budget` key is silently dropped, and the turn backstop is reported as an exhausted budget | high | **fixed 0.9.3** |
 | D10 | A contract locked before a validator tightening bricks its run; resume, amendment and divergence recovery disagree | high | **fixed 0.9.4, hardened 0.9.8** |
 | D11 | A plugin hot-load does not reach pre-existing sessions; their goal tool surface is gone until a fresh engine/session | high | fixed on main after 0.10.1 (T173, PR #19) |
 | D12 | A dying engine's final `run.json` write can undo an owner-side repair | high | fixed on main after 0.10.1 (T172, PR #17) |
+| D13 | The registry test flaked once in CI | low | **fixed on main after 0.11.0** (defect-hardening) |
+| D14 | The continue-work oracle races the automatic start | low | **open** — pre-existing on main, out of this goal's scope |
 
 ---
 
@@ -145,8 +147,7 @@ kind), expired, or already answered; and make a re-presentation incapable of min
 
 ## D5 — completion asks "what next" instead of continuing
 
-**Severity** medium. **Status** **partial** — automatic continuation shipped in 0.8.0 (commit
-`dfec5be`); the fallback question and the already-started guard remain.
+**Severity** medium. **Status** **fixed on main after 0.11.0** (goal `defect-hardening`).
 
 **Fixed** after a goal completes, the loop looks for a ready CLEO item before it reports completion and
 starts it in a new session from the task's own acceptance, linked back to the task id. A started item is a
@@ -154,12 +155,19 @@ notification plus `continue-work` ledger events; no completion decision is creat
 `test/host/continue-work.test.ts` completes a goal with a fake `cleo` on PATH, asserts the generated
 `cleo-t900` contract, the new session, and that no `complete` decision exists.
 
-**Remaining** when there is no ready item (or the project is not CLEO-linked), `M.completeDecision`
-still creates the completion decision and offers `Start the next goal` with `act:"start-next"` as a
-prompt (`src/server/messages.ts:220`, dispatched at `src/server/app.ts:3091`, pinned by
-`test/host/complete-decision.test.ts`). Nothing suppresses that question when a successor run is already
-live; the C4 path avoids it only by returning `continued: true` from its own automatic start.
-`test/unit/tui-dashboard.test.ts` also still expects a terminal row with `act: "start-next"`.
+**Fixed** the completion is now a notice, not a stale offer. `M.complete` and
+`M.completeDecision` no longer carry a "Start the next goal" choice; when a
+successor run is already live (`GoalApp.liveSuccessor` reads the same inventory
+`goal_inventory` reports) no completion decision is created at all — the notice
+names the successor and the ledger records `complete-decision-suppressed`. With
+no ready item and no successor, the fallback notice says nothing was started
+(`complete-notification`) and the decision keeps only the real acts (Archive,
+and Decompose when CLEO is linked). An explicit `start-next` act still works when
+the owner asks for it. `test/host/complete-decision-live-successor.test.ts`
+covers both scenarios end to end; `test/host/complete-decision.test.ts` pins the
+remaining decision; `test/host/decompose-act.test.ts`,
+`test/host/decision-dialogs.test.ts`, `test/host/decision-ask-once.test.ts` and
+`test/host/ask-tool-decisions.test.ts` were updated for the new shape.
 
 **Reproduced** at the end of v0.7.1: the completion decision `343a81a8-dd9f-490a-85b5-dea892ba7881` asked
 "what next?" **after** the v0.8.0 run had already been launched, so its "Start the next goal" option had
@@ -195,8 +203,7 @@ any future check kind. A validator warning is not enough.
 
 ## D7 — a contract can encode the inverse of the owner's intent
 
-**Severity** medium. **Status** open — related stop-rule work shipped in 0.8.0, but neither guard that
-would catch inverse intent is implemented.
+**Severity** medium. **Status** **fixed on main after 0.11.0** (goal `defect-hardening`).
 
 **What changed (does not close it)** the contract's stop rules now exist as code and are tested: a human
 criterion, a real blocker, an outward/destructive act, a first visit to a new project, and an exhausted
@@ -206,11 +213,14 @@ C6 wording and the owner's interview answer is recorded verbatim in
 `docs/research/proactive-continuation.md` ("known contradiction"), not silently resolved. That makes the
 stop behaviour explicit; it does not make an inverse-intent clause fail validation.
 
-**Why it is still open** both proposed guards are absent. (a) `skills/write-goal/SKILL.md` states no
-positive-phrasing rule for stop rules. (b) `stop.when` is free text (`src/contract/types.ts:143`; parsed
-at `src/contract/parse.ts:366-435`) with no stop-rule vocabulary, so a contract that says "SHALL NOT
-continue past …" still validates cleanly. This register's own reproduction therefore stands: the owner
-can still get the inverse of their intent, and only a human reading the diff catches it.
+**Fixed** both guards landed. `src/contract/parse.ts` recognises the inverse
+form in `stop.when` and in every `stop.escalate_when` entry (`SHALL/MUST/WILL NOT
+continue|proceed|keep going`, `do not continue`) and emits a **warning** that
+names the offending rule and quotes it; it is never an error, so a contract that
+parsed before still parses. `skills/write-goal/SKILL.md` now states the rule:
+"Stop rules are phrased positively". `test/unit/stop-rule-wording.test.ts` pins
+the warning, the positive-phrasing quiet case, and that the stop text survives
+unchanged; the contract suite is untouched and still green.
 
 **Reproduced** v0.8.0's C6 was drafted as *"…SHALL stop and ask the owner, **and SHALL NOT continue past a
 first visit to a new project or an exhausted budget** unless the contract says otherwise"*. In the
@@ -374,3 +384,40 @@ amendment commits still write; a host test reproduces the dying-engine final wri
 
 **Proposed fix** per T172: a compare-and-write guard on `run.json` keyed by runId/lock/generation, with a
 stale-write ledger receipt and a host test that holds an old state across a repair.
+
+---
+
+## D13 — the registry test flaked once in CI *(fixed)*
+
+**Severity** low. **Status** **fixed on main after 0.11.0** (goal `defect-hardening`).
+
+**Observed** once in CI during the T169 PR (`test/unit/registry.test.ts`), passing on rerun and in the
+full local suite. No CI log was kept.
+
+**Cause** the test classified its two temporary projects with `project.endsWith("b")`. `mkdtemp`
+suffixes are random, so a root ending in `b` was labelled "beta" twice and the expected list lost
+"alpha:paused". Reproduced deterministically with `bun test test/unit/registry.test.ts --rerun-each 20`
+(roughly one run in three). A second, independent hazard surfaced while reproducing: `Registry.write`
+named its atomic temp file `<pid>-<Date.now()>.json`, and Bun test workers share a pid, so two
+concurrent writes in the same millisecond could clobber one temp file. Both are fixed — the test
+classifies by the actual root and each test owns its own `mkdtemp` registry file; `Registry.write`
+appends a UUID to the temp name.
+
+**Proof** `bun test test/unit/registry.test.ts --rerun-each 20` passes repeatedly (8 consecutive runs,
+160 reruns, 0 failures), and the file also asserts two registries never share a file.
+
+---
+
+## D14 — the continue-work oracle races the automatic start *(open, pre-existing)*
+
+**Severity** low. **Status** **open** — reproduced on `main` at `2b95f2c`, before this goal's changes.
+
+**Observed** while hardening the registry flake: `test/host/continue-work.test.ts` ("completion starts
+the next ready CLEO item without an owner question") fails intermittently with
+`ENOENT … .opencode/goals/cleo-t900/goal.yaml`. The engine sets the completing status before
+`continueWork` runs and `startContinuation` writes the successor contract on a `setTimeout(0)`, so the
+test can observe `complete` a tick before the file exists. Six runs on unmodified `main` failed once.
+
+**Not fixed here** the fix is either a wait in the protected oracle (the goal keeps that file
+unchanged) or reordering the auto-continuation path (explicitly out of this goal's scope). Recorded so
+the next hardening pass owns it; the auto-continuation decision itself is not the defect.

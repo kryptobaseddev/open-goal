@@ -54,6 +54,7 @@ const samples: Record<string, () => EngineMessage> = {
   supersedeAck: () => M.supersedeAck("ship-v3", "ship-v2", "running"),
   pausedAfterVerdict: () => M.pausedAfterVerdict("C15 FAILED [host] output lacks \"0.3.0\""),
   completeDecision: () => M.completeDecision("Ship the widget", false, 2),
+  completeFallback: () => M.completeFallback("Ship the widget", 1, "next-goal"),
   continueWork: () => M.continueWork("Ship the widget", "cleo-t900", "T900"),
   continueStopped: () => M.continueStopped("the next candidate is in a project this loop has never worked in"),
   peerAnnounced: () => M.peerAnnounced("T900"),

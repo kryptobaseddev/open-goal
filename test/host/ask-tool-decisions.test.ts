@@ -119,7 +119,8 @@ describe("native ask-tool decisions (T075)", () => {
       //      the busy turn ends) ──
       const completeForm = await until(async () => await formsOf("Archive goal"), 60000, 400)
       expect(completeForm).toBeDefined()
-      expect(completeForm.fields[0]!.options!.map((o) => o.label)).toContain("Start the next goal")
+      expect(completeForm.fields[0]!.options!.map((o) => o.label)).toContain("Archive goal")
+      expect(completeForm.fields[0]!.options!.map((o) => o.label)).not.toContain("Start the next goal")
 
       // ── 4. duplicate suppression: answer via the DIALOG act first — the
       //      stale form's late reply must be a no-op ──
