@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.3 — 2026-11-02
+
+- **A release tag must be on main.** `release.yml` now runs `scripts/check-release-ancestry.ts` before publishing and refuses a tag whose commit is not an ancestor of `origin/main`. v0.12.0 had been tagged and published from a branch commit while main still carried 0.11.0 — the goal engine could not see that, because it proves criteria and does not own the release pipeline.
+- **A verdict names environment drift.** Every host verdict compares the project `package.json` version, HEAD and the release tag (and whether that tag is on HEAD) against the snapshot of the previous verdict, and prefixes `ENVIRONMENT changed since the last verdict: …` when anything moved. The run persists the snapshot it verified against, so a "pass" stamped on an older tree is visible rather than silent. This is the C6 case from the store goal: it claimed while serving 0.12.1 with package.json already 0.12.2.
+
 ## 0.12.2 — 2026-11-02
 
 - **Completing a goal never asks you to start what is already running (D5, closed).** The completion notice is now `completeFallback`: it names a successor that is already live (or says plainly that nothing was started because no ready CLEO item and no live successor existed), and it offers only real acts — inspect the goal and archive it. The stale "Start the next goal" row is gone from both the completion notice and the completion decision; `/goal new` remains available at any time. New message builder registered in the actionless-message registry test.
