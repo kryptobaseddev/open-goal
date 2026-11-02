@@ -31,6 +31,15 @@ plan:
 export const text = (m: ChatRequest["messages"][number] | undefined) =>
   !m ? "" : typeof m.content === "string" ? m.content : Array.isArray(m.content) ? (m.content as any[]).map((p) => p?.text ?? "").join("") : JSON.stringify(m.content ?? "")
 
+/** A second goal in the same project with its OWN intent and outcome. T167
+ *  refuses near-identical work, so a fixture that reuses DEMO_GOAL must name
+ *  distinct work or it is (correctly) triaged as a duplicate. */
+export const distinctDemoGoal = (id: string, title: string) => DEMO_GOAL
+  .replace("id: demo", `id: ${id}`)
+  .replace("title: Demo file says ok", `title: ${title}`)
+  .replace('verbatim: "make done.txt say ok"', `verbatim: "keep ${id} on its own separate work"`)
+  .replace("outcome: done.txt exists and states that the status is ok", `outcome: ${id} reports its own separate completion`)
+
 /** The last user message (the turn's trigger) and how many tool results follow it. */
 export function turnOf(req: ChatRequest) {
   let lastUser = -1

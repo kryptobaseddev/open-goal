@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { ensureSolidTransformPlugin } from "@opentui/solid/bun-plugin"
 import { GoalRpc } from "../../src/rpc"
-import { DEMO_GOAL, goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
+import { distinctDemoGoal, goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
 import { until } from "./harness"
 
 ensureSolidTransformPlugin()
@@ -13,7 +13,7 @@ test("real two-session sidebar converges after missed events and reload from a g
   const host = await goalHost(script((_req, turn) => {
     if (turn.results === 0) return { toolCalls: [{ name: "goal_wait", args: { seconds: 300, reason: "sidebar convergence inspection" } }] }
     return { text: "Waiting while the owner inspects cards." }
-  }), { ".opencode/goals/second/goal.yaml": DEMO_GOAL.replace("id: demo", "id: second").replace("Demo file says ok", "Second waiting goal") })
+  }), { ".opencode/goals/second/goal.yaml": distinctDemoGoal("second", "Second waiting goal") })
   let stop: (() => void) | undefined
   let terminal: Awaited<ReturnType<typeof testRender>> | undefined
   try {

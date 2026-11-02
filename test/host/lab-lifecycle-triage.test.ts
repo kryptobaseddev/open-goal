@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test"
 import { join } from "node:path"
-import { DEMO_GOAL, goalHost, ledger, newSession, run, script, text, waitStatus } from "./goal.helpers"
+import { DEMO_GOAL, distinctDemoGoal, goalHost, ledger, newSession, run, script, text, waitStatus } from "./goal.helpers"
 import { until } from "./harness"
 import { GoalRpc } from "../../src/rpc"
 
 const observer = join(import.meta.dir, "../fixtures/lab-tool-boundary")
 const slugs = ["release-lane-completion", "lab-panel-click-review-release", "mq-r1-approvals"]
-const contracts = Object.fromEntries(slugs.map((slug) => [`.opencode/goals/${slug}/goal.yaml`, DEMO_GOAL.replace("id: demo", `id: ${slug}`)]))
+const contracts = Object.fromEntries(slugs.map((slug) => [`.opencode/goals/${slug}/goal.yaml`, distinctDemoGoal(slug, `${slug} release lane`)]))
 type Trace = { phase: string; tool: string; id?: string; input: { slug?: string }; status?: string; error?: unknown; result?: unknown }
 async function traces(host: Awaited<ReturnType<typeof goalHost>>) {
   return (await host.readProject("tool-boundary.jsonl")).trim().split("\n").map((line) => JSON.parse(line) as Trace)
