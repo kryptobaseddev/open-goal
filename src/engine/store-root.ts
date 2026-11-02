@@ -2,10 +2,10 @@
 // the run. This module is the ONE place a goal path is derived, so the engine,
 // the CLI, the tick and the write guard can agree on a single root.
 //
-// This build still resolves `.opencode/goals` when nothing is configured: the
-// abstraction is introduced without moving a single byte, because the canonical
-// store (`.cleo/goals` by default) ships after the adapter seam. See
-// docs/research/agnostic-goal-store-seam.md for the order and what is left.
+// This build resolves `.cleo/goals` when nothing is configured (the canonical
+// default, ADR-001) and keeps `.opencode/goals` readable as the legacy path, so
+// a project mid-transition still sees its old runs. See
+// docs/research/agnostic-goal-store-seam.md for the seam and what is left.
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs"
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path"
 
@@ -23,9 +23,9 @@ export const LEGACY_ARCHIVE_REL = ".opencode/goals-archive"
 export const CANONICAL_GOALS_REL = ".cleo/goals"
 export const CANONICAL_ARCHIVE_REL = ".cleo/goals-archive"
 
-/** The layout NEW runs use once the canonical store is enabled (gated on the
- *  adapter seam). Kept separate from the resolved default on purpose: a test
- *  can state the target without pretending it is already in effect. */
+/** The layout new runs target: the canonical `.cleo/goals` store. Kept separate
+ *  from the resolved default on purpose, so a test can name the target layout
+ *  without depending on which default this build resolves. */
 export const DEFAULT_TARGET_LAYOUT: StoreLayout = "cleo"
 /** The layout this build resolves when no override is configured. T150: the
  *  0.11.0 release shipped the override with the legacy default; this release
@@ -164,7 +164,8 @@ export function goalStatePaths(roots: StoreRoots): string[] {
 }
 
 export type StoreRootOptions = {
-  /** Explicit project-relative goals directory. Absent = today's `.opencode/goals`. */
+  /** Explicit project-relative goals directory. Absent = the canonical default
+   *  `.cleo/goals`. */
   goalsDir?: string
   /** Explicit archive directory; defaults to a sibling `goals-archive`. */
   archiveDir?: string
@@ -173,9 +174,11 @@ export type StoreRootOptions = {
 /**
  * Resolve the one store root for a project.
  *
- * No override → `.opencode/goals` + `.opencode/goals-archive` (unchanged, so an
- * existing run, guard and CLI keep working). An override → validated and
- * resolved, or `StoreRootError`; there is no partial trust and no fallback.
+ * No override → `.cleo/goals` + `.cleo/goals-archive`, the canonical default.
+ * `.opencode/goals` and `.opencode/goals-archive` stay on `roots.legacy` as the
+ * legacy read path, so an existing run, guard and CLI keep reading old state. An
+ * override → validated and resolved, or `StoreRootError`; there is no partial
+ * trust and no fallback.
  */
 export function resolveStoreRoots(root: string, options: StoreRootOptions = {}): StoreRoots {
   const absoluteRoot = resolve(root)
