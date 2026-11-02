@@ -6910,7 +6910,7 @@ import { readFileSync as readFileSync4 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
-  version: "0.9.8",
+  version: "0.10.1",
   description: "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   type: "module",
   license: "MIT",
@@ -6923,7 +6923,6 @@ var package_default = {
     opencode: ">=2.0.22"
   },
   scripts: {
-    build: "bun run build:tui && bun run build:cli",
     "build:tui": "bun scripts/build-tui.mjs",
     "check:tui": "bun scripts/build-tui.mjs --check",
     "build:cli": "bun scripts/build-cli.mjs",
@@ -6931,7 +6930,8 @@ var package_default = {
     prepublishOnly: "bun run check:tui && bun run check:cli",
     test: "bun test --timeout 120000",
     "test:host": "bun test test/host --timeout 120000",
-    typecheck: "bun run check:tui && bun run check:cli && tsc --noEmit"
+    typecheck: "bun run check:tui && bun run check:cli && tsc --noEmit",
+    "build:all": "bun run build:tui && bun run build:cli"
   },
   devDependencies: {
     "@opencode/client": "2.0.22",
@@ -8272,7 +8272,7 @@ function recordTurn(state, _contract, inputs) {
   return { turn: state.turn, changed, progress, claimHonoured, ...mined ? { mined } : {}, couldNotSee };
 }
 
-// src/engine/harness-identity.ts
+// src/engine/harness.ts
 var CLEO_HOOK_PROVIDER = "CLEO_HOOK_PROVIDER";
 function harnessFromHookProvider(value) {
   switch ((value ?? "").trim()) {
@@ -8284,15 +8284,38 @@ function harnessFromHookProvider(value) {
       return "unknown";
   }
 }
-function dispatcherIdentity(env = {}) {
-  return { name: harnessFromHookProvider(env[CLEO_HOOK_PROVIDER]), version: null, capabilities: null };
+var TICK_CAPABILITIES = {
+  start: false,
+  continuation: true,
+  events: false,
+  tools: false,
+  forms: false,
+  verifier: false,
+  tui: false,
+  steering: false,
+  transcript: true,
+  version: false
+};
+function tickAdapterFor(name) {
+  return {
+    name,
+    capabilities: TICK_CAPABILITIES,
+    identity: () => ({ name, version: null, capabilities: null }),
+    admission: () => ({ kind: "owner-only", reason: "CLEO starts the goal; the Stop dispatcher only continues and verifies it" }),
+    continuation: (tail, reason) => ({ kind: "stop-block", tail, reason, payload: JSON.stringify({ decision: "block", reason }) }),
+    events: () => ({ kind: "stop-only", detail: "the dispatcher sees the turn only when it ends; there is no live event stream" }),
+    forms: null,
+    verification: { kind: "host-only", reason: "the tick has no session to spawn the independent verifier child in" }
+  };
+}
+function tickAdapter(env = process.env) {
+  return tickAdapterFor(harnessFromHookProvider(env[CLEO_HOOK_PROVIDER]));
 }
 
 // src/engine/tick.ts
 var TICK_LIMITS = { blockerRepeats: 3, stallTurns: 3, recoveryAt: 2, backstopTurns: 200 };
 var TICK_COOLDOWN_MS = 1500;
 var REASON_CAP = 4000;
-var BLOCK = (reason) => JSON.stringify({ decision: "block", reason });
 var HOLD = JSON.stringify({ final: false });
 var why = (error) => error instanceof Error ? error.message : String(error);
 function liveRun(store, log) {
@@ -8325,35 +8348,44 @@ async function tick(deps) {
   const log = [];
   const now = deps.now ?? Date.now();
   const limits = deps.limits ?? TICK_LIMITS;
+  const adapter = deps.harness ?? tickAdapter(deps.env ?? process.env);
+  const identity = adapter.identity();
+  const harness = identity.name;
+  const block = (tail, reason) => {
+    const surface = adapter.continuation(tail, reason);
+    if (surface.kind !== "stop-block")
+      throw new Error(`${adapter.name} cannot continue a session through the Stop dispatcher`);
+    return surface.payload;
+  };
   if (!existsSync3(join3(deps.root, ".opencode", "goals"))) {
     log.push("no .opencode/goals directory; nothing to tick");
-    return { stdout: "", log };
+    return { stdout: "", log, harness };
   }
   const { live, unreadable } = liveRun(deps.store, log);
   if (!live && unreadable) {
     log.push("a run record could not be read; cannot rule out a live goal - holding");
-    return { stdout: HOLD, log };
+    return { stdout: HOLD, log, harness };
   }
   if (!live) {
     log.push("no live goal here; nothing to tick");
-    return { stdout: "", log };
+    return { stdout: "", log, harness };
   }
+  log.push(`harness ${identity.name}: ${identity.capabilities ? identity.capabilities.join(", ") : "capabilities not declared by the dispatcher"}`);
   let read;
   try {
     read = deps.store.readContract(live.slug);
   } catch (error) {
     log.push(`could not read the contract for ${live.slug} (${why(error)}); holding`);
-    return { stdout: HOLD, log };
+    return { stdout: HOLD, log, harness };
   }
   if (!read?.contract) {
     log.push(`goal ${live.slug} has no readable contract; holding`);
-    return { stdout: HOLD, log };
+    return { stdout: HOLD, log, harness };
   }
   const contract = read.contract;
   const record = recordTurn(live, contract, { fingerprint: deps.fingerprint ?? (() => {
     return;
   }), ...deps.payload ? { payload: deps.payload } : {}, ...deps.readTranscript ? { readTranscript: deps.readTranscript } : {}, now });
-  const identity = dispatcherIdentity(deps.env ?? process.env);
   if (!live.harness) {
     live.harness = identity;
     deps.store.ledger(live.slug, { type: "harness", name: identity.name, version: identity.version, capabilities: identity.capabilities, source: "tick" });
@@ -8394,7 +8426,7 @@ async function tick(deps) {
     case "verify": {
       if (!deps.verify) {
         log.push("a claim is pending but this tick cannot verify; holding");
-        return { stdout: HOLD, log };
+        return { stdout: HOLD, log, harness };
       }
       live.claim = undefined;
       setStatus(live, "verifying", "tick verification");
@@ -8410,12 +8442,12 @@ async function tick(deps) {
         deps.store.ledger(live.slug, { type: "complete", turn: live.turn });
         deps.store.writeRun(live);
         log.push(`goal ${live.slug} complete: ${outcome.lines[0] ?? "all required criteria verified"}`);
-        return { stdout: "", log };
+        return { stdout: "", log, harness };
       }
       setStatus(live, "running");
       deps.store.writeRun(live);
       log.push(`goal ${live.slug} did not pass verification: ${outcome.lines.slice(0, 2).join(" ").slice(0, 200)}`);
-      return { stdout: BLOCK(renderTailNote(live, contract, "verdict", now).slice(0, REASON_CAP)), log };
+      return { stdout: block("verdict", renderTailNote(live, contract, "verdict", now).slice(0, REASON_CAP)), log, harness };
     }
     case "admit":
     case "schedule": {
@@ -8423,14 +8455,14 @@ async function tick(deps) {
       deps.store.writeRun(live);
       const reason = renderTailNote(live, contract, tail, now).slice(0, REASON_CAP);
       log.push(`goal ${live.slug}: decision ${action.kind}; continuing with the ${tail} continuation (${reason.length} chars)`);
-      return { stdout: BLOCK(reason), log };
+      return { stdout: block(tail, reason), log, harness };
     }
     default: {
       if (action.kind === "stop")
         setStatus(live, action.status, action.reason);
       deps.store.writeRun(live);
       log.push(`goal ${live.slug}: decision ${action.kind}${action.kind === "stop" ? ` (${action.code})` : ""}; holding the session`);
-      return { stdout: HOLD, log };
+      return { stdout: HOLD, log, harness };
     }
   }
 }
