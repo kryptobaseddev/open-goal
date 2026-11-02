@@ -64,7 +64,10 @@ export function renderSystemBlock(contract: Contract, lock: string): string {
       if (t.acs) return `${t.id} (${Object.entries(t.acs).map(([g, acs]) => `${g}=${(acs ?? []).join("/")}`).join(", ")})`
       return t.id
     })
-    out.push(`CLEO ${scope.length ? `${scope.join(" · ")} — ` : ""}tasks this goal serves (evidence is recorded through the cleo CLI only; an AC no evidence proves stays open and is reported): ${tasks.join("; ")}`)
+    const head = tasks.length
+      ? `tasks this goal serves (evidence is recorded through the cleo CLI only; an AC no evidence proves stays open and is reported): ${tasks.join("; ")}`
+      : "no task is linked, so no evidence is written; the saga/epics above are a read-only rollup scope"
+    out.push(`CLEO ${scope.length ? `${scope.join(" · ")} — ` : ""}${head}`)
   }
   // v0.5.2 - a multi-task goal's run commits must cite every linked task id, or a
   // later `cleo goal close` cannot bind the ones no commit names.

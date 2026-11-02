@@ -8015,7 +8015,7 @@ async function readRollup(targets, runCleo, goal = []) {
       ...sagaTitle ? { title: sagaTitle } : {},
       ...sagaStatus ? { status: sagaStatus } : {},
       ...cleoSaga ? { cleo: cleoSaga } : {},
-      members: epics,
+      epics,
       proof: sagaProof
     } : null,
     epics,

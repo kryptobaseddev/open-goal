@@ -70,7 +70,8 @@ export type CleoSagaRollup = {
   status?: string
   /** CLEO's own `saga rollup` aggregate, reproduced verbatim. */
   cleo?: { total: number; done: number; active: number; blocked: number; pending: number; completionPct: number }
-  members: CleoEpicRollup[]
+  /** The epics actually read here: the declared ones, else the saga's members. */
+  epics: CleoEpicRollup[]
   proof: CleoProofTotals
 }
 
@@ -255,7 +256,7 @@ export async function readRollup(targets: CleoRollupTargets, runCleo: CleoRun, g
           ...(sagaTitle ? { title: sagaTitle } : {}),
           ...(sagaStatus ? { status: sagaStatus } : {}),
           ...(cleoSaga ? { cleo: cleoSaga } : {}),
-          members: epics,
+          epics,
           proof: sagaProof,
         }
       : null,
