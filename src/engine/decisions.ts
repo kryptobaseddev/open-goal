@@ -39,6 +39,6 @@ export function shouldReaskDecision(input: {
 }
 
 export class DecisionStore extends OwnerReviewStore<DecisionRequest> {
-  constructor(file: string) { super(file, []) }
+  constructor(file: string, fallback: readonly string[] = []) { super(file, [], fallback) }
   protected reviewChoices(request: DecisionRequest) { return decisionChoices(request) }
 }

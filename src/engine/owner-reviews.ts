@@ -45,16 +45,26 @@ export const processAlive = (pid: number): boolean => {
 
 /** The host-owned sidecar is outside individual runs, so authoring sessions
  * can recover approvals before any run exists. A short cross-process lock
- * makes reservation one-use even when two servers share a project folder. */
+ * makes reservation one-use even when two servers share a project folder.
+ *
+ * T185: `fallback` files are READ-ONLY sources for a record written before the
+ * project's store moved (primary first, so the live file wins on conflicts).
+ * Every mutation still writes exactly `file`; the fallback bytes are never
+ * rewritten. */
 export class OwnerReviewStore<T extends ReviewRequest> {
-  constructor(readonly file: string, readonly choices: readonly ReviewChoice[]) {}
+  constructor(readonly file: string, readonly choices: readonly ReviewChoice[], readonly fallback: readonly string[] = []) {}
   protected reviewChoices(_request: T): readonly ReviewChoice[] { return this.choices }
 
   private read(): ReviewData<T> {
-    if (!existsSync(this.file)) return { version: 1, requests: {} }
-    const data = JSON.parse(readFileSync(this.file, "utf8"))
-    if (data?.version !== 1 || !data.requests || Array.isArray(data.requests)) throw new Error("Owner decision store is invalid; refusing consent")
-    return data
+    const requests: Record<string, T> = {}
+    // Oldest source first: a record in `file` overrides the same id elsewhere.
+    for (const source of [...this.fallback].reverse().concat(this.file)) {
+      if (!existsSync(source)) continue
+      const data = JSON.parse(readFileSync(source, "utf8"))
+      if (data?.version !== 1 || !data.requests || Array.isArray(data.requests)) throw new Error("Owner decision store is invalid; refusing consent")
+      Object.assign(requests, data.requests)
+    }
+    return { version: 1, requests }
   }
   protected mutate<R>(fn: (data: ReviewData<T>) => R): R {
     mkdirSync(dirname(this.file), { recursive: true })
