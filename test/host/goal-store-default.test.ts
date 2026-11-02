@@ -43,6 +43,26 @@ function legacyGoal(project: string) {
   return { yaml: readFileSync(join(dir, "goal.yaml"), "utf8"), run: readFileSync(join(dir, "run.json"), "utf8") }
 }
 
+test("a project override selects the store the engine actually writes", async () => {
+  const host = await goalHost(worker, {
+    ".cleo/goal-store.json": JSON.stringify({ goalsDir: ".state/goals", archiveDir: ".state/done" }),
+    ".state/goals/custom/goal.yaml": GOAL("custom"),
+  })
+  try {
+    const sessionID = await newSession(host)
+    await host.client.session.command({ sessionID, name: "goal", text: "start custom" } as any)
+    await waitStatus(host, ["complete"], 120000, "custom")
+
+    expect(existsSync(join(host.project, ".state", "goals", "custom", "run.json"))).toBe(true)
+    expect(JSON.parse(readFileSync(join(host.project, ".state", "goals", "custom", "run.json"), "utf8"))).toMatchObject({ slug: "custom", status: "complete" })
+    // neither the canonical default nor the legacy store received this run
+    expect(existsSync(join(host.project, ".cleo", "goals", "custom"))).toBe(false)
+    expect(existsSync(join(host.project, ".opencode", "goals", "custom"))).toBe(false)
+  } finally {
+    await host.stop()
+  }
+}, 220000)
+
 test("a new goal starts under .cleo/goals while the legacy run stays readable and byte-identical", async () => {
   const host = await goalHost(worker, { ".cleo/goals/fresh/goal.yaml": GOAL("fresh") })
   try {

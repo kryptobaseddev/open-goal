@@ -1,4 +1,5 @@
 import { join } from "node:path"
+import { readFileSync } from "node:fs"
 import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { startHost, until, type ChatRequest, type Reply, type Script } from "./harness"
@@ -92,12 +93,23 @@ export async function newSession(host: Awaited<ReturnType<typeof goalHost>>) {
   return session.id as string
 }
 
-/** T150: a run lives in the active store or, for a pre-flip goal, the legacy
- *  one. Tests read whichever holds the bytes instead of assuming a layout. */
-const goalBases = (slug: string) => [`.cleo/goals/${slug}`, `.opencode/goals/${slug}`]
+/** T150: a run lives in the resolved store (honouring `.cleo/goal-store.json`)
+ *  or, for a pre-flip goal, the legacy one. Tests read whichever holds the
+ *  bytes instead of assuming a layout. */
+function goalBases(host: Awaited<ReturnType<typeof goalHost>>, slug: string): string[] {
+  const bases: string[] = []
+  try {
+    const config = JSON.parse(readFileSync(join(host.project, ".cleo", "goal-store.json"), "utf8")) as { goalsDir?: unknown }
+    if (typeof config?.goalsDir === "string") bases.push(`${config.goalsDir.replace(/\/+$/, "")}/${slug}`)
+  } catch {
+    // no override file: the defaults below cover it
+  }
+  bases.push(`.cleo/goals/${slug}`, `.opencode/goals/${slug}`)
+  return bases
+}
 
 export async function run(host: Awaited<ReturnType<typeof goalHost>>, slug = "demo") {
-  for (const base of goalBases(slug)) {
+  for (const base of goalBases(host, slug)) {
     try {
       return JSON.parse(await host.readProject(`${base}/run.json`))
     } catch {
@@ -108,7 +120,7 @@ export async function run(host: Awaited<ReturnType<typeof goalHost>>, slug = "de
 }
 
 export async function ledger(host: Awaited<ReturnType<typeof goalHost>>, slug = "demo") {
-  for (const base of goalBases(slug)) {
+  for (const base of goalBases(host, slug)) {
     try {
       return (await host.readProject(`${base}/ledger.jsonl`)).trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
     } catch {
