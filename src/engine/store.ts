@@ -1,17 +1,24 @@
-// A goal is a folder: .opencode/goals/<slug>/ holds the owner's contract
-// (goal.yaml) and the plugin's run.json, ledger.jsonl and evidence/.
+// A goal is a folder: <goals>/<slug>/ holds the owner's contract (goal.yaml)
+// and the plugin's run.json, ledger.jsonl and evidence/. Where <goals> lives is
+// a project setting resolved once in store-root.ts; today, with nothing
+// configured, it is still `.opencode/goals`, so existing projects are untouched.
 import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, writeFileSync, writeSync } from "node:fs"
 import { join } from "node:path"
 import { parseContract, type ParseResult } from "../contract/parse"
 import type { RunState } from "./state"
 import type { AmendmentRequest } from "./amendments"
+import { resolveStoreRoots, type StoreRoots } from "./store-root"
 
 export type LedgerEvent = { t: number; type: string; [key: string]: unknown }
 
 export class Store {
   readonly goalsDir: string
-  constructor(readonly root: string) {
-    this.goalsDir = join(root, ".opencode", "goals")
+  readonly archiveDir: string
+  readonly roots: StoreRoots
+  constructor(readonly root: string, roots: StoreRoots = resolveStoreRoots(root)) {
+    this.roots = roots
+    this.goalsDir = roots.goals
+    this.archiveDir = roots.archive
   }
 
   dir(slug: string) {
@@ -31,10 +38,6 @@ export class Store {
   }
 
   /** T032: the archive tier sits beside goals/ — demoted, never deleted. */
-  get archiveDir() {
-    return join(this.root, ".opencode", "goals-archive")
-  }
-
   archivedSlugs(): string[] {
     if (!existsSync(this.archiveDir)) return []
     return readdirSync(this.archiveDir, { withFileTypes: true })

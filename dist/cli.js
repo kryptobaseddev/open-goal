@@ -7831,51 +7831,157 @@ function globToRegExp(glob) {
 var matchesAny = (file, globs) => globs.some((g) => globToRegExp(g.replace(/^\.\//, "")).test(file));
 
 // src/engine/store.ts
-import { appendFileSync, closeSync as closeSync2, existsSync as existsSync2, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync2, readdirSync, renameSync as renameSync2, writeFileSync, writeSync as writeSync2 } from "node:fs";
-import { join as join2 } from "node:path";
+import { appendFileSync, closeSync as closeSync2, existsSync as existsSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync2, openSync as openSync2, readFileSync as readFileSync2, readdirSync as readdirSync2, renameSync as renameSync2, writeFileSync, writeSync as writeSync2 } from "node:fs";
+import { join as join3 } from "node:path";
+
+// src/engine/store-root.ts
+import { existsSync as existsSync2, readdirSync, realpathSync as realpathSync2, statSync as statSync2 } from "node:fs";
+import { dirname, isAbsolute as isAbsolute2, join as join2, normalize, relative as relative2, resolve as resolve2, sep as sep2 } from "node:path";
+var STORE_PROTOCOL_VERSION = 1;
+var LEGACY_GOALS_REL = ".opencode/goals";
+var LEGACY_ARCHIVE_REL = ".opencode/goals-archive";
+var CANONICAL_GOALS_REL = ".cleo/goals";
+var DEFAULT_RESOLVED_LAYOUT = "legacy-opencode";
+
+class StoreRootError extends Error {
+}
+var REL_SEPARATORS = /[\\/]+/;
+var RESERVED_ROOTS = new Set([".cleo", ".opencode", ".git", "node_modules"]);
+var posix = (path) => path.split(sep2).join("/");
+var inside2 = (child, parent) => {
+  const rel = relative2(parent, child);
+  return rel === "" || !(rel === ".." || rel.startsWith(`..${sep2}`) || isAbsolute2(rel));
+};
+var insideRel = (rel, dirRel) => rel === dirRel || rel.startsWith(`${dirRel}/`);
+function configuredRel(value) {
+  if (typeof value !== "string" || !value.trim())
+    throw new StoreRootError("the configured goal-store root is empty");
+  const raw = value.trim();
+  if (isAbsolute2(raw))
+    throw new StoreRootError(`the configured goal-store root must be project-relative, got the absolute path ${raw}`);
+  if (raw.split(REL_SEPARATORS).includes(".."))
+    throw new StoreRootError(`the configured goal-store root may not contain "..": ${raw}`);
+  const normalized = posix(normalize(raw)).replace(/\/+$/, "");
+  if (!normalized || normalized === ".")
+    throw new StoreRootError("the configured goal-store root may not be the project root itself");
+  const segments = normalized.split("/");
+  if (segments.includes(".git"))
+    throw new StoreRootError(`the configured goal-store root may not live inside .git: ${raw}`);
+  if (segments.includes("node_modules"))
+    throw new StoreRootError(`the configured goal-store root may not live inside node_modules: ${raw}`);
+  if (RESERVED_ROOTS.has(normalized))
+    throw new StoreRootError(`the configured goal-store root may not be the harness state directory ${normalized}; name a goals directory inside it`);
+  return normalized;
+}
+function assertClearOfLegacy(rel) {
+  for (const legacy of [LEGACY_GOALS_REL, LEGACY_ARCHIVE_REL]) {
+    if (rel === legacy)
+      throw new StoreRootError(`${rel} is the legacy store; it is already the default and cannot be selected as an override`);
+    if (insideRel(rel, legacy))
+      throw new StoreRootError(`the configured goal-store root ${rel} is inside the legacy store ${legacy}`);
+    if (insideRel(legacy, rel))
+      throw new StoreRootError(`the configured goal-store root ${rel} would contain the legacy store ${legacy}`);
+  }
+}
+function assertContained(rootReal, absolute) {
+  let probe = absolute;
+  while (!existsSync2(probe)) {
+    const parent = dirname(probe);
+    if (parent === probe)
+      break;
+    probe = parent;
+  }
+  let real;
+  try {
+    real = realpathSync2(probe);
+  } catch {
+    throw new StoreRootError(`the configured goal-store root ${absolute} cannot be resolved`);
+  }
+  if (!inside2(real, rootReal))
+    throw new StoreRootError(`the configured goal-store root ${absolute} resolves outside the project (${real})`);
+  if (existsSync2(absolute) && !statSync2(absolute).isDirectory())
+    throw new StoreRootError(`the configured goal-store root ${absolute} is not a directory`);
+}
+var archiveBeside = (goalsRel) => {
+  const parent = dirname(goalsRel);
+  return parent === "." ? "goals-archive" : posix(join2(parent, "goals-archive"));
+};
+function resolveStoreRoots(root, options = {}) {
+  const absoluteRoot = resolve2(root);
+  const rootReal = existsSync2(absoluteRoot) ? realpathSync2(absoluteRoot) : absoluteRoot;
+  const legacy = {
+    goals: join2(absoluteRoot, LEGACY_GOALS_REL),
+    archive: join2(absoluteRoot, LEGACY_ARCHIVE_REL),
+    goalsRel: LEGACY_GOALS_REL,
+    archiveRel: LEGACY_ARCHIVE_REL
+  };
+  const base = { protocolVersion: STORE_PROTOCOL_VERSION, root: absoluteRoot, legacy };
+  if (options.goalsDir === undefined && options.archiveDir === undefined)
+    return { ...base, layout: DEFAULT_RESOLVED_LAYOUT, goals: legacy.goals, archive: legacy.archive, goalsRel: legacy.goalsRel, archiveRel: legacy.archiveRel, explicit: false };
+  const goalsRel = configuredRel(options.goalsDir ?? CANONICAL_GOALS_REL);
+  assertClearOfLegacy(goalsRel);
+  const archiveRel = options.archiveDir === undefined ? archiveBeside(goalsRel) : configuredRel(options.archiveDir);
+  assertClearOfLegacy(archiveRel);
+  if (insideRel(archiveRel, goalsRel) || insideRel(goalsRel, archiveRel))
+    throw new StoreRootError(`the goal store ${goalsRel} and its archive ${archiveRel} may not contain one another`);
+  for (const rel of [goalsRel, archiveRel])
+    assertContained(rootReal, join2(absoluteRoot, rel));
+  return {
+    ...base,
+    layout: goalsRel === LEGACY_GOALS_REL ? "legacy-opencode" : "cleo",
+    goals: join2(absoluteRoot, goalsRel),
+    archive: join2(absoluteRoot, archiveRel),
+    goalsRel,
+    archiveRel,
+    explicit: true
+  };
+}
+
+// src/engine/store.ts
 class Store {
   root;
   goalsDir;
-  constructor(root) {
+  archiveDir;
+  roots;
+  constructor(root, roots = resolveStoreRoots(root)) {
     this.root = root;
-    this.goalsDir = join2(root, ".opencode", "goals");
+    this.roots = roots;
+    this.goalsDir = roots.goals;
+    this.archiveDir = roots.archive;
   }
   dir(slug) {
-    return join2(this.goalsDir, slug);
+    return join3(this.goalsDir, slug);
   }
   contractPath(slug) {
-    return join2(this.dir(slug), "goal.yaml");
+    return join3(this.dir(slug), "goal.yaml");
   }
   slugs() {
-    if (!existsSync2(this.goalsDir))
+    if (!existsSync3(this.goalsDir))
       return [];
-    return readdirSync(this.goalsDir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync2(join2(this.goalsDir, d.name, "goal.yaml"))).map((d) => d.name).sort();
-  }
-  get archiveDir() {
-    return join2(this.root, ".opencode", "goals-archive");
+    return readdirSync2(this.goalsDir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync3(join3(this.goalsDir, d.name, "goal.yaml"))).map((d) => d.name).sort();
   }
   archivedSlugs() {
-    if (!existsSync2(this.archiveDir))
+    if (!existsSync3(this.archiveDir))
       return [];
-    return readdirSync(this.archiveDir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync2(join2(this.archiveDir, d.name, "goal.yaml"))).map((d) => d.name).sort();
+    return readdirSync2(this.archiveDir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync3(join3(this.archiveDir, d.name, "goal.yaml"))).map((d) => d.name).sort();
   }
   archivedPath(slug) {
-    return join2(this.archiveDir, slug);
+    return join3(this.archiveDir, slug);
   }
   archive(slug) {
     mkdirSync2(this.archiveDir, { recursive: true });
     renameSync2(this.dir(slug), this.archivedPath(slug));
   }
   readContract(slug, options = {}) {
-    const path = options.archived ? join2(this.archivedPath(slug), "goal.yaml") : this.contractPath(slug);
-    if (!existsSync2(path))
+    const path = options.archived ? join3(this.archivedPath(slug), "goal.yaml") : this.contractPath(slug);
+    if (!existsSync3(path))
       return;
     const text = readFileSync2(path, "utf8");
     return { ...parseContract(text, { slug }), text };
   }
   readRunRaw(slug, options = {}) {
-    const path = join2(options.archived ? this.archivedPath(slug) : this.dir(slug), "run.json");
-    if (!existsSync2(path))
+    const path = join3(options.archived ? this.archivedPath(slug) : this.dir(slug), "run.json");
+    if (!existsSync3(path))
       return;
     const text = readFileSync2(path, "utf8");
     return { text, duplicates: duplicateJsonKeys(text) };
@@ -7894,14 +8000,14 @@ class Store {
   keepCorruptRun(slug, text, at = Date.now()) {
     const dir = this.dir(slug);
     mkdirSync2(dir, { recursive: true });
-    const path = join2(dir, `run.json.corrupt-${at}.json`);
+    const path = join3(dir, `run.json.corrupt-${at}.json`);
     writeFileSync(path, text, { mode: 384 });
     return path;
   }
   writeRun(state) {
     const dir = this.dir(state.slug);
     mkdirSync2(dir, { recursive: true });
-    const path = join2(dir, "run.json");
+    const path = join3(dir, "run.json");
     const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
     const fd = openSync2(tmp, "w", 384);
     try {
@@ -7914,10 +8020,10 @@ class Store {
     renameSync2(tmp, path);
   }
   writeContractSnapshot(slug, runId, lock, text) {
-    const dir = join2(this.dir(slug), "evidence", runId);
+    const dir = join3(this.dir(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
-    const path = join2(dir, `contract-${lock}.yaml`);
-    if (existsSync2(path))
+    const path = join3(dir, `contract-${lock}.yaml`);
+    if (existsSync3(path))
       return;
     this.writeAtomic(path, text);
   }
@@ -7962,9 +8068,9 @@ class Store {
   }
   restoreLocked(slug, runId, lock, discarded) {
     const locked = this.lockedSnapshot(slug, runId, lock);
-    const dir = join2(this.dir(slug), "evidence", runId);
+    const dir = join3(this.dir(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
-    const kept = join2(dir, `divergent-${discarded.lock}-${Date.now()}.yaml`);
+    const kept = join3(dir, `divergent-${discarded.lock}-${Date.now()}.yaml`);
     this.writeAtomic(kept, discarded.text);
     const current = this.readContract(slug);
     if (!current || current.lock !== discarded.lock)
@@ -7976,9 +8082,9 @@ class Store {
     return this.lockedSnapshot(slug, runId, lock);
   }
   lockedSnapshot(slug, runId, lock) {
-    const keyed = join2(this.dir(slug), "evidence", runId, `contract-${lock}.yaml`);
-    const first = join2(this.dir(slug), "evidence", runId, "contract.yaml");
-    const text = readFileSync2(existsSync2(keyed) ? keyed : first, "utf8");
+    const keyed = join3(this.dir(slug), "evidence", runId, `contract-${lock}.yaml`);
+    const first = join3(this.dir(slug), "evidence", runId, "contract.yaml");
+    const text = readFileSync2(existsSync3(keyed) ? keyed : first, "utf8");
     if (parseContract(text, { slug }).lock !== lock)
       throw new Error("Prior locked amendment snapshot is unavailable");
     return text;
@@ -7995,8 +8101,8 @@ class Store {
     renameSync2(tmp, path);
   }
   recent(slug, n) {
-    const path = join2(this.dir(slug), "ledger.jsonl");
-    if (!existsSync2(path))
+    const path = join3(this.dir(slug), "ledger.jsonl");
+    if (!existsSync3(path))
       return [];
     const lines = readFileSync2(path, "utf8").trimEnd().split(`
 `);
@@ -8011,12 +8117,12 @@ class Store {
   ledger(slug, event, options = {}) {
     const dir = options.archived ? this.archivedPath(slug) : this.dir(slug);
     mkdirSync2(dir, { recursive: true });
-    appendFileSync(join2(dir, "ledger.jsonl"), `${JSON.stringify({ t: Date.now(), ...event })}
+    appendFileSync(join3(dir, "ledger.jsonl"), `${JSON.stringify({ t: Date.now(), ...event })}
 `, { mode: 384 });
   }
   readLedger(slug, limit = 50) {
-    const path = join2(this.dir(slug), "ledger.jsonl");
-    if (!existsSync2(path))
+    const path = join3(this.dir(slug), "ledger.jsonl");
+    if (!existsSync3(path))
       return [];
     return readFileSync2(path, "utf8").split(`
 `).filter(Boolean).slice(-limit).flatMap((line) => {
@@ -8028,9 +8134,9 @@ class Store {
     });
   }
   evidence(slug, runId, name, data) {
-    const dir = join2(this.dir(slug), "evidence", runId);
+    const dir = join3(this.dir(slug), "evidence", runId);
     mkdirSync2(dir, { recursive: true });
-    const file = join2(dir, `${name}.json`);
+    const file = join3(dir, `${name}.json`);
     const fd = openSync2(file, "w", 384);
     try {
       writeSync2(fd, `${JSON.stringify(data, null, 2)}
@@ -8098,8 +8204,8 @@ function duplicateJsonKeys(text) {
 }
 
 // src/engine/tick.ts
-import { existsSync as existsSync3 } from "node:fs";
-import { join as join3 } from "node:path";
+import { existsSync as existsSync4 } from "node:fs";
+import { join as join4 } from "node:path";
 
 // src/contract/render.ts
 var pct = (used, limit) => `${Math.round(used / limit * 100)}%`;
@@ -8357,7 +8463,7 @@ async function tick(deps) {
       throw new Error(`${adapter.name} cannot continue a session through the Stop dispatcher`);
     return surface.payload;
   };
-  if (!existsSync3(join3(deps.root, ".opencode", "goals"))) {
+  if (!existsSync4(join4(deps.root, ".opencode", "goals"))) {
     log.push("no .opencode/goals directory; nothing to tick");
     return { stdout: "", log, harness };
   }
@@ -8468,8 +8574,8 @@ async function tick(deps) {
 }
 
 // src/verify/pipeline.ts
-import { existsSync as existsSync4, readFileSync as readFileSync3 } from "node:fs";
-import { isAbsolute as isAbsolute2, join as join4, normalize, relative as relative2 } from "node:path";
+import { existsSync as existsSync5, readFileSync as readFileSync3 } from "node:fs";
+import { isAbsolute as isAbsolute3, join as join5, normalize as normalize2, relative as relative3 } from "node:path";
 
 // src/util/shell.ts
 import { spawn } from "node:child_process";
@@ -8511,10 +8617,10 @@ var tail = (text, lines = 12, chars = 1200) => {
 };
 
 // src/verify/pipeline.ts
-var inside2 = (root, path) => {
-  const full = normalize(isAbsolute2(path) ? path : join4(root, path));
-  const rel = relative2(root, full);
-  return rel && !rel.startsWith("..") && !isAbsolute2(rel) ? full : rel === "" ? full : undefined;
+var inside3 = (root, path) => {
+  const full = normalize2(isAbsolute3(path) ? path : join5(root, path));
+  const rel = relative3(root, full);
+  return rel && !rel.startsWith("..") && !isAbsolute3(rel) ? full : rel === "" ? full : undefined;
 };
 async function runHostCheck(check, root, base, shell = runShell) {
   switch (check.kind) {
@@ -8534,16 +8640,16 @@ ${result.stderr}` : ""))}`, raw: runs };
       return { pass: true, detail: `exit ${last.exit} in ${(last.ms / 1000).toFixed(1)}s${(check.runs ?? 1) > 1 ? ` ×${check.runs}` : ""}`, raw: runs };
     }
     case "file": {
-      const path = inside2(root, check.path);
+      const path = inside3(root, check.path);
       if (!path)
         return { pass: false, detail: `${check.path} is outside the project` };
-      const exists = existsSync4(path);
+      const exists = existsSync5(path);
       const want = check.exists !== false;
       return { pass: exists === want, detail: `${check.path} ${exists ? "exists" : "does not exist"}` };
     }
     case "contains": {
-      const path = inside2(root, check.path);
-      if (!path || !existsSync4(path))
+      const path = inside3(root, check.path);
+      if (!path || !existsSync5(path))
         return { pass: false, detail: `${check.path} not found` };
       const text = readFileSync3(path, "utf8");
       const ok = check.text ? text.includes(check.text) : new RegExp(check.regex, "m").test(text);
@@ -8604,8 +8710,8 @@ function checkQuotes(root, verdict) {
   if (!verdict.evidence.length)
     return { ok: false, why: "verifier cited no evidence" };
   for (const item of verdict.evidence) {
-    const path = inside2(root, item.path);
-    if (!path || !existsSync4(path))
+    const path = inside3(root, item.path);
+    if (!path || !existsSync5(path))
       return { ok: false, why: `cited file ${item.path} does not exist` };
     if (!item.quote || collapse(item.quote).length < 8)
       return { ok: false, why: `quote from ${item.path} is too short to check` };
