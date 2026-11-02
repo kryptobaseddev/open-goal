@@ -27,6 +27,7 @@ import {
   type Priority,
   type Step,
   type VerificationMode,
+  type Workstream,
 } from "./types"
 
 export type ParseResult = { contract?: Contract; issues: Issue[]; lock: string }
@@ -475,6 +476,47 @@ export function parseContract(text: string, options: { slug?: string; tolerateUn
       if (cleoTasks.length && !criterion.proves?.length && gateForCheck(criterion.check))
         warn(`${at}.proves`, `declares no CLEO AC, so this criterion's evidence is not written to any of ${cleoTasks.map((t) => t.id).join(", ")} — add proves: ["T123#AC1"] if it should be`)
     }
+  // T169 — optional declared workstreams. A workstream is one CLEO task under
+  // this goal, a named worker, and a return the host can check. The task must
+  // already be linked in `cleo.tasks`, so the saga mapping lives in one place.
+  const workstreams: Workstream[] = []
+  const rawWorkstreams = (raw as Record<string, unknown>).workstreams
+  if (rawWorkstreams !== undefined) {
+    if (!Array.isArray(rawWorkstreams)) err("workstreams", "workstreams must be a list")
+    else {
+      const seenIds = new Set<string>()
+      for (const [index, entry] of rawWorkstreams.entries()) {
+        const at = `workstreams[${index}]`
+        if (!isRecord(entry)) { err(at, "workstream must be a mapping"); continue }
+        const item = entry as Record<string, unknown>
+        const wsId = str(item.id).trim()
+        if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(wsId)) { err(`${at}.id`, "id must be a lowercase kebab-case handle"); continue }
+        if (seenIds.has(wsId)) { err(`${at}.id`, `duplicate workstream id "${wsId}"`); continue }
+        seenIds.add(wsId)
+        const wsTitle = str(item.title).trim()
+        if (!wsTitle) err(`${at}.title`, "title is required")
+        const task = str(item.task).trim()
+        if (!/^[A-Z]{1,4}\d+$/.test(task)) err(`${at}.task`, `task must be a CLEO task id like T169 (got "${task}")`)
+        else if (!cleoTasks.some((t) => t.id === task)) err(`${at}.task`, `${task} must also be declared in cleo.tasks so the workstream maps to this goal's saga`)
+        const worker = str(item.worker).trim()
+        // The named address IS the owner's consent to send outward; a wildcard
+        // would let a goal broadcast work nobody agreed to receive.
+        if (!/^[a-z0-9][a-z0-9-]{1,39}@[a-z0-9][a-z0-9.-]{1,63}$/.test(worker)) err(`${at}.worker`, "worker must be an explicit agent@host address; wildcards are not allowed")
+        const doneWhen = str(item.done_when).trim()
+        if (!doneWhen) err(`${at}.done_when`, "done_when is required: say what the worker must return")
+        const gates: CleoGate[] = []
+        if (item.gates !== undefined) {
+          if (!Array.isArray(item.gates)) err(`${at}.gates`, "gates must be a list")
+          else for (const value of item.gates as unknown[]) {
+            const gate = str(value)
+            if (!(CLEO_GATES as readonly string[]).includes(gate)) err(`${at}.gates`, `unknown gate "${gate}"; allowed: ${CLEO_GATES.join(", ")}`)
+            else if (!gates.includes(gate as CleoGate)) gates.push(gate as CleoGate)
+          }
+        }
+        workstreams.push({ id: wsId, title: wsTitle, task, worker, done_when: doneWhen, ...(gates.length ? { gates } : {}) })
+      }
+    }
+  }
 
   const contract: Contract = {
     schema: SCHEMA,
@@ -492,6 +534,7 @@ export function parseContract(text: string, options: { slug?: string; tolerateUn
     invariants,
     ...(workspace ? { workspace } : {}),
   ...(cleoTasks.length || cleoSaga || cleoEpics.length ? { cleo: { ...(cleoSaga ? { saga: cleoSaga } : {}), ...(cleoEpics.length ? { epics: cleoEpics } : {}), tasks: cleoTasks } } : {}),
+    ...(workstreams.length ? { workstreams } : {}),
     protect: strings(raw.protect),
     assumptions,
     plan,

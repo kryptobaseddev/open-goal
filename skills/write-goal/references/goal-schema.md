@@ -16,6 +16,8 @@ The plugin's parser (`src/contract/parse.ts` in opencode-goal) is the source of 
 | `non_goals` | yes (≥1) | |
 | `constraints` | no | |
 | `criteria` | yes (≥1 essential) | ids `C1…` |
+| `cleo` | no | `tasks: [{id, acs?}]` — the CLEO tasks this goal serves; `acs` is legacy (declare `proves: ["T123#AC2"]` on a criterion instead) |
+| `workstreams` | no | `{id, title, task, worker, done_when, gates?}` — see [Workstreams](#workstreams-t169); `task` must also be in `cleo.tasks`, `worker` is an explicit `agent@host` (wildcards are rejected) |
 | `invariants` | no | ids `I1…`, host-checkable kinds only, always essential |
 | `protect` | no | globs the worker may not edit; enforced before edits and re-checked at verification |
 | `assumptions` | no | ids `A1…`; `status` assumed (default) / confirmed / vetoed |
@@ -45,6 +47,35 @@ The plugin's parser (`src/contract/parse.ts` in opencode-goal) is the source of 
 | `diff` | `paths` (globs) | none changed since the run started |
 | `verifier` | `ask` | the read-only verifier answers proven with quotes the host finds verbatim in the files |
 | `human` | `ask` | the owner approves it (`/goal approve C3`) |
+
+## Workstreams (T169)
+
+A goal can split its work across named workers. Each workstream maps to one CLEO
+task under the goal's saga; the host sends a bounded brief over AgentMBX and
+believes a return only when it carries the evidence atoms the task declared.
+
+```yaml
+cleo:
+  tasks:
+    - id: T169
+      acs: {implemented: [AC1], testsPassed: [AC2]}
+workstreams:
+  - id: engine
+    title: the engine work
+    task: T169
+    worker: builder@macbook
+    done_when: T169 evidence is returned with atoms
+    gates: [implemented, testsPassed]   # optional; defaults to the task link's gates
+```
+
+Rules: `id` is unique kebab-case; `task` is already declared in `cleo.tasks`;
+`worker` is an explicit `agent@host` (a wildcard is rejected, because the named
+address is the owner's consent to send outward); `done_when` says what the
+worker must return. A return is accepted only with the atoms its gates need
+(`commit:` + `files:` for `implemented`, `test-run:` for `testsPassed`, `tool:`
+for `qaPassed`) and `satisfies:<task>#<ac>` for every AC the task declares;
+prose-only is rejected by name and recorded. One `goal_status` shows each
+workstream and the aggregate, and a workstream never creates a second goal.
 
 ## Validator messages
 

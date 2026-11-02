@@ -45,6 +45,12 @@ export type PeerReply = {
 export type PeerChannel = {
   announce(input: { text: string; sessionID?: string }): Promise<{ id: string } | undefined>
   replies(input: { since: number; sessionID?: string }): Promise<PeerReply[]>
+  /**
+   * T169: send one bounded brief to a specific address. The recipient is the
+   * worker named in the contract, never a wildcard, so an unaddressed goal can
+   * never broadcast.
+   */
+  send(input: { to: string; subject: string; text: string; sessionID?: string; kind?: "message" | "request" }): Promise<{ id: string } | undefined>
 }
 
 /**

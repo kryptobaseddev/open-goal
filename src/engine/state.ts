@@ -105,6 +105,11 @@ export type RunState = {
     polls?: number
     candidates?: Array<{ source: "peer"; project: string; taskId?: string; title: string; from?: string; messageId?: string; at?: number }>
   }
+  /**
+   * T169: what each declared workstream has returned. Optional and additive — a
+   * run written before this field existed has none and still parses.
+   */
+  workstreams?: Record<string, import("./workstreams").WorkstreamState>
 }
 
 export function initialRun(contract: Contract, args: { sessionID: string; runId: string; lock: string; commit?: string; harness?: HarnessIdentity; now?: number }): RunState {
