@@ -9,3 +9,6 @@ node_modules/
 .opencode/goals/*/evidence/
 .opencode/goals/.launch-approvals.json
 .opencode/goals/.owner-*.json*
+
+# Linked worktrees and the separate CLEO checkout used for reference reads
+.worktrees/

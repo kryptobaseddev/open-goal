@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.5 — 2026-11-02
+
+- **Repository hygiene: linked worktrees are ignored.** A `git add -A` had staged `.worktrees/` — the stability-guards worktree as a gitlink and the separate `cleocode` checkout as a symlink blob — into the 0.12.4 release commit. Both are untracked again and `.worktrees/` is in `.gitignore`, so a worktree can never be committed by accident. No packaging or runtime change: the npm `files` list never included that path.
+
 ## 0.12.4 — 2026-11-02
 
 - **Same guards as 0.12.3, released correctly.** 0.12.3's release job failed before publish because its own new unit test hard-coded the previous package version; the test now derives the expected version from `package.json`, and the release job checks out full history and fetches main before the ancestry guard (a depth-1 tag checkout has neither). No runtime change beyond 0.12.3's two guards.
