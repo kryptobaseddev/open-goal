@@ -158,21 +158,27 @@ function pillText(view, now) {
   return `\u25CE ${st.icon} ${plan}${proven(view)}/${view.criteria.length} proven \xB7 t${view.turn} \xB7 ${fmtDuration(elapsed(view, now))}`;
 }
 var RESUME = "/goal resume";
-function endStateCopy(status, slug) {
+function goalFolder(store, slug) {
+  if (!store?.goalsRel)
+    return "the goal folder";
+  return `${store.goalsRel}${slug ? `/${slug}/` : "/"}`;
+}
+function endStateCopy(status, slug, store) {
+  const folder = goalFolder(store, slug);
   switch (status) {
     case "complete":
-      return { text: `\u25CE \u2713 complete \u2014 the loop has stopped. Follow-ups: the Goal panel (F9) and .opencode/goals/${slug}/`, tone: "success" };
+      return { text: `\u25CE \u2713 complete \u2014 the loop has stopped. Follow-ups: the Goal panel (F9) and ${folder}`, tone: "success" };
     case "failed":
-      return { text: `\u25CE \u2717 failed \u2014 the loop has stopped. What happened: the Goal panel (F9) and .opencode/goals/${slug}/`, tone: "error" };
+      return { text: `\u25CE \u2717 failed \u2014 the loop has stopped. What happened: the Goal panel (F9) and ${folder}`, tone: "error" };
     case "aborted":
-      return { text: `\u25CE \u25A0 aborted \u2014 the loop has stopped. History stays in .opencode/goals/${slug}/`, tone: "muted" };
+      return { text: `\u25CE \u25A0 aborted \u2014 the loop has stopped. History stays in ${folder}`, tone: "muted" };
     default:
       return;
   }
 }
 function bannerText(view) {
   const st = statusOf(view.status);
-  const terminal = endStateCopy(view.status, view.slug);
+  const terminal = endStateCopy(view.status, view.slug, view.store);
   if (terminal && view.status !== "running")
     return terminal;
   if (view.awaitingUser && ["running", "waiting", "verifying"].includes(view.status))
@@ -291,9 +297,9 @@ function cardCompactLines(view, now, width = 40) {
   }
   const tokens = view.usage.tokens ? ` \xB7 ${fmtTokens(view.usage.tokens)} tok` : "";
   lines.push({ text: fit(`turn ${view.turn}${tokens}`, width), tone: view.budgetRatio >= 0.8 ? "warning" : "muted" });
-  const stopped = endStateCopy(view.status, view.slug);
+  const stopped = endStateCopy(view.status, view.slug, view.store);
   if (stopped)
-    lines.push({ text: fit(`\u25A0 loop stopped \u2014 follow-ups: .opencode/goals/${view.slug}/`, width), tone: stopped.tone });
+    lines.push({ text: fit(`\u25A0 loop stopped \u2014 follow-ups: ${goalFolder(view.store, view.slug)}`, width), tone: stopped.tone });
   else if (view.progress)
     lines.push({ text: fit(`\u21BB ${view.progress.note}`, width), tone: "muted", tab: "now" });
   const tabs = [...new Set(lines.filter((l) => l.tab && l.text.includes("\u2026")).map((l) => l.tab))];
@@ -390,12 +396,12 @@ function decisionRows(view) {
     rows.push({ label: "Confirm proposed amendment", description: "/goal amend confirm", act: "amend", arg: "confirm" });
   return rows;
 }
-function dialogDigest(title, text, maxLines = 14, maxCols = 100) {
+function dialogDigest(title, text, maxLines = 14, maxCols = 100, store) {
   const lines = text.split(`
 `).map((l) => l.length > maxCols ? `${l.slice(0, maxCols - 1)}\u2026` : l);
   const head = lines.slice(0, maxLines);
   const rest = lines.length - head.length;
-  return [title, ...head, ...rest > 0 ? [`\u2026 +${rest} more lines \u2014 full text: the Goal panel (F9) or .opencode/goals/ evidence`] : []].join(`
+  return [title, ...head, ...rest > 0 ? [`\u2026 +${rest} more lines \u2014 full text: the Goal panel (F9) or ${goalFolder(store)} evidence`] : []].join(`
 `);
 }
 function dashboardLines(view, tab, now, width = 46, goals = []) {
@@ -753,7 +759,7 @@ var tui_default = {
       const label = String(data.status ?? "summary").replace(/_/g, " ");
       return data.status === "complete" ? `\u2713 Goal complete \u2014 ${data.title ?? label}` : `Goal ${label}`;
     };
-    const summaryBody = (data) => String(data.digest ?? dialogDigest(String(data.headline ?? "summary"), String(data.text ?? "")));
+    const summaryBody = (data) => String(data.digest ?? dialogDigest(String(data.headline ?? "summary"), String(data.text ?? ""), 14, 100, views[data.sessionID]?.store));
     const flushSummary = (sessionID) => {
       const queued = pendingSummaries.get(sessionID);
       pendingSummaries.delete(sessionID);

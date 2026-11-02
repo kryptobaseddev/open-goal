@@ -1,7 +1,7 @@
 // Pure formatting for the TUI: everything the sidebar, pill, banner and
 // dashboard panel show is computed here from a GoalView, so it can be tested
 // without a terminal.
-import type { GoalView } from "../rpc"
+import type { GoalView, StorePaths } from "../rpc"
 import { tracerLines } from "./tracer"
 
 export type Tone = "base" | "muted" | "success" | "warning" | "error" | "info"
@@ -77,16 +77,28 @@ export function pillText(view: GoalView, now: number): string {
 
 const RESUME = "/goal resume"
 
+/**
+ * T187: the goal folder in the store the SERVER resolved — `<store>/<slug>/`.
+ * Never re-derived from a layout guess; when the server has not told the TUI
+ * yet (or an older server omits it), say so plainly instead of inventing a
+ * path. `store` comes from the snapshot's `view.store`.
+ */
+export function goalFolder(store: StorePaths | undefined, slug?: string): string {
+  if (!store?.goalsRel) return "the goal folder"
+  return `${store.goalsRel}${slug ? `/${slug}/` : "/"}`
+}
+
 /** T071: completion silence read as broken. Every terminal surface states
  *  that the loop has stopped and where the follow-ups live. */
-export function endStateCopy(status: string, slug: string): { text: string; tone: Tone } | undefined {
+export function endStateCopy(status: string, slug: string, store?: StorePaths): { text: string; tone: Tone } | undefined {
+  const folder = goalFolder(store, slug)
   switch (status) {
     case "complete":
-      return { text: `◎ ✓ complete — the loop has stopped. Follow-ups: the Goal panel (F9) and .opencode/goals/${slug}/`, tone: "success" }
+      return { text: `◎ ✓ complete — the loop has stopped. Follow-ups: the Goal panel (F9) and ${folder}`, tone: "success" }
     case "failed":
-      return { text: `◎ ✗ failed — the loop has stopped. What happened: the Goal panel (F9) and .opencode/goals/${slug}/`, tone: "error" }
+      return { text: `◎ ✗ failed — the loop has stopped. What happened: the Goal panel (F9) and ${folder}`, tone: "error" }
     case "aborted":
-      return { text: `◎ ■ aborted — the loop has stopped. History stays in .opencode/goals/${slug}/`, tone: "muted" }
+      return { text: `◎ ■ aborted — the loop has stopped. History stays in ${folder}`, tone: "muted" }
     default:
       return undefined
   }
@@ -97,7 +109,7 @@ export function bannerText(view: GoalView): { text: string; tone: Tone } | undef
   const st = statusOf(view.status)
   // T071: terminal states say the loop stopped and where follow-ups live —
   // silence after complete read as broken.
-  const terminal = endStateCopy(view.status, view.slug)
+  const terminal = endStateCopy(view.status, view.slug, view.store)
   if (terminal && view.status !== "running") return terminal
   if (view.awaitingUser && ["running", "waiting", "verifying"].includes(view.status)) return { text: "◎ The goal is waiting for your answer.", tone: "warning" }
   switch (view.status) {

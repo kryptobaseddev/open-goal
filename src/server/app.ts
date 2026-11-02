@@ -3,7 +3,7 @@
 // verification. Spike findings referenced as S1-S9 live in docs/spikes.md.
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs"
-import { dirname, join, relative, resolve } from "node:path"
+import { dirname, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { Plugin } from "@opencode/plugin"
 import { formatIssues, parseContract } from "../contract/parse"
@@ -824,6 +824,9 @@ export class GoalApp {
       amendments: state.amendments.filter((a) => a.status === "proposed").length,
       flags: state.flags.length,
       updatedAt: state.updatedAt,
+      // T187: the resolved store travels with the view, so every TUI surface
+      // names the real folder instead of a layout guess.
+      store: { goalsRel: this.store.roots.goalsRel, archiveRel: this.store.roots.archiveRel },
     }
   }
 
@@ -2676,17 +2679,23 @@ export class GoalApp {
         .sort((a, b) => (b.run.updatedAt ?? 0) - (a.run.updatedAt ?? 0))[0]
       const branch = Bun.spawnSync(["git", "branch", "--show-current"], { cwd: exec, stdout: "pipe", stderr: "ignore" })
       const status = Bun.spawnSync(["git", "status", "--porcelain"], { cwd: exec, stdout: "pipe", stderr: "ignore" })
+      // T187: the store may be `.cleo/goals` (default) or a pinned root, and a
+      // legacy run is not dirty state — filter every store the guard owns.
+      const storeDirs = [this.store.roots.goalsRel, this.store.roots.archiveRel, this.store.roots.legacy.goalsRel, this.store.roots.legacy.archiveRel]
+      const posix = (path: string) => path.split(sep).join("/")
+      const evidenceDir = (slug: string, runId: string) => `${posix(relative(this.root, this.store.locate(slug)))}/evidence/${runId}/`
       const dirty = status.exitCode === 0
-        ? status.stdout.toString().split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !l.includes(".opencode/goals"))
+        ? status.stdout.toString().split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !storeDirs.some((dir) => l.includes(dir)))
         : []
       const doc = buildHandoff({
         slug: state.slug,
         title: contract.title,
+        store: { goalsRel: this.store.roots.goalsRel },
         fromSessionID: handoff.fromSessionID,
         toSessionID: handoff.toSessionID,
         ...(prior ? { prior: {
           slug: prior.slug, runId: prior.run.runId, lock: prior.run.lock, status: prior.run.status, turn: prior.run.turn,
-          evidence: `.opencode/goals/${prior.slug}/evidence/${prior.run.runId}/`,
+          evidence: evidenceDir(prior.slug, prior.run.runId),
         } } : {}),
         repo: { ...(state.base.commit ? { head: state.base.commit } : {}), ...(branch.exitCode === 0 && branch.stdout.toString().trim() ? { branch: branch.stdout.toString().trim() } : {}), dirty },
         baseline: rehearsal.map((r) => ({ id: r.id, pass: r.pass })),
@@ -2695,7 +2704,7 @@ export class GoalApp {
           trust: ["goal.yaml (the locked contract)", ...(existsSync(join(this.root, "docs", "HANDOFF-v0.8.0.md")) ? ["docs/HANDOFF-v0.8.0.md"] : [])],
           stale: ["docs/HANDOFF.md (its historical body; read the current-state banner before trusting it)"],
         },
-        evidence: [`.opencode/goals/${state.slug}/evidence/${state.runId}/`],
+        evidence: [evidenceDir(state.slug, state.runId)],
       })
       writeFileSync(join(this.store.locate(state.slug), "handoff.md"), `${doc.markdown}\n`)
       writeFileSync(join(this.store.locate(state.slug), "handoff.json"), `${JSON.stringify({ schema: doc.schema, generatedAt: doc.generatedAt, ...doc.data }, null, 2)}\n`)
@@ -4178,7 +4187,13 @@ export class GoalApp {
         return say("Usage: /goal cleo [install|init|sync [<slug>] [T### …]|rollup [<slug>]]", "warning")
       }
       case "help":
-        return say(goalHelp({ version: (this.ctx.options as any)?.version ?? "v0.2.0" }), "info")
+        return say(goalHelp({
+          version: (this.ctx.options as any)?.version ?? "v0.2.0",
+          goalsRel: this.store.roots.goalsRel,
+          archiveRel: this.store.roots.archiveRel,
+          legacyGoalsRel: this.store.roots.legacy.goalsRel,
+          legacyArchiveRel: this.store.roots.legacy.archiveRel,
+        }), "info")
       default:
         // Anything else is a request to write a goal from these words.
         await this.ctx.session.prompt({ sessionID, text, skills: [{ id: "write-goal" }] } as any)
