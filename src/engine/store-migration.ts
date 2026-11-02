@@ -1,13 +1,13 @@
-// Opt-in store migration — PLANNING ONLY.
+// Opt-in store migration — the dry run plans, the confirmed move copies.
 //
 // The plan lists every goal folder the move would carry, proves where it would
-// land, and writes NOTHING. `writes: 0` is a type literal, not a promise: this
-// module only reads. The moving half (`goal store migrate --confirm`) is part
-// of T157 and is deliberately not enabled here, because no owner has opted in
-// and a live run must never be relocated underneath its session.
+// land, and writes NOTHING (`writes: 0` is a type literal). The move runs only
+// with an explicit `{ confirm: true }`, copies (never renames) each migratable
+// goal, re-hashes the target, and keeps the legacy folder as the archive: a
+// live run is never relocated underneath its session, and no byte is lost.
 import { createHash } from "node:crypto"
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { join } from "node:path"
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs"
+import { dirname, join } from "node:path"
 import { isTerminal } from "./state"
 import type { Store } from "./store"
 import { insideRel, type StoreLayout, type StoreRoots } from "./store-root"
@@ -156,5 +156,53 @@ export function planStoreMigration(store: Store, target: StoreRoots): StoreMigra
     conflicts,
     warnings,
     totals: { goals: goals.length, bytes: goals.reduce((sum, g) => sum + g.bytes, 0), migratable: goals.filter((g) => g.migratable).length },
+  }
+}
+
+export type StoreMoveResult = {
+  schemaVersion: 1
+  dryRun: false
+  /** Goal folders actually copied (the legacy copies stay in place). */
+  writes: number
+  source: { layout: StoreLayout; goals: string; archive: string }
+  target: { layout: StoreLayout; goals: string; archive: string }
+  moved: Array<{ slug: string; archived: boolean; from: string; to: string; files: number; bytes: number; digest: string }>
+  skipped: Array<{ slug: string; archived: boolean; reason: string }>
+  /** The source is an archive, not a trash can: nothing here deletes it. */
+  legacyRetained: true
+}
+
+/**
+ * Copy every migratable goal into `target`, byte for byte, and leave the source
+ * untouched. Refused without an explicit confirmation. Each copy is re-hashed
+ * against the plan; a mismatch removes the partial target copy and throws, so a
+ * failed move never leaves a half-migrated store.
+ */
+export function executeStoreMigration(store: Store, target: StoreRoots, options: { confirm?: boolean } = {}): StoreMoveResult {
+  if (options.confirm !== true) throw new StoreMigrationError("a move requires explicit confirmation ({ confirm: true }); run the dry run first")
+  const plan = planStoreMigration(store, target)
+  const moved: StoreMoveResult["moved"] = []
+  const skipped: StoreMoveResult["skipped"] = plan.goals
+    .filter((goal) => !goal.migratable)
+    .map((goal) => ({ slug: goal.slug, archived: goal.archived, reason: goal.reason ?? "not migratable" }))
+  for (const goal of plan.goals.filter((entry) => entry.migratable)) {
+    mkdirSync(dirname(goal.to), { recursive: true })
+    cpSync(goal.from, goal.to, { recursive: true, force: false, errorOnExist: true, preserveTimestamps: true })
+    const copied = walkGoalDir(goal.to)
+    if (copied.digest !== goal.digest || copied.files !== goal.files) {
+      rmSync(goal.to, { recursive: true, force: true })
+      throw new StoreMigrationError(`the move of ${goal.slug} did not preserve bytes (${copied.digest} vs ${goal.digest}); the target copy was removed and the source is untouched`)
+    }
+    moved.push({ slug: goal.slug, archived: goal.archived, from: goal.from, to: goal.to, files: copied.files, bytes: copied.bytes, digest: copied.digest })
+  }
+  return {
+    schemaVersion: 1,
+    dryRun: false,
+    writes: moved.length,
+    source: plan.source,
+    target: plan.target,
+    moved,
+    skipped,
+    legacyRetained: true,
   }
 }

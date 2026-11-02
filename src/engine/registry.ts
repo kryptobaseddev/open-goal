@@ -7,6 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync, statSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import { resolveStoreRoots } from "./store-root"
 
 export type RegistryEntry = { title: string; status: string; runId?: string; lock?: string; archived?: boolean; priority?: "low" | "medium" | "high"; updatedAt: number }
 export type RegistryData = { version: 1; projects: Record<string, { goals: Record<string, RegistryEntry>; updatedAt: number }> }
@@ -89,10 +90,19 @@ export class Registry {
   rebuild(roots: string[]): boolean {
     const data: RegistryData = { version: 1, projects: {} }
     for (const root of roots) {
-      const goalsDir = join(root, ".opencode", "goals")
-      if (!existsSync(goalsDir)) continue
+      // T150: scan the resolved store and the legacy one; the active store wins
+      // when both hold a slug, so a half-migrated project indexes the live copy.
+      let stores: string[]
+      try {
+        const resolved = resolveStoreRoots(root)
+        stores = [...new Set([resolved.legacy.goals, resolved.goals])]
+      } catch {
+        continue
+      }
+      const present = stores.filter((dir) => existsSync(dir))
+      if (!present.length) continue
       const project = { goals: {} as Record<string, RegistryEntry>, updatedAt: 0 }
-      for (const dirent of readdirSync(goalsDir, { withFileTypes: true })) {
+      for (const goalsDir of present) for (const dirent of readdirSync(goalsDir, { withFileTypes: true })) {
         if (!dirent.isDirectory()) continue
         const slug = dirent.name
         const runPath = join(goalsDir, slug, "run.json")

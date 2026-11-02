@@ -6,7 +6,7 @@
 // abstraction is introduced without moving a single byte, because the canonical
 // store (`.cleo/goals` by default) ships after the adapter seam. See
 // docs/research/agnostic-goal-store-seam.md for the order and what is left.
-import { existsSync, readdirSync, realpathSync, statSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs"
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path"
 
 /** Bumped only when the on-disk shape changes: `<goals>/<slug>/goal.yaml` +
@@ -27,8 +27,41 @@ export const CANONICAL_ARCHIVE_REL = ".cleo/goals-archive"
  *  adapter seam). Kept separate from the resolved default on purpose: a test
  *  can state the target without pretending it is already in effect. */
 export const DEFAULT_TARGET_LAYOUT: StoreLayout = "cleo"
-/** The layout this build resolves when no override is configured. */
-export const DEFAULT_RESOLVED_LAYOUT: StoreLayout = "legacy-opencode"
+/** The layout this build resolves when no override is configured. T150: the
+ *  0.11.0 release shipped the override with the legacy default; this release
+ *  flips the default to the canonical store (ADR-001). */
+export const DEFAULT_RESOLVED_LAYOUT: StoreLayout = "cleo"
+
+/** The project setting that selects a non-default store root (ADR-001). One
+ *  JSON file, read by the engine, the CLI and the tick through this resolver. */
+export const STORE_CONFIG_REL = ".cleo/goal-store.json"
+
+export type StoreConfig = { goalsDir?: string; archiveDir?: string }
+
+/**
+ * Read `.cleo/goal-store.json`. Absent means "use the default". A file that is
+ * not a JSON object of the two known keys fails closed: a store root is never
+ * guessed from something half-valid.
+ */
+export function readStoreConfig(root: string): StoreConfig | undefined {
+  const path = join(root, STORE_CONFIG_REL)
+  if (!existsSync(path)) return undefined
+  let raw: unknown
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8"))
+  } catch {
+    throw new StoreRootError(`${STORE_CONFIG_REL} is not valid JSON`)
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new StoreRootError(`${STORE_CONFIG_REL} must be a JSON object`)
+  const record = raw as Record<string, unknown>
+  for (const key of Object.keys(record)) {
+    if (key !== "goalsDir" && key !== "archiveDir") throw new StoreRootError(`${STORE_CONFIG_REL} has an unknown key "${key}"; allowed: goalsDir, archiveDir`)
+    if (typeof record[key] !== "string") throw new StoreRootError(`${STORE_CONFIG_REL}.${key} must be a string`)
+  }
+  const goalsDir = record.goalsDir as string | undefined
+  const archiveDir = record.archiveDir as string | undefined
+  return { ...(goalsDir !== undefined ? { goalsDir } : {}), ...(archiveDir !== undefined ? { archiveDir } : {}) }
+}
 
 /** A configured root that cannot be trusted. The caller must fail closed: an
  *  invalid store root never falls back to a path that happens to exist. */
@@ -69,12 +102,13 @@ function configuredRel(value: string): string {
   return normalized
 }
 
-/** The directory may not be, contain, or sit inside the legacy store: those
- *  bytes belong to existing runs and are never rewritten by resolution. The
- *  legacy path itself is the default, so it is not an override either. */
+/** The directory may not contain or sit inside the legacy store: those bytes
+ *  belong to existing runs. Pinning the legacy path itself IS allowed now that
+ *  the default is canonical — a project may keep `.opencode/goals` on purpose
+ *  through `.cleo/goal-store.json`, and then nothing moves. */
 function assertClearOfLegacy(rel: string) {
   for (const legacy of [LEGACY_GOALS_REL, LEGACY_ARCHIVE_REL]) {
-    if (rel === legacy) throw new StoreRootError(`${rel} is the legacy store; it is already the default and cannot be selected as an override`)
+    if (rel === legacy) continue
     if (insideRel(rel, legacy)) throw new StoreRootError(`the configured goal-store root ${rel} is inside the legacy store ${legacy}`)
     if (insideRel(legacy, rel)) throw new StoreRootError(`the configured goal-store root ${rel} would contain the legacy store ${legacy}`)
   }
@@ -146,12 +180,26 @@ export function resolveStoreRoots(root: string, options: StoreRootOptions = {}):
   }
   const base = { protocolVersion: STORE_PROTOCOL_VERSION, root: absoluteRoot, legacy } as const
 
-  if (options.goalsDir === undefined && options.archiveDir === undefined)
-    return { ...base, layout: DEFAULT_RESOLVED_LAYOUT, goals: legacy.goals, archive: legacy.archive, goalsRel: legacy.goalsRel, archiveRel: legacy.archiveRel, explicit: false }
+  // Explicit options win; otherwise the project's own `.cleo/goal-store.json`
+  // is the one override (ADR-001). A malformed file throws, never falls back.
+  const fromFile = options.goalsDir === undefined && options.archiveDir === undefined ? readStoreConfig(absoluteRoot) : undefined
+  const goalsOption = options.goalsDir ?? fromFile?.goalsDir
+  const archiveOption = options.archiveDir ?? fromFile?.archiveDir
 
-  const goalsRel = configuredRel(options.goalsDir ?? CANONICAL_GOALS_REL)
+  if (goalsOption === undefined && archiveOption === undefined)
+    return {
+      ...base,
+      layout: DEFAULT_RESOLVED_LAYOUT,
+      goals: join(absoluteRoot, CANONICAL_GOALS_REL),
+      archive: join(absoluteRoot, CANONICAL_ARCHIVE_REL),
+      goalsRel: CANONICAL_GOALS_REL,
+      archiveRel: CANONICAL_ARCHIVE_REL,
+      explicit: false,
+    }
+
+  const goalsRel = configuredRel(goalsOption ?? CANONICAL_GOALS_REL)
   assertClearOfLegacy(goalsRel)
-  const archiveRel = options.archiveDir === undefined ? archiveBeside(goalsRel) : configuredRel(options.archiveDir)
+  const archiveRel = archiveOption === undefined ? archiveBeside(goalsRel) : configuredRel(archiveOption)
   assertClearOfLegacy(archiveRel)
   if (insideRel(archiveRel, goalsRel) || insideRel(goalsRel, archiveRel))
     throw new StoreRootError(`the goal store ${goalsRel} and its archive ${archiveRel} may not contain one another`)

@@ -69,7 +69,7 @@ function snapshot(dir: string, base = dir): Array<{ path: string; bytes: number;
 describe("planning a migration", () => {
   test("lists every live and archived goal and writes nothing", () => {
     const root = project("dry-run")
-    const store = new Store(root)
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
     addGoal(store, "finished", { status: "complete" })
     addGoal(store, "old", { status: "complete", archived: true })
     addGoal(store, "draft")
@@ -90,7 +90,7 @@ describe("planning a migration", () => {
 
   test("a live run is reported, never moved", () => {
     const root = project("live-run")
-    const store = new Store(root)
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
     addGoal(store, "running", { status: "waiting" })
     const plan = planStoreMigration(store, resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL }))
     expect(plan.goals[0]).toMatchObject({ slug: "running", status: "waiting", migratable: false })
@@ -100,7 +100,7 @@ describe("planning a migration", () => {
 
   test("a contract-only goal has no run and is still movable", () => {
     const root = project("draft")
-    const store = new Store(root)
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
     addGoal(store, "draft", { withRun: false })
     const plan = planStoreMigration(store, resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL }))
     expect(plan.goals[0]).toMatchObject({ slug: "draft", status: "draft", migratable: true })
@@ -108,7 +108,7 @@ describe("planning a migration", () => {
 
   test("an unreadable run blocks its own goal", () => {
     const root = project("unreadable")
-    const store = new Store(root)
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
     addGoal(store, "broken", { unreadable: true })
     const plan = planStoreMigration(store, resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL }))
     expect(plan.goals[0]).toMatchObject({ slug: "broken", status: "unknown", migratable: false })
@@ -117,7 +117,7 @@ describe("planning a migration", () => {
 
   test("counts files and bytes and keeps the digest stable across plans", () => {
     const root = project("bytes")
-    const store = new Store(root)
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
     addGoal(store, "finished", { status: "complete", extra: "0123456789" })
     const target = resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL })
     const first = planStoreMigration(store, target)
@@ -132,7 +132,7 @@ describe("planning a migration", () => {
 
   test("a target that already holds the slug is a reported conflict", () => {
     const root = project("conflict")
-    const store = new Store(root)
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
     addGoal(store, "finished", { status: "complete" })
     const target = resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL })
     mkdirSync(join(target.goals, "finished"), { recursive: true })
@@ -144,7 +144,7 @@ describe("planning a migration", () => {
 
   test("identical bytes already at the target say so instead of copying twice", () => {
     const root = project("identical")
-    const store = new Store(root)
+    const store = new Store(root, resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL }))
     addGoal(store, "finished", { status: "complete" })
     const target = resolveStoreRoots(root, { goalsDir: CANONICAL_GOALS_REL })
     mkdirSync(join(target.goals, "finished"), { recursive: true })

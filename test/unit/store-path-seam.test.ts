@@ -9,6 +9,7 @@ import {
   DEFAULT_TARGET_LAYOUT,
   LEGACY_ARCHIVE_REL,
   LEGACY_GOALS_REL,
+  STORE_CONFIG_REL,
   STORE_PROTOCOL_VERSION,
   StoreRootError,
   describeStore,
@@ -17,9 +18,10 @@ import {
 } from "../../src/engine/store-root"
 
 // The store root is one resolved decision (T152), not a string repeated in the
-// engine, the CLI, the tick and the guard. These cases pin the contract that
-// matters TODAY: with nothing configured the answer is still `.opencode/goals`,
-// and a configured root is either fully valid or refuses to resolve.
+// engine, the CLI, the tick and the guard. T150 flipped the default: with
+// nothing configured the answer is the canonical `.cleo/goals`, a project may
+// pin any root (including the legacy one) through `.cleo/goal-store.json`, and
+// an invalid root refuses to resolve.
 
 const scratch = mkdtempSync(join(tmpdir(), "ocg-store-root-"))
 afterAll(() => rmSync(scratch, { recursive: true, force: true }))
@@ -30,17 +32,18 @@ const project = (name: string) => {
 }
 
 describe("the store root with nothing configured", () => {
-  test("resolves today's legacy layout byte for byte", () => {
+  test("resolves the canonical layout by default", () => {
     const root = project("default")
     const roots = resolveStoreRoots(root)
-    expect(roots.layout).toBe("legacy-opencode")
+    expect(roots.layout).toBe("cleo")
     expect(roots.layout).toBe(DEFAULT_RESOLVED_LAYOUT)
     expect(roots.explicit).toBe(false)
     expect(roots.protocolVersion).toBe(STORE_PROTOCOL_VERSION)
-    expect(roots.goals).toBe(join(root, ".opencode", "goals"))
-    expect(roots.archive).toBe(join(root, ".opencode", "goals-archive"))
-    expect(roots.goalsRel).toBe(LEGACY_GOALS_REL)
-    expect(roots.archiveRel).toBe(LEGACY_ARCHIVE_REL)
+    expect(roots.goals).toBe(join(root, ".cleo", "goals"))
+    expect(roots.archive).toBe(join(root, ".cleo", "goals-archive"))
+    expect(roots.goalsRel).toBe(CANONICAL_GOALS_REL)
+    expect(roots.archiveRel).toBe(CANONICAL_ARCHIVE_REL)
+    expect(roots.legacy.goals).toBe(join(root, ".opencode", "goals"))
   })
 
   test("keeps the legacy paths addressable for reading during the transition", () => {
@@ -52,15 +55,16 @@ describe("the store root with nothing configured", () => {
     expect(roots.legacy.archiveRel).toBe(LEGACY_ARCHIVE_REL)
   })
 
-  test("the canonical target is declared separately from the resolved default", () => {
+  test("the default IS the canonical target after the flip", () => {
     expect(DEFAULT_TARGET_LAYOUT).toBe("cleo")
+    expect(DEFAULT_RESOLVED_LAYOUT).toBe("cleo")
     expect(CANONICAL_GOALS_REL).toBe(".cleo/goals")
     expect(CANONICAL_ARCHIVE_REL).toBe(".cleo/goals-archive")
   })
 
   test("still resolves a relative project root to an absolute one", () => {
     const roots = resolveStoreRoots(".")
-    expect(roots.goals).toBe(join(roots.root, ".opencode", "goals"))
+    expect(roots.goals).toBe(join(roots.root, ".cleo", "goals"))
     expect(roots.goals.startsWith("/")).toBe(true)
   })
 })
@@ -92,10 +96,43 @@ describe("a configured store root", () => {
     expect(roots.archiveRel).toBe(".state/done")
   })
 
-  test("the legacy path is the default, not an override", () => {
+  test("a project may pin the legacy path through its own override file", () => {
     const root = project("pinned-legacy")
-    expect(() => resolveStoreRoots(root, { goalsDir: LEGACY_GOALS_REL })).toThrow(/already the default/)
-    expect(resolveStoreRoots(root).layout).toBe("legacy-opencode")
+    mkdirSync(join(root, ".cleo"), { recursive: true })
+    writeFileSync(join(root, STORE_CONFIG_REL), JSON.stringify({ goalsDir: LEGACY_GOALS_REL }))
+    const roots = resolveStoreRoots(root)
+    expect(roots.layout).toBe("legacy-opencode")
+    expect(roots.goalsRel).toBe(LEGACY_GOALS_REL)
+    expect(roots.explicit).toBe(true)
+  })
+})
+
+describe("the project override file (.cleo/goal-store.json)", () => {
+  const withConfig = (name: string, body: string) => {
+    const root = project(name)
+    mkdirSync(join(root, ".cleo"), { recursive: true })
+    writeFileSync(join(root, STORE_CONFIG_REL), body)
+    return root
+  }
+
+  test("selects a custom goals directory and its sibling archive", () => {
+    const root = withConfig("config-custom", JSON.stringify({ goalsDir: ".state/goals" }))
+    const roots = resolveStoreRoots(root)
+    expect(roots.explicit).toBe(true)
+    expect(roots.goalsRel).toBe(".state/goals")
+    expect(roots.archiveRel).toBe(".state/goals-archive")
+  })
+
+  test("explicit options win over the file", () => {
+    const root = withConfig("config-options", JSON.stringify({ goalsDir: ".state/goals" }))
+    expect(resolveStoreRoots(root, { goalsDir: ".other/goals" }).goalsRel).toBe(".other/goals")
+  })
+
+  test("a malformed file fails closed", () => {
+    expect(() => resolveStoreRoots(withConfig("config-bad-json", "{not json"))).toThrow(StoreRootError)
+    expect(() => resolveStoreRoots(withConfig("config-array", "[]"))).toThrow(StoreRootError)
+    expect(() => resolveStoreRoots(withConfig("config-unknown", JSON.stringify({ root: ".x" })))).toThrow(/unknown key/)
+    expect(() => resolveStoreRoots(withConfig("config-type", JSON.stringify({ goalsDir: 7 })))).toThrow(StoreRootError)
   })
 })
 
@@ -110,9 +147,7 @@ describe("an invalid root fails closed", () => {
     ["inside .git", ".git/goals"],
     ["inside node_modules", "node_modules/goals"],
     ["the CLEO state directory", ".cleo"],
-    ["the legacy store", LEGACY_GOALS_REL],
     ["inside the legacy store", `${LEGACY_GOALS_REL}/nested`],
-    ["the legacy archive", LEGACY_ARCHIVE_REL],
     ["an ancestor of the legacy store", ".opencode"],
   ]
   for (const [name, value] of bad)
@@ -155,11 +190,13 @@ describe("path classification for the write guard", () => {
     expect(storePathKind(roots, ".cleo/goalz/demo")).toBeUndefined()
   })
 
-  test("with the default root the store is reported as active, not as a stray legacy copy", () => {
+  test("with the default root the canonical store is active and the legacy one stays classified", () => {
     const root = project("classify-default")
     const roots = resolveStoreRoots(root)
-    expect(storePathKind(roots, ".opencode/goals/demo")).toBe("active")
-    expect(storePathKind(roots, ".opencode/goals-archive/demo")).toBe("active-archive")
+    expect(storePathKind(roots, ".cleo/goals/demo")).toBe("active")
+    expect(storePathKind(roots, ".cleo/goals-archive/demo")).toBe("active-archive")
+    expect(storePathKind(roots, ".opencode/goals/demo")).toBe("legacy")
+    expect(storePathKind(roots, ".opencode/goals-archive/demo")).toBe("legacy-archive")
   })
 })
 
@@ -187,6 +224,14 @@ describe("the store descriptor", () => {
 
   test("an absent store reports zero, not an error", () => {
     const root = project("descriptor-empty")
-    expect(describeStore(resolveStoreRoots(root))).toMatchObject({ layout: "legacy-opencode", explicit: false, live: 0, archived: 0 })
+    expect(describeStore(resolveStoreRoots(root))).toMatchObject({
+      layout: "cleo",
+      explicit: false,
+      goals: CANONICAL_GOALS_REL,
+      archive: CANONICAL_ARCHIVE_REL,
+      legacy: { goals: LEGACY_GOALS_REL, archive: LEGACY_ARCHIVE_REL },
+      live: 0,
+      archived: 0,
+    })
   })
 })

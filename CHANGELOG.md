@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.0 — 2026-11-02
+
+- **The goal store is canonical by default (T150).** With no configuration a new run is created under `.cleo/goals` (archive `.cleo/goals-archive`), not `.opencode/goals`. The store stays a project setting: `.cleo/goal-store.json` (`goalsDir`, `archiveDir`, project-relative) is the one override, validated and fail-closed — a malformed file, unknown key, absolute path, `..`, a reserved harness directory, a path inside the legacy store or a symlink escaping the project all raise `StoreRootError`. A project may pin `.opencode/goals` explicitly to keep its current layout.
+- **Legacy runs stay readable and resumable byte-for-byte.** `Store` lists the union of both roots, reads a goal from the active store or the legacy one (active wins on a slug), writes run state where the run already lives, and archives beside the store it came from. The write guard classifies a path against both roots; the tick starts when either store exists; the registry rebuild scans both; the rendered contract block names the resolved store instead of a literal.
+- **The opt-in move is enabled.** `ocg migrate` prints the plan and writes nothing; `ocg migrate --confirm` copies every migratable goal (terminal runs and contract-only drafts) into the active store, re-hashes each folder against the plan, refuses to relocate a live/waiting/unreadable run, and keeps the legacy copy as the archive. A hash mismatch removes the partial target and leaves the source untouched. Design note: `docs/research/agnostic-goal-store.md`.
+- **Still on the legacy path in this release** (stated rather than hidden): the plugin's owner-state files, the auto-started successor contract, and help/TUI copy. The guard covers both roots during the transition.
+
 ## 0.11.0 — 2026-11-02
 
 - **New — the interview is one engine with three modes (T168).** `src/engine/interview.ts` is a pure resolver: `decideInterviewMode` maps the T167 triage to `new`, `continue` or `optimize` (an explicit owner choice wins where it is possible), and `planInterview` returns the exact open frontier for that mode — the decisions the contract already answers are never re-asked, budget and autonomy stay opt-in, and a `requested:"new"` for work an existing goal covers is refused with the existing goal named. Optimize stages a `goal_propose_amendment` on the exact run/lock and creates no second goal; the contract bytes are unchanged until the owner accepts. The `goal_interview` tool, the `/goal new` and intent prompts and the launch triage all render from that one frontier.

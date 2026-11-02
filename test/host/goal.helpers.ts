@@ -1,4 +1,5 @@
 import { join } from "node:path"
+import { readFileSync } from "node:fs"
 import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { startHost, until, type ChatRequest, type Reply, type Script } from "./harness"
@@ -92,12 +93,41 @@ export async function newSession(host: Awaited<ReturnType<typeof goalHost>>) {
   return session.id as string
 }
 
+/** T150: a run lives in the resolved store (honouring `.cleo/goal-store.json`)
+ *  or, for a pre-flip goal, the legacy one. Tests read whichever holds the
+ *  bytes instead of assuming a layout. */
+function goalBases(host: Awaited<ReturnType<typeof goalHost>>, slug: string): string[] {
+  const bases: string[] = []
+  try {
+    const config = JSON.parse(readFileSync(join(host.project, ".cleo", "goal-store.json"), "utf8")) as { goalsDir?: unknown }
+    if (typeof config?.goalsDir === "string") bases.push(`${config.goalsDir.replace(/\/+$/, "")}/${slug}`)
+  } catch {
+    // no override file: the defaults below cover it
+  }
+  bases.push(`.cleo/goals/${slug}`, `.opencode/goals/${slug}`)
+  return bases
+}
+
 export async function run(host: Awaited<ReturnType<typeof goalHost>>, slug = "demo") {
-  return JSON.parse(await host.readProject(`.opencode/goals/${slug}/run.json`))
+  for (const base of goalBases(host, slug)) {
+    try {
+      return JSON.parse(await host.readProject(`${base}/run.json`))
+    } catch {
+      // try the other store
+    }
+  }
+  throw new Error(`no run.json for ${slug} in .cleo/goals or .opencode/goals`)
 }
 
 export async function ledger(host: Awaited<ReturnType<typeof goalHost>>, slug = "demo") {
-  return (await host.readProject(`.opencode/goals/${slug}/ledger.jsonl`)).trim().split("\n").map((l) => JSON.parse(l))
+  for (const base of goalBases(host, slug)) {
+    try {
+      return (await host.readProject(`${base}/ledger.jsonl`)).trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
+    } catch {
+      // try the other store
+    }
+  }
+  throw new Error(`no ledger.jsonl for ${slug} in .cleo/goals or .opencode/goals`)
 }
 
 export async function waitStatus(host: Awaited<ReturnType<typeof goalHost>>, statuses: string[], timeoutMs = 60000, slug = "demo") {

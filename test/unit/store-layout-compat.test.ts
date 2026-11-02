@@ -9,9 +9,12 @@ import { initialRun } from "../../src/engine/state"
 import { Store } from "../../src/engine/store"
 import { resolveStoreRoots } from "../../src/engine/store-root"
 
-// Existing projects keep the layout they already have. These cases build a
-// real `.opencode/goals` tree, then read and write it through the abstraction —
-// proving the seam changes no path, no status and no archive behaviour.
+// Existing projects keep the layout they already have. T150 flipped the DEFAULT
+// to `.cleo/goals`; a project that already lives under `.opencode/goals` keeps
+// those bytes by pinning the legacy path in `.cleo/goal-store.json` (or an
+// explicit resolver option), and the default store reads them either way.
+// These cases build a real legacy tree and prove the paths, status and archive
+// behaviour do not change for it.
 
 const scratch = mkdtempSync(join(tmpdir(), "ocg-store-compat-"))
 afterAll(() => rmSync(scratch, { recursive: true, force: true }))
@@ -36,9 +39,11 @@ budget: {turns: 10}
 `
 const parse = (text: string, slug: string) => parseContract(text, { slug })
 
+const LEGACY_PIN = { goalsDir: ".opencode/goals" } as const
+
 function legacyProject(name: string) {
   const root = project(name)
-  const store = new Store(root)
+  const store = new Store(root, resolveStoreRoots(root, { ...LEGACY_PIN }))
   mkdirSync(store.dir("demo"), { recursive: true })
   writeFileSync(store.contractPath("demo"), CONTRACT)
   const parsed = parse(CONTRACT, "demo")!
@@ -49,10 +54,10 @@ function legacyProject(name: string) {
 }
 
 describe("an existing .opencode/goals project", () => {
-  test("resolves to exactly the paths it has always used", () => {
+  test("a project pinned to the legacy layout resolves exactly the paths it has always used", () => {
     const { root, store } = legacyProject("paths")
     expect(store.roots.layout).toBe("legacy-opencode")
-    expect(store.roots.explicit).toBe(false)
+    expect(store.roots.explicit).toBe(true)
     expect(store.goalsDir).toBe(join(root, ".opencode", "goals"))
     expect(store.archiveDir).toBe(join(root, ".opencode", "goals-archive"))
     expect(store.dir("demo")).toBe(join(root, ".opencode", "goals", "demo"))
@@ -67,7 +72,7 @@ describe("an existing .opencode/goals project", () => {
 
   test("a second reader (the CLI, the tick) sees the same run without OpenCode", () => {
     const { root, run } = legacyProject("reader")
-    const reader = new Store(root)
+    const reader = new Store(root, resolveStoreRoots(root, { ...LEGACY_PIN }))
     expect(reader.slugs()).toEqual(["demo"])
     expect(reader.readRun("demo")).toMatchObject({ runId: run.runId, status: "running", turn: 2 })
   })
@@ -113,11 +118,18 @@ describe("an existing .opencode/goals project", () => {
     expect(projectInventory(store).filter((g) => g.archived).map((g) => g.slug).sort()).toEqual(["demo", "older"])
   })
 
-  test("a canonical store does not silently adopt legacy runs", () => {
-    const { root, store: legacy } = legacyProject("isolation")
-    const canonical = new Store(root, resolveStoreRoots(root, { goalsDir: ".cleo/goals" }))
-    expect(legacy.slugs()).toEqual(["demo"])
-    expect(canonical.slugs()).toEqual([])
+  test("the default store reads a legacy run but writes a new goal canonically", () => {
+    const { root, run } = legacyProject("isolation")
+    const canonical = new Store(root)
+    // readable through the transition …
+    expect(canonical.slugs()).toEqual(["demo"])
+    expect(canonical.locate("demo")).toBe(join(root, ".opencode", "goals", "demo"))
+    expect(canonical.readRun("demo")).toMatchObject({ runId: run.runId })
+    // … and a brand-new slug is written where the default says
+    const parsed = parse(CONTRACT.replace("id: demo", "id: fresh"), "fresh")!
+    const fresh = initialRun(parsed.contract!, { sessionID: "ses_y", runId: "r2", lock: parsed.lock, now: 2000 })
+    canonical.writeRun(fresh)
+    expect(existsSync(join(root, ".cleo", "goals", "fresh", "run.json"))).toBe(true)
     expect(canonical.goalsDir).toBe(join(root, ".cleo", "goals"))
     expect(canonical.archiveDir).toBe(join(root, ".cleo", "goals-archive"))
   })
