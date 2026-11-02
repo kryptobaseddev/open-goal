@@ -6910,7 +6910,7 @@ import { readFileSync as readFileSync6 } from "node:fs";
 // package.json
 var package_default = {
   name: "@cleocode/goal",
-  version: "0.12.0",
+  version: "0.12.1",
   description: "CLEO Goal: persistent, host-verified goal mode for OpenCode 2 (and any harness through cleo-goal tick), with a structured goal contract and a live TUI.",
   type: "module",
   license: "MIT",

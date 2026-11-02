@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1 — 2026-11-02
+
+- **Republished from main, no runtime change.** v0.12.0 was tagged and published from `7a7a654` before the branch merged; 0.12.1 is the same canonical-store behaviour built from the merge commit `eec7d2a` on main, and carries the three test-only commits that landed after that tag (the `.cleo/goal-store.json` override end to end, a legacy goal driven in place with an untouched run file, and `ocg migrate` at the process boundary) plus their fixture helpers. Nothing in `src/` differs from 0.12.0.
+
 ## 0.12.0 — 2026-11-02
 
 - **The goal store is canonical by default (T150).** With no configuration a new run is created under `.cleo/goals` (archive `.cleo/goals-archive`), not `.opencode/goals`. The store stays a project setting: `.cleo/goal-store.json` (`goalsDir`, `archiveDir`, project-relative) is the one override, validated and fail-closed — a malformed file, unknown key, absolute path, `..`, a reserved harness directory, a path inside the legacy store or a symlink escaping the project all raise `StoreRootError`. A project may pin `.opencode/goals` explicitly to keep its current layout.
