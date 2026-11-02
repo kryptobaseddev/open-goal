@@ -25,7 +25,7 @@ open.
 | D11 | A plugin hot-load does not reach pre-existing sessions; their goal tool surface is gone until a fresh engine/session | high | fixed on main after 0.10.1 (T173, PR #19) |
 | D12 | A dying engine's final `run.json` write can undo an owner-side repair | high | fixed on main after 0.10.1 (T172, PR #17) |
 | D13 | The registry test flaked once in CI | low | **fixed on main after 0.11.0** (defect-hardening) |
-| D14 | The continue-work oracle races the automatic start | low | **open** — pre-existing on main, out of this goal's scope |
+| D14 | The continue-work oracle races the automatic start | low | **fixed in 0.13.0 (T177)** |
 
 ---
 
@@ -408,7 +408,7 @@ appends a UUID to the temp name.
 
 ---
 
-## D14 — the continue-work oracle races the automatic start *(open, pre-existing)*
+## D14 — the continue-work oracle races the automatic start *(fixed in 0.13.0, T177)*
 
 **Severity** low. **Status** **open** — reproduced on `main` at `2b95f2c`, before this goal's changes.
 
