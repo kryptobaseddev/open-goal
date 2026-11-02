@@ -149,6 +149,10 @@ in the ledger. No `rm` of legacy history.
 
 ## Open owner decision: where the override is configured
 
+The consolidated memo — the four surfaces that must move together, the
+migration failure modes and the questions only the owner can answer — is
+[store-root-decision.md](store-root-decision.md).
+
 Two candidate surfaces, deliberately not chosen here:
 
 1. **Plugin option** in the existing project config —
