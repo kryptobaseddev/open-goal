@@ -120,7 +120,7 @@ export function checkQuotes(root: string, verdict: VerifierVerdict): { ok: boole
   return { ok: true }
 }
 
-export async function verifyClaim(contract: Contract, state: RunState, deps: { root: string; contractText: string; verifier?: VerifierRun; shell?: typeof runShell; onProgress?: (activity: RunState["activity"]) => void }): Promise<VerifyOutcome> {
+export async function verifyClaim(contract: Contract, state: RunState, deps: { root: string; contractText: string; verifier?: VerifierRun; shell?: typeof runShell; onProgress?: (activity: RunState["activity"]) => void; environment?: string[] }): Promise<VerifyOutcome> {
   const { root } = deps
   const integrity: string[] = []
   if (lockOf(deps.contractText) !== state.lock)
@@ -189,6 +189,10 @@ export async function verifyClaim(contract: Contract, state: RunState, deps: { r
   const passed = integrity.length === 0 && failed.length === 0 && needsHuman.filter((id) => required.has(id)).length === 0
 
   const lines: string[] = []
+  // The environment is not a criterion: it is context a human needs to judge a
+  // verdict. A version bump or a HEAD move between turns is named here instead
+  // of silently standing behind a "pass" stamped on the previous tree.
+  for (const line of deps.environment ?? []) lines.push(line)
   for (const i of integrity) lines.push(`INTEGRITY: ${i}`)
   for (const r of results) {
     if (r.pass) continue
