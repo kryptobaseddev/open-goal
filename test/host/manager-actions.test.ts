@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { GoalRpc, type GoalTarget } from "../../src/rpc"
-import { DEMO_GOAL, goalHost, ledger, newSession, run, script, text, waitStatus } from "./goal.helpers"
+import { distinctDemoGoal, goalHost, ledger, newSession, run, script, text, waitStatus } from "./goal.helpers"
 import { until } from "./harness"
 
 async function managerHost() {
@@ -15,7 +15,7 @@ async function managerHost() {
     }
     if (turn.results === 0) return { toolCalls: [{ name: "goal_wait", args: { seconds: 300, reason: "manager action inspection" } }] }
     return { text: "Waiting for the owner's manager action." }
-  }), { ".opencode/goals/second/goal.yaml": DEMO_GOAL.replace("id: demo", "id: second").replace("Demo file says ok", "Second independent goal") })
+  }), { ".opencode/goals/second/goal.yaml": distinctDemoGoal("second", "Second independent goal") })
 }
 async function selected(rpc: any, slug: string): Promise<GoalTarget> {
   const goal = (await rpc.list({})).goals.find((g: any) => g.slug === slug && !g.archived)

@@ -163,6 +163,8 @@ export type GoalSummary = {
   runId?: string
   lock?: string
   updatedAt?: number
+  /** The locked contract's owner intent, for duplicate/overlap triage. */
+  intent?: string
   outcome?: string
   progress?: RunProgress
   turn?: number

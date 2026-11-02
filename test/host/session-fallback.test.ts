@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { until } from "./harness"
-import { DEMO_GOAL, goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
+import { distinctDemoGoal, goalHost, ledger, newSession, run, script, waitStatus } from "./goal.helpers"
 import { GoalRpc } from "../../src/rpc"
 
 // T049 — goals escape their session. Runs are keyed by the session that
@@ -89,7 +89,7 @@ describe("session fallback (T049)", () => {
       return { text: "Nothing else to do." }
     }
     const host = await goalHost(script(idler, notProven), {
-      ".opencode/goals/second/goal.yaml": DEMO_GOAL.replace("id: demo", "id: second").replace("title: Demo file says ok", "title: Second demo"),
+      ".opencode/goals/second/goal.yaml": distinctDemoGoal("second", "Second demo"),
     })
     try {
       const goalRpc = (host.client as any).rpc(GoalRpc)

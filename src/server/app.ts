@@ -23,6 +23,7 @@ import { selectedReviewChoice, reviewExpired } from "../engine/owner-reviews"
 import { DecisionStore, decisionChoices, shouldReaskDecision, type DecisionKind, type DecisionRequest, type DecisionTarget } from "../engine/decisions"
 import { projectInventory } from "../engine/inventory"
 import { admissionNote } from "../engine/similarity"
+import { triageKickoff, type TriageAssessment, type TriageGoal } from "../engine/kickoff-triage"
 import { goalHelp } from "./help"
 import { decide } from "../engine/loop"
 import { restartDecision } from "../engine/interrupt-policy"
@@ -823,6 +824,38 @@ export class GoalApp {
     this.noticeM(request.sessionID, M.launchActivity(request.slug, activity.detail))
   }
 
+  /** T167: the same project inventory `goal_inventory` reports, reduced to the
+   *  fields kickoff triage needs. Read fresh at every kickoff: a goal created
+   *  since the last launch must be able to stop a duplicate. */
+  private kickoffTriage(slug: string, contract: Contract, options: { includeDrafts?: boolean } = {}): TriageAssessment {
+    const goals: TriageGoal[] = this.list().map((g) => ({
+      slug: g.slug,
+      title: g.title,
+      status: g.status,
+      ...(g.intent ? { intent: g.intent } : {}),
+      ...(g.outcome ? { outcome: g.outcome } : {}),
+      ...(g.runId ? { runId: g.runId } : {}),
+      ...(g.lock ? { lock: g.lock } : {}),
+      ...(g.sessionID ? { sessionID: g.sessionID } : {}),
+      ...(g.archived ? { archived: true } : {}),
+      ...(g.valid === false ? { valid: false } : {}),
+      ...(g.issues ? { issues: g.issues } : {}),
+    }))
+    // The candidate's own folder is excluded: launching a draft is not a
+    // duplicate of itself. A `supersedes` pointer is an owner replacement.
+    return triageKickoff(
+      { slug, title: contract.title, intent: contract.intent.verbatim, outcome: contract.outcome, ...(contract.supersedes ? { supersedes: contract.supersedes } : {}) },
+      goals,
+      options,
+    )
+  }
+
+  /** One honest refusal naming the decision, the affected goal/run/lock and
+   *  the fact that no run was created. */
+  private triageRefusal(assessment: TriageAssessment): string {
+    return `Launch refused (kickoff triage: ${assessment.decision}). ${assessment.reason} No new run was created.`
+  }
+
   /** Preparation is not execution or consent. The complete target/hash/mode
    * is persisted before asking so a lost model/tool result cannot lose the
    * owner's choice, and the model never needs to call start afterwards. */
@@ -834,6 +867,11 @@ export class GoalApp {
     if ([...this.runs.values()].some((s) => s.slug === slug && !isTerminal(s.status))) throw new Error(`Goal ${slug} is already live; manage it instead of launching again.`)
     if (this.launches.all().some((p) => p.status === "executing" && (p.slug === slug || p.sessionID === sessionID))) throw new Error("A launch admission is already starting; inspect its receipt before preparing another review.")
     const { contract, lock } = loaded
+    // T167: goal_inventory + intent/outcome comparison runs BEFORE a new goal
+    // is staged. A duplicate is refused here, naming the existing target.
+    const assessment = this.kickoffTriage(slug, contract)
+    this.store.ledger(slug, { type: "kickoff-triage", surface: "prepare_launch", decision: assessment.decision, sessionID, ...(assessment.targets.length ? { targets: assessment.targets } : {}) })
+    if (assessment.decision !== "new") throw new Error(this.triageRefusal(assessment))
     const question = [
       `Review and launch: ${contract.title}`,
       `Goal: ${slug}. Contract SHA256: ${lock}.`,
@@ -853,7 +891,7 @@ export class GoalApp {
       await this.launchDisposition(request, "failed", `Launch review could not be presented; nothing started. ${String(error)}`, "launch-presentation-failed")
       throw error
     }
-    return { decisionId: request.id, slug, lock, fresh, status: "pending", transport, message: "Launch review offered natively. The host, not a later model call, executes the owner's choice." }
+    return { decisionId: request.id, slug, lock, fresh, status: "pending", transport, triage: assessment, message: "Launch review offered natively. The host, not a later model call, executes the owner's choice." }
   }
 
   private async presentLaunch(request: LaunchRequest): Promise<"native-form" | "question-tool"> {
@@ -1799,6 +1837,15 @@ export class GoalApp {
       if ("error" in loaded) return loaded.error
       const { contract, lock, text } = loaded
       if (options.expectedLock && lock !== options.expectedLock) return "Refused: contract changed after launch review; review the new locked bytes before starting."
+      // T167: the same inventory comparison that gates goal_prepare_launch
+      // also gates every direct start (owner command, owner chat, CLEO
+      // continuation), so a duplicate cannot slip past the review by name.
+      // A `supersedes` pointer excludes its predecessor: that is replacement.
+      // A draft is not work in flight: starting THIS named goal is the owner's
+      // route, so other drafts (alternatives) do not block it.
+      const assessment = this.kickoffTriage(slug, contract, { includeDrafts: false })
+      this.store.ledger(slug, { type: "kickoff-triage", surface: `start:${source}`, decision: assessment.decision, sessionID, ...(assessment.targets.length ? { targets: assessment.targets } : {}) })
+      if (assessment.decision !== "new") return this.triageRefusal(assessment)
       // T031: the supersession admission rule — a supersedes pointer must
       // resolve, match the predecessor's lock, and the predecessor must be
       // terminal (or the owner explicitly acknowledges superseding mid-flight).
@@ -3928,7 +3975,7 @@ export class GoalApp {
       }, async (args, context) => this.resolveAmendmentChat(context.sessionID, { decisionId: String(args.decisionId), action: args.action, continueGoal: args.continueGoal === true })),
       tool("propose_amendment", "Stage a validated replacement YAML contract as a reviewed diff for a selected live goal. Does NOT edit goal.yaml or grant consent. Exact owner accept/reject/comment is required; changed statements/checks reset proof and the goal remains stopped. Never call an owner accept operation yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" }, yaml: { type: "string", minLength: 1, maxLength: 200000 }, rationale: { type: "string", minLength: 1, maxLength: 2000 } }, required: ["slug", "expectedLock", "yaml", "rationale"] }, async (args, context) => this.proposeAmendment(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock), yaml: String(args.yaml), rationale: String(args.rationale) })),
       tool("recover_divergence", "When a live goal's disk goal.yaml differs from its locked contract (an edit made outside the engine), offer the owner a native review of the exact difference and last-writer provenance: Adopt disk version, Restore locked version or Leave unchanged. Callable from any live session of this project. No earlier proposal or approval counts. Inside an owner-set autonomy policy that includes recover, an in-policy difference is adopted directly, journalled and owner-revertible. Never edit goal.yaml yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, expectedLock: { type: "string", pattern: "^[a-f0-9]{64}$" } }, required: ["slug", "expectedLock"] }, async (args, context) => this.recoverDivergence(context.sessionID, { slug: String(args.slug), expectedLock: String(args.expectedLock) })),
-      tool("prepare_launch", "Validate and stage an exact goal contract for native owner review and same/fresh-session launch. The host executes the owner's choice directly, including after reload or an interrupted question result. Preparation is not permission to start or approve yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, fresh: { type: "boolean" } }, required: ["slug"] }, async (args, context) => this.prepareLaunch(context.sessionID, String(args.slug), args.fresh === true)),
+      tool("prepare_launch", "Validate and stage an exact goal contract for native owner review and same/fresh-session launch. Runs the project goal inventory + intent/outcome triage first and refuses a duplicate as continue/repair/consolidate with the existing goal/run/lock named; only genuinely new work reaches owner review. The host executes the owner's choice directly, including after reload or an interrupted question result. Preparation is not permission to start or approve yourself.", { properties: { slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 64 }, fresh: { type: "boolean" } }, required: ["slug"] }, async (args, context) => this.prepareLaunch(context.sessionID, String(args.slug), args.fresh === true)),
       tool("provenance", "Report the actual server PID, location, installed Git revision and loaded server/UI/skill artifact hashes for this goal session. Never substitute an unscoped shared-service or newest-cache lookup for this evidence.", { properties: {} }, async (_args, context) => ({ ...await this.provenance(context.sessionID) })),
       tool("status", "Show the active goal: status, criteria board, plan, budget, last verdict. Cheap; use it after a compaction or when unsure what remains.", { properties: {} }, async (_args, context) => {
         const state = forSession(context)

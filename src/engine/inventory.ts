@@ -56,7 +56,7 @@ export function projectInventory(store: Store, live: Iterable<RunState> = [], op
         ...(run?.handoff ? { handoff: { ...run.handoff } } : {}),
         ...(launch ? { launch: launchView(launch) } : {}),
         ...(run?.priority ?? contract?.priority ? { priority: run?.priority ?? contract?.priority } : {}),
-        ...(contract ? { outcome: contract.outcome, meta: contract.meta, ...(contract.supersedes ? { supersedes: contract.supersedes } : {}), ...(contract.execution.agent ? { configuredAgent: contract.execution.agent } : {}), steps: contract.plan.map((s) => ({ id: s.id, title: s.title, status: run?.steps[s.id] ?? "pending" })) } : {}),
+        ...(contract ? { intent: contract.intent.verbatim, outcome: contract.outcome, meta: contract.meta, ...(contract.supersedes ? { supersedes: contract.supersedes } : {}), ...(contract.execution.agent ? { configuredAgent: contract.execution.agent } : {}), steps: contract.plan.map((s) => ({ id: s.id, title: s.title, status: run?.steps[s.id] ?? "pending" })) } : {}),
         sessionState: run || existsSync(join(dir, "run.json")) ? "unknown" : "unassigned",
         ...(issues.length ? { issues } : {}),
         ...(options.detailsForKey === key && contract ? { details: { criteria: [...contract.criteria.map((c) => ({ ...c, invariant: false })), ...contract.invariants.map((c) => ({ ...c, invariant: true }))].map((c) => {
